@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Modules · {{ trainer.first_name|default:trainer.username }}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'accounts:manage_trainers' %}">Trainers</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ trainer.first_name|default:trainer.username }}</li>
+    </ol></nav>
+    <h1>Modules for {{ trainer.first_name|default:trainer.username }}</h1>
+    <p class="lead">The Trainer can add notes to the modules ticked here. Unticking a module stops them adding new notes to it; notes they already added stay theirs.</p>
+  </div>
+  <div class="row"><div class="col-lg-7">
+    <form method="post" class="panel panel-body">
+      {% csrf_token %}
+      <div class="mb-4">
+        <label class="form-label" for="{{ form.modules.id_for_label }}">{{ form.modules.label }}</label>
+        {{ form.modules }}
+        {% if not form.modules.field.queryset.exists %}<div class="form-text">No modules exist yet. They're created when Trainers add module notes, or in the Django admin.</div>{% endif %}
+      </div>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Save modules</button>
+      <a href="{% url 'accounts:manage_trainers' %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+  </div></div>
+  <div class="pb-2"></div>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+# Core
+# 5.2.8 is the first LTS release that supports Python 3.14 (5.0.x and 5.1.x
+# crash in the template engine on it: "AttributeError: 'super' object has no attribute 'dicts'").
+Django>=5.2.8,<6.2
+beautifulsoup4>=4.12
+lxml>=5.0
+
+# Postgres driver — used in production via DATABASE_URL, e.g. Neon (SQLite
+# has no working deployment target on Vercel's read-only, ephemeral
+# filesystem). dj-database-url turns that one DATABASE_URL string into
+# Django's DATABASES setting; see nit_platform/settings.py.
+psycopg2-binary>=2.9
+dj-database-url>=2.2
+
+# Vercel Blob storage (core/storage.py) — used for uploaded/imported files
+# (module notes, resources, lesson source HTML) whenever BLOB_READ_WRITE_TOKEN
+# is set, for the same reason SQLite doesn't work above: Vercel's filesystem
+# doesn't persist uploads between requests. Only `requests` is needed; there's
+# no official Vercel Blob Python SDK, so core/storage.py talks to its REST
+# API directly.
+requests>=2.31
+
+# PDF export (server-side, via CSS paged media — real A4 pages, headers,
+# footers and page numbers, selectable text). Needs Pango/Cairo system
+# libraries; see README "PDF export" section if `pip install` isn't enough.
+weasyprint>=60
+
+# AI study assistant (optional — the platform runs fully without this;
+# only needed if GROQ_API_KEY is set). Groq is the platform's only AI
+# provider.
+groq>=0.11
+markdown>=3.6
+
+# Production server (swap manage.py runserver for this in deployment)
+gunicorn>=22.0
+whitenoise>=6.6

@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% load core_extras %}
+{% block title %}{{ module.code }} {{ module.name }}{% endblock %}
+
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'core:browse' %}">Levels</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'core:browse' %}?trade={{ module.trade.key }}">{{ module.trade.short_name|default:module.trade.name }}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ module.code }}</li>
+      </ol>
+    </nav>
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div>
+        <p class="eyebrow">{{ module.code }}</p>
+        <h1>{{ module.name }}</h1>
+        <p class="lead">{{ notes|length }} note{{ notes|length|pluralize }}{% if module.lesson_count %} · {{ module.lesson_count }} lesson{{ module.lesson_count|pluralize }} · {{ module.total_minutes }} min reading{% endif %}</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        {% if can_add_notes_here %}
+        <a href="{% url 'core:note_create' %}?module={{ module.pk }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add module notes</a>
+        {% endif %}
+        {% if can_upload_here %}
+        <a href="{% url 'core:upload_lesson' module.trade.key module.key %}" class="btn btn-outline-secondary"><i class="bi bi-upload me-1"></i>Upload lesson</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="section-head mt-2">
+    <span class="icon-chip icon-chip--green"><i class="bi bi-file-earmark-text"></i></span>
+    <div><h2>Module notes</h2><p class="sub">PDF and HTML notes from your trainers</p></div>
+  </div>
+  {% if notes %}
+  <div class="panel list-panel">
+    {% for n in notes %}
+    <a href="{{ n.get_absolute_url }}" class="list-row">
+      <span class="type-tile type-tile--{{ n.file_type }}"><i class="bi {% if n.is_pdf %}bi-file-earmark-pdf{% else %}bi-filetype-html{% endif %}"></i></span>
+      <span class="main">
+        <span class="title">{{ n.title }}</span>
+        <span class="meta">{{ n.get_file_type_display }} · {{ n.size_display }}{% if n.uploaded_by %} · {{ n.uploaded_by.first_name|default:n.uploaded_by.username }}{% endif %}</span>
+      </span>
+      <span class="aside d-none d-sm-block">{{ n.published_at|date:"j M Y" }}</span>
+      <i class="bi bi-chevron-right text-muted-2" aria-hidden="true"></i>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <span class="icon-chip"><i class="bi bi-file-earmark-text"></i></span>
+    <h3>No notes published for this module yet</h3>
+    <p>{% if can_add_notes_here %}Add notes and publish them so students can read them.{% else %}Check back soon, or ask your trainer to publish notes here.{% endif %}</p>
+    {% if can_add_notes_here %}<a class="btn btn-primary btn-sm" href="{% url 'core:note_create' %}?module={{ module.pk }}"><i class="bi bi-plus-lg me-1"></i>Add module notes</a>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if module.lesson_count %}
+  <div class="section-head">
+    <span class="icon-chip"><i class="bi bi-journal-text"></i></span>
+    <div><h2>Lessons</h2><p class="sub">Structured lessons with reading progress and PDF export</p></div>
+  </div>
+  {% for unit in units %}
+  {% if unit.lessons.count %}
+  <section class="mb-4">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      {% if unit.kind == "outcome" and unit.code != "LO0" %}<span class="code-badge">{{ unit.code }}</span>{% endif %}
+      <h3 class="fs-6 mb-0">{{ unit.title }}</h3>
+    </div>
+    <div class="panel list-panel">
+      {% for lesson in unit.lessons.all|dictsort:"order" %}
+      {% with a=activity_map|dict_get:lesson.id %}
+      <a href="{{ lesson.get_absolute_url }}" class="list-row">
+        <span class="idx">{{ forloop.counter|stringformat:"02d" }}</span>
+        <span class="main"><span class="title">{{ lesson.title }}</span></span>
+        <span class="aside">
+          {% if a.completed %}Read · {% elif a.progress_pct > 4 %}{{ a.progress_pct }}% · {% endif %}
+          {% if a.bookmarked %}<i class="bi bi-bookmark-fill" style="color:#d97706"></i> {% endif %}{{ lesson.minutes }} min
+        </span>
+      </a>
+      {% endwith %}
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+  {% endfor %}
+  {% endif %}
+
+  {% if assessments %}
+  <div class="section-head">
+    <span class="icon-chip icon-chip--amber"><i class="bi bi-clipboard-check"></i></span>
+    <div><h2>Assessments &amp; assignments</h2><p class="sub">Graded and practice work</p></div>
+  </div>
+  <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+    {% for a in assessments %}
+    <div class="col">
+      <a href="{{ a.url }}" class="panel panel-link panel-body" target="_blank" rel="noopener">
+        <span class="pill pill--warning align-self-start mb-2">{{ a.get_kind_display }}</span>
+        <span class="title mb-1">{{ a.name }}</span>
+        <span class="small text-muted-2">Opens the original interactive exercise.</span>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if resources %}
+  <div class="section-head">
+    <span class="icon-chip icon-chip--slate"><i class="bi bi-folder2-open"></i></span>
+    <div><h2>Files &amp; downloads</h2><p class="sub">Supplementary material</p></div>
+  </div>
+  <div class="panel list-panel">
+    {% for r in resources %}
+    <a href="{{ r.url }}" class="list-row" download>
+      <span class="idx text-uppercase">{{ r.kind|slice:":3" }}</span>
+      <span class="main"><span class="title">{{ r.name }}</span></span>
+      <span class="aside">{{ r.size_display }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="pb-2"></div>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{# Loaded in extrahead (after every other admin stylesheet, incl. login.css) so it always wins. #}
+{% block extrahead %}{{ block.super }}
+<meta name="theme-color" content="#0b1f3a">
+<link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin-theme.css' %}">
+{% endblock %}
+
+{% block branding %}
+<div id="site-name">
+  <a href="{% url 'admin:index' %}">
+    <span class="nit-mark" aria-hidden="true">NIT</span>
+    <span class="nit-title"><strong>{{ site_header|default:_('Django administration') }}</strong><small>{{ BRAND.institution }}</small></span>
+  </a>
+</div>
+{% if user.is_anonymous %}
+  {% include "admin/color_theme_toggle.html" %}
+{% endif %}
+{% endblock %}
+
+{% block userlinks %}<a href="{% url 'core:notes_manage' %}">Notes workspace</a> / {{ block.super }}{% endblock %}
+
+{% block nav-global %}{% endblock %}

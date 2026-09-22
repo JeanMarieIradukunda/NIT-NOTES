@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}{% if note %}Edit notes{% else %}Add module notes{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'core:notes_manage' %}">Notes</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{% if note %}Edit{% else %}Add{% endif %}</li>
+      </ol>
+    </nav>
+    <h1>{% if note %}Edit module notes{% else %}Add module notes{% endif %}</h1>
+    <p class="lead">{% if note %}Update the details, replace the file, or change whether students can see these notes.{% else %}Choose the module, name your notes, upload a PDF or HTML file — then save a draft or publish straight away.{% endif %}</p>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <form method="post" enctype="multipart/form-data" class="panel" id="note-form" novalidate
+            data-has-modules="{{ has_modules|yesno:'1,0' }}" data-max-mb="{{ max_mb }}">
+        {% csrf_token %}
+        {# Pressing Enter submits the first button: make that the safe one (never "publish"). #}
+        <button type="submit" name="intent" value="{% if note %}save{% else %}draft{% endif %}" class="visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
+
+        {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
+
+        <section class="note-form-section" aria-labelledby="s1">
+          <h2 id="s1"><span class="step-num">1</span>Module</h2>
+          <p class="hint">Select a module you already use, or register a new one by entering its code and name.</p>
+
+          <div class="segmented mb-3" role="radiogroup" aria-label="Module source" id="module-mode">
+            <input type="radio" class="btn-check" name="module_mode" id="mode-existing" value="existing" autocomplete="off" checked>
+            <label class="btn" for="mode-existing">Select existing</label>
+            <input type="radio" class="btn-check" name="module_mode" id="mode-new" value="new" autocomplete="off">
+            <label class="btn" for="mode-new">Enter new module</label>
+          </div>
+
+          <div id="pane-existing">
+            <label class="form-label" for="{{ form.module.id_for_label }}">{{ form.module.label }}</label>
+            {{ form.module }}
+            {% if not has_modules %}<div class="form-text">You don't have any modules yet — use <strong>Enter new module</strong> to register your first one.</div>{% endif %}
+            {% for e in form.module.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+          </div>
+
+          <div id="pane-new" class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label" for="{{ form.new_module_code.id_for_label }}">{{ form.new_module_code.label }}</label>
+              {{ form.new_module_code }}
+              {% for e in form.new_module_code.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-md-8">
+              <label class="form-label" for="{{ form.new_module_name.id_for_label }}">{{ form.new_module_name.label }}</label>
+              {{ form.new_module_name }}
+              {% for e in form.new_module_name.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="{{ form.new_module_level.id_for_label }}">{{ form.new_module_level.label }}</label>
+              {{ form.new_module_level }}
+              {% for e in form.new_module_level.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+              <div class="form-text">The level (class) this module is taught in.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="note-form-section" aria-labelledby="s2">
+          <h2 id="s2"><span class="step-num">2</span>Title</h2>
+          <p class="hint">What students will see in the module's list of notes.</p>
+          <label class="visually-hidden" for="{{ form.title.id_for_label }}">Title</label>
+          {{ form.title }}
+          {% for e in form.title.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+        </section>
+
+        <section class="note-form-section" aria-labelledby="s3">
+          <h2 id="s3"><span class="step-num">3</span>{% if note %}File{% else %}Upload file{% endif %}</h2>
+          <p class="hint">PDF or HTML, up to {{ max_mb }} MB.</p>
+
+          {% if note %}
+          <div class="current-file">
+            <span class="type-tile type-tile--{{ note.file_type }}"><i class="bi {% if note.is_pdf %}bi-file-earmark-pdf{% else %}bi-filetype-html{% endif %}"></i></span>
+            <div class="me-auto" style="min-width:0">
+              <div class="fw-semibold text-body-emphasis" style="overflow-wrap:anywhere">{{ note.original_filename }}</div>
+              <div class="small text-muted-2">Current file · {{ note.get_file_type_display }} · {{ note.size_display }}</div>
+            </div>
+            <a class="btn btn-outline-secondary btn-sm" href="{{ note.get_download_url }}"><i class="bi bi-download me-1"></i>Download</a>
+          </div>
+          <label class="form-label" for="{{ form.file.id_for_label }}">Replace file <span class="fw-normal text-muted-2">(optional)</span></label>
+          {% else %}
+          <label class="visually-hidden" for="{{ form.file.id_for_label }}">Notes file</label>
+          {% endif %}
+          {{ form.file }}
+          {% if note %}<div class="form-text">Leave empty to keep the current file. A new file replaces it completely.</div>{% endif %}
+          {% for e in form.file.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+        </section>
+
+        <div class="form-actions">
+          {% if note %}
+            {% if note.is_published %}
+            <button type="submit" name="intent" value="save" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Save changes</button>
+            <button type="submit" name="intent" value="draft" class="btn btn-outline-secondary"><i class="bi bi-eye-slash me-1"></i>Save &amp; unpublish</button>
+            {% else %}
+            <button type="submit" name="intent" value="publish" class="btn btn-primary"><i class="bi bi-cloud-arrow-up me-1"></i>Save &amp; publish</button>
+            <button type="submit" name="intent" value="save" class="btn btn-outline-secondary">Save draft</button>
+            {% endif %}
+          {% else %}
+            <button type="submit" name="intent" value="publish" class="btn btn-primary"><i class="bi bi-cloud-arrow-up me-1"></i>Publish now</button>
+            <button type="submit" name="intent" value="draft" class="btn btn-outline-secondary">Save as draft</button>
+          {% endif %}
+          <a href="{% url 'core:notes_manage' %}" class="btn btn-link ms-auto">Cancel</a>
+        </div>
+      </form>
+    </div>
+
+    <div class="col-lg-4">
+      <aside class="panel panel-body" aria-label="Guidance">
+        <h2 class="fs-6 mb-3">Before you upload</h2>
+        <ul class="guide-list">
+          <li><i class="bi bi-file-earmark-pdf"></i><span><strong>PDF</strong> notes open in a built-in viewer, with a download button.</span></li>
+          <li><i class="bi bi-filetype-html"></i><span><strong>HTML</strong> notes are cleaned (scripts and styling removed) and shown as a readable page. Embed images in the file itself — images linked from other files can't be loaded.</span></li>
+          <li><i class="bi bi-eye"></i><span><strong>Publishing</strong> makes notes visible to every student. A draft is visible only to you and administrators.</span></li>
+          <li><i class="bi bi-arrow-repeat"></i><span>You can edit, replace the file, unpublish or delete your notes at any time from <em>My notes</em>.</span></li>
+        </ul>
+      </aside>
+    </div>
+  </div>
+  <div class="pb-2"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/note-form.js' %}"></script>
+{% endblock %}

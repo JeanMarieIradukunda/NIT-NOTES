@@ -1,0 +1,118 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block bodyclass %}{{ block.super }} dashboard nit-dashboard{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+
+  {% if nit_dashboard_stats %}
+  <div class="nit-stat-grid">
+    {% for stat in nit_dashboard_stats %}
+    <a class="nit-stat-card" href="{{ stat.url }}">
+      <span class="nit-stat-icon"><i class="bi {{ stat.icon }}" aria-hidden="true"></i></span>
+      <span class="nit-stat-body">
+        <span class="nit-stat-value">{{ stat.value }}</span>
+        <span class="nit-stat-label">{{ stat.label }}</span>
+        {% if stat.sub %}<span class="nit-stat-sub">{{ stat.sub }}</span>{% endif %}
+      </span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="nit-quick-actions">
+    <span class="nit-quick-label">{% translate "Quick add" %}</span>
+    <a class="nit-quick-btn" href="{% url 'admin:core_lesson_add' %}"><i class="bi bi-journal-plus" aria-hidden="true"></i> {% translate "Lesson" %}</a>
+    <a class="nit-quick-btn" href="{% url 'admin:core_modulenote_add' %}"><i class="bi bi-file-earmark-plus" aria-hidden="true"></i> {% translate "Module note" %}</a>
+    <a class="nit-quick-btn" href="{% url 'admin:core_module_add' %}"><i class="bi bi-diagram-3" aria-hidden="true"></i> {% translate "Module" %}</a>
+    <a class="nit-quick-btn" href="{% url 'admin:core_resource_add' %}"><i class="bi bi-folder-plus" aria-hidden="true"></i> {% translate "Resource" %}</a>
+    <a class="nit-quick-btn nit-quick-btn--ghost" href="/" target="_blank" rel="noopener">
+      <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> {% translate "View site" %}
+    </a>
+  </div>
+
+  {% if nit_pending_uploads %}
+  <div class="module nit-review-panel">
+    <h2>{% translate "Pending review" %} <span class="nit-count-pill">{{ nit_pending_uploads|length }}</span></h2>
+    <ul class="nit-review-list">
+      {% for u in nit_pending_uploads %}
+      <li>
+        <a href="{% url 'admin:core_lessonupload_change' u.pk %}">{{ u.original_filename }}</a>
+        <span class="quiet">{{ u.module.code }} · {{ u.uploaded_by }} · {{ u.created_at|timesince }} {% translate "ago" %}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if app_list %}
+    {% include "admin/app_list.html" %}
+  {% else %}
+    <p>{% translate "You don't have permission to view or edit anything." %}</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block sidebar %}
+<div id="content-related">
+
+  {% if nit_recent_lessons %}
+  <div class="module">
+    <h2>{% translate "Recently updated lessons" %}</h2>
+    <ul class="actionlist nit-recent-list">
+      {% for l in nit_recent_lessons %}
+      <li>
+        <a href="{% url 'admin:core_lesson_change' l.pk %}">{{ l.title }}</a><br>
+        <span class="mini quiet">{{ l.unit.module.code }} · {{ l.updated_at|timesince }} {% translate "ago" %}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if nit_recent_notes %}
+  <div class="module">
+    <h2>{% translate "Recently updated notes" %}</h2>
+    <ul class="actionlist nit-recent-list">
+      {% for n in nit_recent_notes %}
+      <li>
+        <a href="{% url 'admin:core_modulenote_change' n.pk %}">{{ n.title }}</a><br>
+        <span class="mini quiet">{{ n.module.code }} · {% if n.is_published %}{% translate "Published" %}{% else %}{% translate "Draft" %}{% endif %} · {{ n.updated_at|timesince }} {% translate "ago" %}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="module" id="recent-actions-module">
+    <h2>{% translate 'Recent actions' %}</h2>
+    <h3>{% translate 'My actions' %}</h3>
+    {% load log %}
+    {% get_admin_log 8 as admin_log for_user user %}
+    {% if not admin_log %}
+      <p>{% translate 'None available' %}</p>
+    {% else %}
+      <ul class="actionlist">
+      {% for entry in admin_log %}
+      <li class="{% if entry.is_addition %}addlink{% endif %}{% if entry.is_change %}changelink{% endif %}{% if entry.is_deletion %}deletelink{% endif %}">
+        {% if entry.is_deletion or not entry.get_admin_url %}
+          {{ entry.object_repr }}
+        {% else %}
+          <a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>
+        {% endif %}
+        <br>
+        {% if entry.content_type %}
+          <span class="mini quiet">{% filter capfirst %}{{ entry.content_type.name }}{% endfilter %}</span>
+        {% else %}
+          <span class="mini quiet">{% translate 'Unknown content' %}</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

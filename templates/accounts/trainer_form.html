@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}New Trainer{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'accounts:manage_trainers' %}">Trainers</a></li>
+      <li class="breadcrumb-item active" aria-current="page">New Trainer</li>
+    </ol></nav>
+    <h1>Create a Trainer account</h1>
+    <p class="lead">The Trainer can sign in immediately. Optionally assign modules now — they can also register their own when adding notes.</p>
+  </div>
+  <div class="row"><div class="col-lg-7">
+    <form method="post" class="panel panel-body" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+      {% for f in form %}{% if f.name != "modules" %}
+      <div class="mb-3">
+        <label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>
+        {{ f }}
+        {% for e in f.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+        {% if f.help_text and f.name != "username" %}<div class="form-text">{{ f.help_text|safe }}</div>{% endif %}
+      </div>
+      {% endif %}{% endfor %}
+      <div class="mb-4">
+        <label class="form-label" for="{{ form.modules.id_for_label }}">{{ form.modules.label }}</label>
+        {{ form.modules }}
+        <div class="form-text">{{ form.modules.help_text }}</div>
+      </div>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-person-plus me-1"></i>Create Trainer</button>
+      <a href="{% url 'accounts:manage_trainers' %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+  </div></div>
+  <div class="pb-2"></div>
+</div>
+{% endblock %}

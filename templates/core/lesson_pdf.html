@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ lesson.title }}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 26mm 18mm 20mm 18mm;
+
+    @top-left {
+      content: "{{ brand.institution }}";
+      font-family: "Inter", "Helvetica Neue", Arial, sans-serif; font-size: 9pt; font-weight: 700;
+      color: #0b1f3a;
+    }
+    @top-right {
+      content: "{{ lesson.module.code }}";
+      font-family: "Inter", "Helvetica Neue", Arial, sans-serif; font-size: 8pt; color: #56657a;
+    }
+    @bottom-left {
+      content: "{{ brand.platform }} · Generated {{ generated|date:'j F Y' }}";
+      font-family: "Inter", "Helvetica Neue", Arial, sans-serif; font-size: 7.5pt; color: #64748b;
+    }
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-family: "Inter", "Helvetica Neue", Arial, sans-serif; font-size: 7.5pt; color: #64748b;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+    font-size: 10.5pt; line-height: 1.55; color: #000; margin: 0;
+  }
+  .trail { font-family: "Inter", "Helvetica Neue", Arial, sans-serif; font-size: 8pt; color: #56657a; margin-bottom: 5pt; }
+  h1.title {
+    font-family: "Inter", "Helvetica Neue", Arial, sans-serif; font-size: 19pt; font-weight: 600;
+    line-height: 1.2; margin: 0 0 6pt; color: #0f172a;
+  }
+  .meta { font-family: "Inter", "Helvetica Neue", Arial, sans-serif; font-size: 8pt; color: #64748b; margin-bottom: 10pt; }
+  hr.rule { border: 0; border-top: 0.5pt solid #cbd5e1; margin: 0 0 14pt; }
+
+  .prose h2 {
+    font-family: "Inter", "Helvetica Neue", Arial, sans-serif; font-size: 13pt; font-weight: 600;
+    margin: 16pt 0 6pt; padding-top: 6pt; border-top: 0.5pt solid #cbd5e1;
+    break-after: avoid;
+  }
+  .prose h2:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+  .prose h3 { font-family: "Inter", "Helvetica Neue", Arial, sans-serif; font-size: 11.5pt; font-weight: 600; margin: 12pt 0 5pt; break-after: avoid; }
+  .prose h4 { font-family: "Inter", "Helvetica Neue", Arial, sans-serif; font-size: 10.5pt; font-weight: 600; margin: 10pt 0 4pt; break-after: avoid; }
+  .prose p { margin: 0 0 8pt; orphans: 3; widows: 3; }
+  .prose ul, .prose ol { margin: 0 0 8pt; padding-left: 16pt; }
+  .prose li { margin-bottom: 3pt; }
+
+  .prose img { max-width: 100%; max-height: 190mm; border: 0.4pt solid #cbd5e1; margin: 8pt 0; break-inside: avoid; }
+
+  .prose pre.codeblock {
+    font-family: "DejaVu Sans Mono", Menlo, Consolas, monospace; font-size: 8.5pt; line-height: 1.4;
+    background: #f8fafc; border: 0.4pt solid #cbd5e1; border-left: 2pt solid #1d4ed8;
+    padding: 7pt 9pt; margin: 8pt 0; white-space: pre-wrap; word-break: break-word;
+    break-inside: avoid;
+  }
+  .prose code { font-family: "DejaVu Sans Mono", Menlo, Consolas, monospace; font-size: 9pt; background: #f1f5f9; padding: 0 2pt; }
+
+  .prose .table-scroll, .prose table.data-table {
+    width: 100%; border-collapse: collapse; font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+    font-size: 9pt; margin: 8pt 0;
+  }
+  .prose table.data-table th, .prose table.data-table td {
+    border: 0.4pt solid #cbd5e1; padding: 4pt 6pt; text-align: left; vertical-align: top;
+  }
+  .prose table.data-table th { background: #f1f5f9; font-weight: 600; }
+  .prose table.data-table tr { break-inside: avoid; }
+
+  .prose .callout {
+    border: 0.4pt solid #cbd5e1; border-left: 2pt solid #555; border-radius: 2pt;
+    padding: 6pt 8pt; margin: 8pt 0; font-size: 9.5pt; break-inside: avoid;
+  }
+  .prose .callout--note, .prose .callout--tip { border-left-color: #1d4ed8; background: #eef4ff; }
+  .prose .callout--definition { border-left-color: #b45309; background: #fdf3dc; }
+  .prose .callout--warning { border-left-color: #b42318; background: #fdecea; }
+  .prose .upload-figure-note { font-style: italic; color: #555; border: 0.4pt dashed #999; padding: 5pt 7pt; }
+
+  .prose a { color: #000; text-decoration: underline; }
+</style>
+</head>
+<body>
+  <p class="trail">{{ lesson.breadcrumb|join:"  ›  " }}</p>
+  <h1 class="title">{{ lesson.title }}</h1>
+  <p class="meta">{{ lesson.minutes }} min read &nbsp;·&nbsp; {{ lesson.words }} words &nbsp;·&nbsp; Generated {{ generated|date:"j F Y" }}</p>
+  <hr class="rule">
+  <div class="prose">
+    {{ lesson.content_html|safe }}
+  </div>
+</body>
+</html>

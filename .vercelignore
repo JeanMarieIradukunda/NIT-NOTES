@@ -1,0 +1,21 @@
+# Local-only data and secrets — never part of a Vercel build or deployment.
+# (Static assets in static/ are NOT listed here: Vercel's build needs them to
+# run collectstatic. staticfiles/ — the *output* of collectstatic — is
+# regenerated on every build, so it's excluded the same way it's gitignored.)
+
+db.sqlite3
+staticfiles/
+media/
+private_media/
+.env
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Local dev / editor / CI cruft that has no reason to reach the build.
+.git/
+.github/
+.vscode/
+.idea/
+*.md

@@ -1,0 +1,112 @@
+{
+  "_comment": "Human-readable names for trades and modules. The builder falls back to folder names and page titles when a key is missing here, so adding a new trade/module folder needs no change to this file. Edit names here; never edit lesson content.",
+  "trades": {
+    "L3NIT": {
+      "name": "Level 3 — National IT",
+      "short": "Level 3 NIT",
+      "order": 1,
+      "summary": "Foundation year: C programming, CCTV systems and VoIP installation."
+    },
+    "L4": {
+      "name": "Level 4 — National IT",
+      "short": "Level 4 NIT",
+      "order": 2,
+      "summary": "Computer systems customisation and Windows Server administration."
+    },
+    "L5NIT": {
+      "name": "Level 5 — National IT",
+      "short": "Level 5 NIT",
+      "order": 3,
+      "summary": "Advanced year: Linux server administration and Python programming."
+    },
+    "PASTPAPERS": {
+      "name": "Examination Archive",
+      "short": "Past Papers",
+      "order": 4,
+      "kind": "archive",
+      "summary": "National examination papers, marking guides and revision portals by year."
+    },
+    "GENERAL": {
+      "name": "Institution-wide Resources",
+      "short": "Shared",
+      "order": 5,
+      "summary": "Assessments, tools and media shared across every level."
+    }
+  },
+  "modules": {
+    "GENCP302": {
+      "name": "C Programming Fundamentals"
+    },
+    "NICI301": {
+      "name": "CCTV Systems Installation and Configuration",
+      "code": "NITCI301"
+    },
+    "NITCI301": {
+      "name": "CCTV Systems Installation and Configuration"
+    },
+    "NITVI301": {
+      "name": "VoIP Installation and Configuration"
+    },
+    "CCMCS401": {
+      "name": "Computer Systems Customisation"
+    },
+    "CCMCS402": {
+      "name": "Computer Systems Customisation"
+    },
+    "NITWA401": {
+      "name": "Windows Server Administration"
+    },
+    "LINUX": {
+      "name": "Linux Server Administration",
+      "code": "NITLS501"
+    },
+    "NITLS501": {
+      "name": "Linux Server Administration"
+    },
+    "NITLS01": {
+      "name": "Linux Server Administration",
+      "code": "NITLS501"
+    },
+    "PYTHON": {
+      "name": "Python Programming",
+      "code": "GENPP501"
+    },
+    "GENPP501": {
+      "name": "Python Programming"
+    },
+    "GENPP502": {
+      "name": "Python Programming"
+    },
+    "FIRMWARES": {
+      "name": "Firmware and BIOS"
+    },
+    "General": {
+      "name": "General Resources"
+    },
+    "2024 2025": {
+      "name": "Academic year 2024–2025",
+      "code": "2024/25"
+    },
+    "2025 2026": {
+      "name": "Academic year 2025–2026",
+      "code": "2025/26"
+    },
+    "ANSWERS": {
+      "name": "Marking guides and answers"
+    }
+  },
+  "outcome_titles": {
+    "_comment": "Optional display titles for learning outcomes, keyed as MODULECODE/LOn. Missing entries fall back to the title detected in the lesson content.",
+    "NITWA401/LO2": "Install and configure Active Directory Domain Services",
+    "NITWA401/LO3": "Deploy and manage a mail server (Exchange)",
+    "NITWA401/LO4": "Deploy a DHCP server",
+    "NITWA401/LO5": "Deploy a DNS server",
+    "NITWA401/LO6": "Deploy web services",
+    "NITWA401/LO7": "Monitor and maintain server services"
+  },
+  "brand": {
+    "institution": "Padri Vjeko Centre TSS",
+    "platform": "NIT Learning Resources",
+    "department": "Department of Information Technology"
+  }
+}

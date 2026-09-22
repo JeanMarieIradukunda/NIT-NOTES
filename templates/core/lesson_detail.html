@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}{{ lesson.title }}{% endblock %}
+{% block description %}{{ lesson.module.code }} · {{ lesson.title }} — read online or download as an A4 PDF.{% endblock %}
+
+{% block content %}
+<div class="reading-progress no-print" id="reading-progress"></div>
+
+<div class="subbar no-print">
+  <div class="container-xxl d-flex align-items-center gap-2 py-2 flex-wrap">
+    <a href="{{ lesson.module.get_absolute_url }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>{{ lesson.module.code }}
+    </a>
+    <span class="flex-grow-1"></span>
+    <span class="small text-muted-2 d-none d-md-inline" id="progress-label">Reading progress 0%</span>
+
+    {% if user.is_authenticated %}
+    <button class="btn btn-sm btn-outline-secondary" id="btn-bookmark" data-active="{{ activity.bookmarked|yesno:'1,0' }}" title="Bookmark this lesson" aria-label="Bookmark this lesson">
+      <i class="bi {% if activity.bookmarked %}bi-bookmark-fill{% else %}bi-bookmark{% endif %}"></i>
+    </button>
+    <button class="btn btn-sm btn-outline-secondary" id="btn-complete" data-active="{{ activity.completed|yesno:'1,0' }}" title="Mark as read" aria-label="Mark as read">
+      <i class="bi {% if activity.completed %}bi-check-circle-fill{% else %}bi-check-circle{% endif %}"></i>
+    </button>
+    {% endif %}
+
+    <button class="btn btn-sm btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print</button>
+    <a class="btn btn-sm btn-primary" href="{{ lesson.get_pdf_url }}"><i class="bi bi-download me-1"></i>Download PDF</a>
+  </div>
+</div>
+
+<div class="container-xxl py-4">
+  <div class="row g-4">
+    <div class="col-lg-9">
+      <nav aria-label="breadcrumb" class="no-print">
+        <ol class="breadcrumb flex-wrap">
+          <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+          {% for crumb in lesson.breadcrumb %}<li class="breadcrumb-item">{{ crumb }}</li>{% endfor %}
+          <li class="breadcrumb-item active" aria-current="page">{{ lesson.title }}</li>
+        </ol>
+      </nav>
+
+      <header class="lesson-head mb-4">
+        <p class="eyebrow">{{ lesson.trade.name }}</p>
+        <h1 class="mb-2">{{ lesson.title }}</h1>
+        <div class="d-flex flex-wrap small text-muted-2" style="column-gap:1.25rem;row-gap:.25rem">
+          <span>{{ lesson.module.code }} · {{ lesson.module.name }}</span>
+          <span>{{ lesson.minutes }} min read</span>
+          <span>{{ lesson.words }} words</span>
+          {% if sibling_count > 1 %}<span>Lesson {{ position }} of {{ sibling_count }}</span>{% endif %}
+        </div>
+      </header>
+
+      <article class="panel reader-card"><div class="prose" id="lesson-prose">{{ lesson.content_html|safe }}</div></article>
+
+      {% if user.is_authenticated %}
+      <section class="ai-panel my-5 no-print" id="ai-panel">
+        <div class="ai-header px-3 py-2 d-flex align-items-center gap-2">
+          <i class="bi bi-stars" style="color:var(--c-brand)"></i>
+          <strong class="fs-6">AI study assistant</strong>
+          <span class="small text-muted-2 ms-auto d-none d-sm-inline">Answers are grounded in this lesson's notes</span>
+        </div>
+        <div class="p-3">
+          {% if not ai_enabled %}
+          <p class="small text-muted-2 mb-0">AI features are turned off on this server. An administrator can enable them by setting <code>GROQ_API_KEY</code> in the environment — see the README.</p>
+          {% else %}
+          <div class="d-flex gap-2 mb-3 flex-wrap">
+            <button class="btn btn-sm btn-outline-secondary" id="btn-summarise"><i class="bi bi-list-check me-1"></i>Summarise this lesson</button>
+          </div>
+          <div id="ai-summary" class="ai-answer mb-3"></div>
+          <form id="ai-ask-form" class="d-flex gap-2">
+            <input type="text" class="form-control form-control-sm" id="ai-question" placeholder="Ask a question about this lesson…" maxlength="600" aria-label="Ask a question about this lesson">
+            <button class="btn btn-sm btn-primary" type="submit">Ask</button>
+          </form>
+          <div id="ai-answer" class="ai-answer mt-3"></div>
+          {% endif %}
+        </div>
+      </section>
+      {% endif %}
+
+      <nav class="row g-3 mt-4 no-print" aria-label="Lesson navigation">
+        <div class="col-6">
+          {% if prev_lesson %}
+          <a href="{{ prev_lesson.get_absolute_url }}" class="panel panel-link panel-body py-3">
+            <span class="small text-muted-2">← Previous lesson</span><span class="title">{{ prev_lesson.title }}</span>
+          </a>
+          {% endif %}
+        </div>
+        <div class="col-6 text-end">
+          {% if next_lesson %}
+          <a href="{{ next_lesson.get_absolute_url }}" class="panel panel-link panel-body py-3">
+            <span class="small text-muted-2">Next lesson →</span><span class="title">{{ next_lesson.title }}</span>
+          </a>
+          {% endif %}
+        </div>
+      </nav>
+    </div>
+
+    <div class="col-lg-3 d-none d-lg-block no-print">
+      {% if lesson.headings_json|length > 2 %}
+      <nav class="toc-rail" aria-label="On this page">
+        <p class="toc-title">On this page</p>
+        <ol class="list-unstyled" id="toc-list">
+          {% for h in lesson.headings_json %}
+          <li class="{% if h.level == 3 %}ms-3{% endif %}"><a href="#{{ h.id }}" data-target="{{ h.id }}">{{ h.text }}</a></li>
+          {% endfor %}
+        </ol>
+      </nav>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ lesson.slug|json_script:"lesson-slug" }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const slug = JSON.parse(document.getElementById('lesson-slug').textContent);
+  const csrftoken = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1];
+
+  // ---- reading progress -----------------------------------------------
+  const bar = document.getElementById('reading-progress');
+  const label = document.getElementById('progress-label');
+  const prose = document.getElementById('lesson-prose');
+  let lastSent = 0, ticking = false;
+
+  function update() {
+    ticking = false;
+    const rect = prose.getBoundingClientRect();
+    const total = prose.offsetHeight - window.innerHeight * 0.6;
+    const seen = -rect.top + window.innerHeight * 0.4;
+    let pct = total <= 0 ? 100 : Math.max(0, Math.min(100, (seen / total) * 100));
+    pct = Math.round(pct);
+    bar.style.width = pct + '%';
+    if (label) label.textContent = 'Reading progress ' + pct + '%';
+    if (pct - lastSent >= 10 || pct === 100) {
+      lastSent = pct;
+      {% if user.is_authenticated %}
+      fetch(`/l/${slug}/activity/`, {
+        method: 'POST', headers: {'X-CSRFToken': csrftoken, 'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `action=progress&pct=${pct}`
+      });
+      {% endif %}
+    }
+  }
+  window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, {passive: true});
+  update();
+
+  // ---- TOC active tracking ----------------------------------------------
+  const tocLinks = {};
+  document.querySelectorAll('#toc-list a').forEach(a => tocLinks[a.dataset.target] = a);
+  if (Object.keys(tocLinks).length) {
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        Object.values(tocLinks).forEach(a => a.classList.remove('active'));
+        if (tocLinks[e.target.id]) tocLinks[e.target.id].classList.add('active');
+      });
+    }, {rootMargin: '-80px 0px -70% 0px'});
+    Object.keys(tocLinks).forEach(id => { const el = document.getElementById(id); if (el) obs.observe(el); });
+  }
+
+  // ---- bookmark / complete ------------------------------------------------
+  function wireToggle(btnId, action, iconOn, iconOff) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      fetch(`/l/${slug}/activity/`, {
+        method: 'POST', headers: {'X-CSRFToken': csrftoken, 'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `action=${action}`
+      }).then(r => r.json()).then(data => {
+        const on = action === 'toggle_bookmark' ? data.bookmarked : data.completed;
+        const icon = btn.querySelector('i');
+        icon.className = 'bi ' + (on ? iconOn : iconOff);
+      });
+    });
+  }
+  wireToggle('btn-bookmark', 'toggle_bookmark', 'bi-bookmark-fill', 'bi-bookmark');
+  wireToggle('btn-complete', 'toggle_complete', 'bi-check-circle-fill', 'bi-check-circle');
+
+  // ---- AI panel -----------------------------------------------------------
+  const summariseBtn = document.getElementById('btn-summarise');
+  if (summariseBtn) {
+    summariseBtn.addEventListener('click', () => {
+      const out = document.getElementById('ai-summary');
+      summariseBtn.disabled = true;
+      out.innerHTML = '<span class="text-secondary small"><span class="spinner-border spinner-border-sm"></span> Summarising…</span>';
+      fetch(`/ai/l/${slug}/summarise/`, {method: 'POST', headers: {'X-CSRFToken': csrftoken}})
+        .then(r => r.json())
+        .then(data => {
+          summariseBtn.disabled = false;
+          out.innerHTML = data.ok ? data.html : `<div class="alert alert-warning py-2 small mb-0">${data.error}</div>`;
+        })
+        .catch(() => { summariseBtn.disabled = false; out.innerHTML = '<div class="alert alert-danger py-2 small mb-0">Something went wrong. Try again.</div>'; });
+    });
+  }
+
+  const askForm = document.getElementById('ai-ask-form');
+  if (askForm) {
+    askForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const q = document.getElementById('ai-question').value.trim();
+      if (!q) return;
+      const out = document.getElementById('ai-answer');
+      out.innerHTML = '<span class="text-secondary small"><span class="spinner-border spinner-border-sm"></span> Thinking…</span>';
+      fetch(`/ai/l/${slug}/ask/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrftoken, 'Content-Type': 'application/json'},
+        body: JSON.stringify({question: q})
+      }).then(r => r.json()).then(data => {
+        out.innerHTML = data.ok ? data.html : `<div class="alert alert-warning py-2 small mb-0">${data.error}</div>`;
+      }).catch(() => { out.innerHTML = '<div class="alert alert-danger py-2 small mb-0">Something went wrong. Try again.</div>'; });
+    });
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}My profile{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head"><h1>My profile</h1><p class="lead">Your account details and the modules you work with.</p></div>
+  <div class="row"><div class="col-lg-6">
+    <div class="panel panel-body">
+      <div class="d-flex align-items-center gap-3 mb-4">
+        <span class="avatar" style="width:52px;height:52px;font-size:1.1rem">{{ user.first_name|default:user.username|slice:":1"|upper }}</span>
+        <div>
+          <div class="fw-semibold text-body-emphasis fs-5">{{ user.get_full_name|default:user.username }}</div>
+          {% for r in roles %}<span class="role-badge me-1">{{ r }}</span>{% endfor %}
+        </div>
+      </div>
+      <dl class="row small mb-4">
+        <dt class="col-4 text-muted-2 fw-medium">Username</dt><dd class="col-8">{{ user.username }}</dd>
+        <dt class="col-4 text-muted-2 fw-medium">Email</dt><dd class="col-8">{{ user.email|default:"—" }}</dd>
+      </dl>
+      {% if request.is_trainer and not request.is_admin_role %}
+      <div class="mb-4">
+        <p class="small fw-semibold text-body-emphasis mb-2">Your modules</p>
+        {% if managed_modules %}<div>{% for m in managed_modules %}<span class="module-chip">{{ m.code }}</span>{% endfor %}</div>
+        {% else %}<p class="small text-muted-2 mb-0">None yet. Register a module when you <a href="{% url 'core:note_create' %}">add module notes</a>, or ask an administrator to assign one.</p>{% endif %}
+      </div>
+      {% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.trade.id_for_label }}">{{ form.trade.label }}</label>
+          {{ form.trade }}
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+        <a href="{% url 'accounts:password_change' %}" class="btn btn-outline-secondary btn-sm">Change password</a>
+      </form>
+    </div>
+  </div></div>
+  <div class="pb-2"></div>
+</div>
+{% endblock %}

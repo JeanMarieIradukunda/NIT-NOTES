@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="container-xxl py-5">
+  <div class="empty-state mx-auto" style="max-width:560px">
+    <span class="icon-chip icon-chip--amber"><i class="bi bi-exclamation-triangle"></i></span>
+    <h3>{{ title }}</h3>
+    <p>{{ detail }}</p>
+    <div class="d-flex gap-2 justify-content-center flex-wrap">
+      <a class="btn btn-primary btn-sm" href="{% url 'core:dashboard' %}">Go to dashboard</a>
+      <a class="btn btn-outline-secondary btn-sm" href="{% url 'core:search' %}">Search the library</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

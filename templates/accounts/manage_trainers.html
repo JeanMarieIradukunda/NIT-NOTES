@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Manage Trainers{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Trainers</li>
+    </ol></nav>
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div>
+        <h1>Manage Trainers</h1>
+        <p class="lead">Only an administrator can create a Trainer account. Trainers add module notes for the modules assigned to them below, plus any module they register themselves.</p>
+      </div>
+      <a href="{% url 'accounts:create_trainer' %}" class="btn btn-primary"><i class="bi bi-person-plus me-1"></i>New Trainer</a>
+    </div>
+  </div>
+
+  {% if trainers %}
+  <div class="panel list-panel"><div class="table-responsive">
+    <table class="table grid-table align-middle">
+      <thead><tr><th scope="col">Trainer</th><th scope="col">Assigned modules</th><th scope="col">Status</th><th scope="col" class="text-end">Actions</th></tr></thead>
+      <tbody>
+        {% for trainer in trainers %}
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-3">
+              <span class="avatar">{{ trainer.first_name|default:trainer.username|slice:":1"|upper }}</span>
+              <div><div class="fw-semibold text-body-emphasis">{{ trainer.first_name|default:trainer.username }}</div>
+              <div class="small text-muted-2">{{ trainer.email }} · @{{ trainer.username }}</div></div>
+            </div>
+          </td>
+          <td>
+            {% with modules=trainer.profile.trainer_modules.all %}
+            {% if modules %}{% for m in modules %}<span class="module-chip">{{ m.code }}</span>{% endfor %}
+            {% else %}<span class="small text-muted-2">No modules yet</span>{% endif %}
+            {% endwith %}
+          </td>
+          <td>{% if trainer.is_active %}<span class="pill pill--success">Active</span>{% else %}<span class="pill pill--danger">Suspended</span>{% endif %}</td>
+          <td>
+            <div class="row-actions">
+              <a href="{% url 'accounts:edit_trainer_modules' trainer.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil me-1"></i>Modules</a>
+              <form method="post" action="{% url 'accounts:toggle_trainer_active' trainer.id %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm {% if trainer.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}">{% if trainer.is_active %}Suspend{% else %}Reactivate{% endif %}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% else %}
+  <div class="empty-state">
+    <span class="icon-chip"><i class="bi bi-people"></i></span>
+    <h3>No Trainers yet</h3>
+    <p>Create the first Trainer account so they can start adding module notes.</p>
+    <a class="btn btn-primary btn-sm" href="{% url 'accounts:create_trainer' %}">New Trainer</a>
+  </div>
+  {% endif %}
+  <div class="pb-2"></div>
+</div>
+{% endblock %}

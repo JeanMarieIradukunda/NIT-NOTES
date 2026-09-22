@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="auth-wrap">
+    <div class="panel panel-body auth-card">
+      <span class="brand-mark" aria-hidden="true">NIT</span>
+      <h1 class="fs-3 mb-1">Sign in</h1>
+      <p class="text-muted-2 mb-4">For trainers and administrators.</p>
+      {% if form.errors %}<div class="alert alert-danger" role="alert">Your username and password didn't match. Please try again.</div>{% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label" for="id_username">Username</label>
+          <input type="text" name="username" class="form-control" id="id_username" autocomplete="username" autofocus required>
+        </div>
+        <div class="mb-4">
+          <label class="form-label" for="id_password">Password</label>
+          <input type="password" name="password" class="form-control" id="id_password" autocomplete="current-password" required>
+        </div>
+        <input type="hidden" name="next" value="{{ next }}">
+        <button type="submit" class="btn btn-primary w-100 btn-lg">Sign in</button>
+      </form>
+      <p class="small text-muted-2 mt-4 mb-0">Students don't need an account — <a href="{% url 'core:dashboard' %}">browse the library</a> to read and download notes.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

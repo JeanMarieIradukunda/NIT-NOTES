@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Upload lesson · {{ module.code }}{% endblock %}
+
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ module.get_absolute_url }}">{{ module.code }}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Upload lesson</li>
+      </ol>
+    </nav>
+    <h1>Upload a lesson</h1>
+    <p class="lead">Add an HTML file to <strong>{{ module.code }} — {{ module.name }}</strong> as a structured lesson, with search, reading progress and PDF export. For simple PDF or HTML notes use <a href="{% url 'core:note_create' %}?module={{ module.pk }}">Add module notes</a> instead.</p>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <form method="post" enctype="multipart/form-data" class="panel panel-body" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.source_html.id_for_label }}">{{ form.source_html.label }}</label>
+          {{ form.source_html }}
+          <div class="form-text">{{ form.source_html.help_text }} Max {{ MAX_UPLOAD_SIZE_MB|default:8 }} MB.</div>
+          {% for e in form.source_html.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.unit.id_for_label }}">{{ form.unit.label }}</label>
+          {{ form.unit }}
+          {% for e in form.unit.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.new_unit_title.id_for_label }}">{{ form.new_unit_title.label }}</label>
+          {{ form.new_unit_title }}
+          <div class="form-text">Only needed if you didn't pick a section above.</div>
+        </div>
+        <div class="mb-4">
+          <label class="form-label" for="{{ form.order.id_for_label }}">{{ form.order.label }}</label>
+          {{ form.order }}
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-upload me-1"></i>Publish lesson</button>
+        <a href="{{ module.get_absolute_url }}" class="btn btn-outline-secondary">Cancel</a>
+      </form>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="panel panel-body">
+        <h2 class="fs-6 mb-3">What happens to the file</h2>
+        <ul class="guide-list">
+          <li><i class="bi bi-shield-check"></i><span>Scripts, page styling and leftover navigation are stripped.</span></li>
+          <li><i class="bi bi-list-nested"></i><span>Headings, tables, lists and code blocks are kept as written.</span></li>
+          <li><i class="bi bi-type-h1"></i><span>The title comes from the first heading, or the file name.</span></li>
+          <li><i class="bi bi-image"></i><span>Images linked by relative path can't be resolved from an upload — they become a labelled placeholder.</span></li>
+        </ul>
+      </div>
+      {% if recent_uploads %}
+      <div class="panel list-panel mt-3">
+        <div class="panel-head"><h2>Recent uploads to this module</h2></div>
+        {% for u in recent_uploads %}
+        <div class="list-row">
+          <span class="main small">{% if u.lesson %}<a href="{{ u.lesson.get_absolute_url }}">{{ u.original_filename }}</a>{% else %}{{ u.original_filename }}{% endif %}</span>
+          <span class="pill {% if u.status == 'published' %}pill--success{% elif u.status == 'rejected' %}pill--danger{% else %}pill--muted{% endif %}">{{ u.get_status_display }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="pb-2"></div>
+</div>
+{% endblock %}
