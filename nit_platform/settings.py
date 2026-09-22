@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 
 from django.contrib.messages import constants as message_constants
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -175,6 +176,22 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # traditional always-on server with a real disk), this falls back to plain
 # local-disk storage exactly as before — nothing about that setup changes.
 BLOB_READ_WRITE_TOKEN = os.environ.get("BLOB_READ_WRITE_TOKEN", "")
+
+# Vercel sets its own VERCEL=1 env var on every deployment. If we're running
+# there with no Blob token, both STORAGES["default"] below and
+# core.models.private_storage() would silently fall back to
+# FileSystemStorage — which then blows up the first time anything is
+# uploaded, with a confusing "Read-only file system" OSError deep in
+# Django's save() call. Failing here instead, at startup, with a clear
+# message pointing at the actual missing step, is much easier to diagnose.
+if os.environ.get("VERCEL") and not BLOB_READ_WRITE_TOKEN:
+    raise ImproperlyConfigured(
+        "Running on Vercel but BLOB_READ_WRITE_TOKEN is not set. Connect a "
+        "Blob store to this project in the Vercel dashboard (Storage -> "
+        "Blob -> Connect to Project), which injects the token "
+        "automatically, then redeploy. Without it, file uploads (resources, "
+        "lesson uploads, module notes) will fail."
+    )
 
 STORAGES = {
     "default": (
