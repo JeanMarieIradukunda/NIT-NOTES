@@ -1,7 +1,8 @@
 from django.contrib import admin
 
-from .models import (Lesson, LessonUpload, Module, ModuleNote, Resource,
-                     StudentActivity, Trade, Unit)
+from .forms import ActivityForm
+from .models import (Activity, Lesson, LessonUpload, Module, ModuleNote,
+                     Resource, StudentActivity, Trade, Unit)
 
 
 class ModuleInline(admin.TabularInline):
@@ -73,6 +74,38 @@ class ResourceAdmin(admin.ModelAdmin):
     list_display = ["name", "module", "kind", "size_display", "order"]
     list_filter = ["module__trade", "kind"]
     search_fields = ["name"]
+
+
+@admin.register(Activity)
+class ActivityAdmin(admin.ModelAdmin):
+    """
+    Creating an activity only ever needs a Module, a Topic and a document —
+    everything else here is optional or filled in automatically from the
+    upload (see `ActivityForm` / `Activity.save()`).
+    """
+    form = ActivityForm
+    list_display = ["title", "module_code", "topic", "document_type",
+                     "size_display", "is_published", "order", "updated_at"]
+    list_filter = ["module__trade", "module", "document_type", "is_published"]
+    search_fields = ["title", "original_filename", "module__code", "topic__title"]
+    list_select_related = ["module", "topic", "uploaded_by"]
+    fieldsets = (
+        (None, {"fields": ("module", "topic", "title", "document")}),
+        ("Status", {"fields": ("is_published", "order")}),
+        ("File info", {"fields": ("document_type", "original_filename", "size_bytes")}),
+        ("Provenance", {"fields": ("uploaded_by", "created_at", "updated_at")}),
+    )
+    readonly_fields = ["document_type", "original_filename", "size_bytes",
+                       "created_at", "updated_at"]
+
+    @admin.display(description="Module")
+    def module_code(self, obj):
+        return obj.module.code
+
+    def save_model(self, request, obj, form, change):
+        if not obj.uploaded_by_id:
+            obj.uploaded_by = request.user
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(StudentActivity)

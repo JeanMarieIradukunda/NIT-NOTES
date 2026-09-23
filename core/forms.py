@@ -2,7 +2,7 @@ from django import forms
 from django.core.validators import FileExtensionValidator
 from django.db import models
 
-from .models import Module, Unit
+from .models import Activity, Module, Unit
 
 
 class LessonUploadForm(forms.Form):
@@ -299,3 +299,85 @@ class ModuleNoteForm(forms.Form):
             storage, name = old_file
             transaction.on_commit(lambda: storage.delete(name))
         return note
+
+
+# --------------------------------------------------------------------------- #
+# Activities (Module + Topic + a single HTML/PDF document, no Lesson needed)
+# --------------------------------------------------------------------------- #
+
+ALLOWED_ACTIVITY_EXTENSIONS = {".pdf": Activity.TYPE_PDF, ".html": Activity.TYPE_HTML,
+                               ".htm": Activity.TYPE_HTML}
+
+
+class _TopicChoiceField(forms.ModelChoiceField):
+    """Labels each topic with its module code so it reads sensibly on its own,
+    e.g. in an unfiltered dropdown that spans every module."""
+
+    def label_from_instance(self, obj):
+        return f"{obj.module.code} — {obj.title}"
+
+
+class ActivityForm(forms.ModelForm):
+    """
+    Add or edit an Activity. Only Module, Topic and the document are ever
+    required — everything else (title, type, size…) is optional or derived
+    automatically. Used by the Django Admin and available for reuse in any
+    future Trainer-facing upload page.
+    """
+
+    topic = _TopicChoiceField(
+        queryset=Unit.objects.select_related("module").order_by(
+            "module__trade__order", "module__order", "order", "code"),
+        label="Topic",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+    class Meta:
+        model = Activity
+        fields = ["module", "topic", "title", "document", "is_published", "order"]
+        widgets = {
+            "module": forms.Select(attrs={"class": "form-select"}),
+            "title": forms.TextInput(attrs={"class": "form-control",
+                                            "placeholder": "Optional — defaults to the file name"}),
+            "document": forms.ClearableFileInput(attrs={"class": "form-control",
+                                                         "accept": ".pdf,.html,.htm"}),
+            "order": forms.NumberInput(attrs={"class": "form-control", "style": "max-width:8rem"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.max_bytes = settings.MAX_ACTIVITY_SIZE_MB * 1024 * 1024
+        self.fields["document"].required = not (self.instance and self.instance.pk)
+        if self.instance and self.instance.pk:
+            self.fields["document"].help_text = "Leave empty to keep the current file."
+
+    def clean_document(self):
+        f = self.cleaned_data.get("document")
+        if not f or not hasattr(f, "size"):
+            # No new upload on an edit (a plain FieldFile, not an UploadedFile) —
+            # nothing further to validate.
+            return f
+
+        ext = os.path.splitext(f.name)[1].lower()
+        if ext not in ALLOWED_ACTIVITY_EXTENSIONS:
+            raise forms.ValidationError("Upload an HTML (.html/.htm) or PDF (.pdf) file.")
+        if f.size == 0:
+            raise forms.ValidationError("That file is empty.")
+        if f.size > self.max_bytes:
+            raise forms.ValidationError(
+                f"That file is {f.size / 1048576:.1f} MB — the limit is "
+                f"{settings.MAX_ACTIVITY_SIZE_MB} MB.")
+
+        head = f.read(2048)
+        f.seek(0)
+        is_pdf_bytes = b"%PDF-" in head[:1024]
+        file_type = ALLOWED_ACTIVITY_EXTENSIONS[ext]
+
+        # Judge the file by its content, not just its name.
+        if file_type == Activity.TYPE_PDF and not is_pdf_bytes:
+            raise forms.ValidationError(
+                "This file isn't a valid PDF, even though its name ends in .pdf.")
+        if file_type == Activity.TYPE_HTML and is_pdf_bytes:
+            raise forms.ValidationError(
+                "This is a PDF with an .html file name. Rename it to .pdf and upload it again.")
+        return f

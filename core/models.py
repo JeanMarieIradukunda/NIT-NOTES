@@ -10,6 +10,10 @@ The schema mirrors the curriculum's own shape:
 Resource covers everything that isn't a lesson page: PDFs, past papers,
 interactive assessment pages, images, code samples, video.
 
+Activity is a single HTML or PDF document filed under a Module and Topic
+(Unit) — independent of any specific Lesson. Creating one only ever requires
+picking the Module, picking the Topic, and uploading the document.
+
 StudentActivity is one row per (user, lesson) and carries bookmarking,
 completion and reading progress — backed by the database, since the platform
 has real accounts.
@@ -28,6 +32,7 @@ import re
 import uuid
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.core.validators import FileExtensionValidator
 from django.db import models
@@ -69,6 +74,13 @@ def upload_note_path(instance, filename):
     """Random file name: no collisions, and nothing guessable from the URL/disk."""
     ext = os.path.splitext(filename)[1].lower()
     return (f"module_notes/{instance.module.trade.key}/{instance.module.key}/"
+            f"{uuid.uuid4().hex}{ext}")
+
+
+def upload_activity_path(instance, filename):
+    """Random file name: no collisions, and nothing guessable from the URL/disk."""
+    ext = os.path.splitext(filename)[1].lower()
+    return (f"activities/{instance.module.trade.key}/{instance.module.key}/"
             f"{uuid.uuid4().hex}{ext}")
 
 
@@ -304,6 +316,104 @@ class Resource(models.Model):
     @property
     def size_display(self):
         return human_size(self.size_bytes)
+
+
+class Activity(models.Model):
+    """
+    A learning activity: a single HTML or PDF document filed under a Module
+    and Topic (Unit).
+
+    Deliberately independent of any specific Lesson — a Trainer only needs to
+    pick the Module and Topic it belongs to and upload the document; nothing
+    else is required. `document_type`, `original_filename` and `size_bytes`
+    are derived automatically from the uploaded file on save.
+    """
+
+    TYPE_PDF = "pdf"
+    TYPE_HTML = "html"
+    TYPE_CHOICES = [(TYPE_PDF, "PDF"), (TYPE_HTML, "HTML")]
+    ALLOWED_EXTENSIONS = ["pdf", "html", "htm"]
+
+    module = models.ForeignKey(Module, related_name="activities", on_delete=models.CASCADE)
+    topic = models.ForeignKey(
+        Unit, related_name="activities", on_delete=models.CASCADE, verbose_name="Topic",
+        help_text="The learning outcome / topic (within the selected module) this "
+                   "activity belongs to.")
+    title = models.CharField(
+        max_length=220, blank=True,
+        help_text="Optional — left blank, this defaults to the uploaded file's name.")
+
+    document = models.FileField(
+        upload_to=upload_activity_path, max_length=400,
+        validators=[FileExtensionValidator(allowed_extensions=ALLOWED_EXTENSIONS)],
+        help_text="Upload an HTML (.html/.htm) or PDF (.pdf) file.")
+    document_type = models.CharField(max_length=4, choices=TYPE_CHOICES, blank=True,
+                                      editable=False)
+    original_filename = models.CharField(max_length=260, blank=True, editable=False)
+    size_bytes = models.PositiveIntegerField(default=0, editable=False)
+
+    is_published = models.BooleanField(
+        default=True, help_text="Unpublished activities are hidden from students.")
+    order = models.PositiveSmallIntegerField(default=99)
+
+    # SET_NULL, not CASCADE: removing a Trainer's account must not silently
+    # delete activities students may already be using.
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="activities")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["order", "title"]
+        verbose_name_plural = "activities"
+
+    def __str__(self):
+        return self.title or self.original_filename or f"Activity #{self.pk}"
+
+    # -- validation ----------------------------------------------------------
+    def clean(self):
+        # Enforced here (not just in the form) so this invariant holds no
+        # matter how an Activity is created — admin, form, shell, or script.
+        if self.module_id and self.topic_id and self.topic.module_id != self.module_id:
+            raise ValidationError(
+                {"topic": "This topic doesn't belong to the selected module."})
+
+    # -- persistence -----------------------------------------------------------
+    def save(self, *args, **kwargs):
+        if self.document:
+            ext = os.path.splitext(self.document.name)[1].lower().lstrip(".")
+            self.document_type = self.TYPE_HTML if ext == "htm" else ext
+            if not self.original_filename:
+                self.original_filename = os.path.basename(self.document.name)[:260]
+            try:
+                self.size_bytes = self.document.size
+            except (ValueError, OSError):
+                pass
+        if not self.title:
+            stem = os.path.splitext(self.original_filename)[0] if self.original_filename else ""
+            self.title = stem[:220] or f"Activity #{self.pk or ''}".strip()
+        super().save(*args, **kwargs)
+
+    # -- helpers ---------------------------------------------------------------
+    @property
+    def is_pdf(self):
+        return self.document_type == self.TYPE_PDF
+
+    @property
+    def is_html(self):
+        return self.document_type == self.TYPE_HTML
+
+    @property
+    def size_display(self):
+        return human_size(self.size_bytes)
+
+
+@receiver(post_delete, sender=Activity)
+def _remove_activity_file(sender, instance, **kwargs):
+    """Deleting an activity (or its module/topic) must not leave the file on disk."""
+    if instance.document:
+        instance.document.delete(save=False)
 
 
 class StudentActivity(models.Model):

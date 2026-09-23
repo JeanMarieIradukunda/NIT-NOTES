@@ -37,6 +37,7 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
 ALLOWED_HOSTS = list({
     *(h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h.strip()),
     ".vercel.app",
+    "",
 })
 
 INSTALLED_APPS = [
@@ -230,6 +231,7 @@ PRIVATE_MEDIA_ROOT = Path(os.environ.get("PRIVATE_MEDIA_ROOT") or (BASE_DIR / "p
 
 # Size cap for one module-notes file (PDF or HTML), in megabytes.
 MAX_NOTE_SIZE_MB = int(os.environ.get("MAX_NOTE_SIZE_MB") or "25")
+MAX_ACTIVITY_SIZE_MB = int(os.environ.get("MAX_ACTIVITY_SIZE_MB") or "25")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

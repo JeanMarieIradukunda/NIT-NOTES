@@ -14,15 +14,17 @@ from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.core.exceptions import ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from core.forms import ActivityForm
 from core.html_processing import process_lesson_html
-from core.models import (Lesson, Module, ModuleNote, Resource, StudentActivity,
-                         Trade, Unit)
+from core.models import (Activity, Lesson, Module, ModuleNote, Resource,
+                         StudentActivity, Trade, Unit)
 
 User = get_user_model()
 
@@ -623,3 +625,79 @@ class NotebookStyling(TestCase):
                     part.startswith("#note-prose") or ".reader-card:has(> #note-prose)" in part
                     or part.startswith("main header.mb-4:not(.lesson-head)"),
                     f"unscoped selector in notebook section: {part!r}")
+
+
+class ActivityTests(TestCase):
+    """Creating an Activity only ever needs a Module, a Topic and a document."""
+
+    def setUp(self):
+        self.trade = Trade.objects.create(key="L4", name="Level 4")
+        self.module = Module.objects.create(trade=self.trade, key="GENCP302",
+                                            code="GENCP302", name="C Programming")
+        self.other_module = Module.objects.create(trade=self.trade, key="GENDB301",
+                                                   code="GENDB301", name="Databases")
+        self.topic = Unit.objects.create(module=self.module, code="LO2", title="Loops")
+        self.other_topic = Unit.objects.create(module=self.other_module, code="LO1",
+                                               title="Tables")
+
+    def _pdf(self, name="worksheet.pdf"):
+        return SimpleUploadedFile(name, PDF_BYTES, content_type="application/pdf")
+
+    def _html(self, name="worksheet.html"):
+        return SimpleUploadedFile(name, HTML_OK, content_type="text/html")
+
+    def test_model_only_requires_module_topic_and_document(self):
+        activity = Activity(module=self.module, topic=self.topic, document=self._pdf())
+        activity.full_clean()
+        activity.save()
+        self.assertEqual(activity.document_type, Activity.TYPE_PDF)
+        self.assertTrue(activity.is_pdf)
+        self.assertEqual(activity.original_filename, "worksheet.pdf")
+        self.assertTrue(activity.size_bytes > 0)
+        # No title was given — it's derived from the file name automatically.
+        self.assertEqual(activity.title, "worksheet")
+
+    def test_html_document_is_accepted_too(self):
+        activity = Activity(module=self.module, topic=self.topic, document=self._html())
+        activity.full_clean()
+        activity.save()
+        self.assertTrue(activity.is_html)
+
+    def test_topic_must_belong_to_the_selected_module(self):
+        activity = Activity(module=self.module, topic=self.other_topic, document=self._pdf())
+        with self.assertRaises(ValidationError):
+            activity.full_clean()
+
+    def test_disallowed_extension_is_rejected_at_the_field_level(self):
+        bad = SimpleUploadedFile("notes.txt", b"hello", content_type="text/plain")
+        activity = Activity(module=self.module, topic=self.topic, document=bad)
+        with self.assertRaises(ValidationError):
+            activity.full_clean()
+
+    def test_form_only_requires_module_topic_and_document(self):
+        form = ActivityForm(data={"module": self.module.pk, "topic": self.topic.pk,
+                                  "title": "", "is_published": True, "order": 99},
+                            files={"document": self._pdf()})
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_form_rejects_a_pdf_named_html_by_sniffing_content(self):
+        fake = SimpleUploadedFile("notes.html", PDF_BYTES, content_type="text/html")
+        form = ActivityForm(data={"module": self.module.pk, "topic": self.topic.pk,
+                                  "is_published": True, "order": 99},
+                            files={"document": fake})
+        self.assertFalse(form.is_valid())
+        self.assertIn("document", form.errors)
+
+    def test_deleting_an_activity_removes_its_file_from_disk(self):
+        activity = Activity.objects.create(module=self.module, topic=self.topic,
+                                           document=self._pdf())
+        path = activity.document.path
+        self.assertTrue(Path(path).exists())
+        activity.delete()
+        self.assertFalse(Path(path).exists())
+
+    def test_purge_module_data_removes_activities(self):
+        Activity.objects.create(module=self.module, topic=self.topic, document=self._pdf())
+        out = StringIO()
+        call_command("purge_module_data", "--yes", stdout=out)
+        self.assertEqual(Activity.objects.count(), 0)

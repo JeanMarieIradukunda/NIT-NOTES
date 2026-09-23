@@ -4,10 +4,11 @@ manage.py purge_module_data
 Removes every module-related record and file so the platform starts from a
 clean, empty module database — while leaving the platform itself intact:
 
-  removed   Modules, Units, Lessons, Resources, Trainer module notes, upload
-            records, student reading activity (bookmarks / progress), the
-            admin-log entries about those objects, and the files behind them
-            (media/legacy, media/resources, media/lesson_uploads and the private
+  removed   Modules, Units, Lessons, Resources, Activities, Trainer module
+            notes, upload records, student reading activity (bookmarks /
+            progress), the admin-log entries about those objects, and the
+            files behind them (media/legacy, media/resources,
+            media/lesson_uploads, media/activities and the private
             module-notes folder). Trainers' module assignments go with the
             modules they pointed at.
 
@@ -29,17 +30,19 @@ from django.core.management.base import BaseCommand, CommandError
 from django.core.management.color import no_style
 from django.db import connection, transaction
 
-from core.models import (Lesson, LessonUpload, Module, ModuleNote, Resource,
-                         StudentActivity, Trade, Unit)
+from core.models import (Activity, Lesson, LessonUpload, Module, ModuleNote,
+                         Resource, StudentActivity, Trade, Unit)
 
 # Deletion order: children first, so the report reads naturally.
-MODEL_ORDER = [ModuleNote, StudentActivity, LessonUpload, Lesson, Resource, Unit, Module]
+MODEL_ORDER = [ModuleNote, StudentActivity, LessonUpload, Activity, Lesson,
+              Resource, Unit, Module]
 
 
 def _file_dirs():
     media, private = Path(settings.MEDIA_ROOT), Path(settings.PRIVATE_MEDIA_ROOT)
     return [(media, media / "legacy"), (media, media / "resources"),
-            (media, media / "lesson_uploads"), (private, private / "module_notes")]
+            (media, media / "lesson_uploads"), (media, media / "activities"),
+            (private, private / "module_notes")]
 
 
 class Command(BaseCommand):
