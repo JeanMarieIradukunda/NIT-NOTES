@@ -8,16 +8,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter+Display:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
 <style>
-  /* ---- Minimalist Premium Design Tokens ---- */
+  /* ---- Design Tokens ---- */
   :root {
-    /* Google Fonts */
     --font-heading: 'Inter Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    
-    /* Modern Slate & Indigo Palette */
-    --clr-bg-main: #f8fafc;
+
+    --clr-bg-main: #f5f6fb;
     --clr-card: #ffffff;
-    
+
     --clr-brand: #4f46e5;
     --clr-brand-hover: #4338ca;
     --clr-brand-subtle: #eef2ff;
@@ -26,7 +24,7 @@
     --clr-success: #10b981;
     --clr-success-subtle: #ecfdf5;
     --clr-success-border: #a7f3d0;
-    
+
     --clr-amber: #f59e0b;
     --clr-amber-subtle: #fffbeb;
     --clr-amber-border: #fde68a;
@@ -34,20 +32,19 @@
     --clr-text-main: #0f172a;
     --clr-text-muted: #64748b;
     --clr-text-light: #94a3b8;
-    
+
     --clr-border-subtle: #e2e8f0;
     --clr-border-hover: #cbd5e1;
 
-    /* Elevation & Shapes */
     --radius-sm: 8px;
     --radius-md: 14px;
-    --radius-lg: 20px;
+    --radius-lg: 22px;
     --radius-full: 9999px;
-    
+
     --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
     --shadow-md: 0 4px 16px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
     --shadow-hover: 0 12px 28px -4px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(15, 23, 42, 0.03);
-    
+
     --transition-fast: cubic-bezier(0.16, 1, 0.3, 1) 0.15s;
     --transition-smooth: cubic-bezier(0.16, 1, 0.3, 1) 0.25s;
   }
@@ -66,7 +63,73 @@
     color: var(--clr-text-main);
   }
 
-  /* ---- Refined Base UI Components ---- */
+  .dash-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  @media (max-width: 991.98px) {
+    .dash-shell { grid-template-columns: 1fr; }
+  }
+
+  /* ---- Hero banner ---- */
+  .dash-hero {
+    background: linear-gradient(135deg, #4f46e5 0%, #4338ca 60%, #3730a3 100%);
+    border-radius: var(--radius-lg);
+    padding: 2rem 2rem 1.75rem;
+    color: #fff;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .dash-hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(120% 140% at 100% 0%, rgba(255,255,255,0.14), transparent 55%);
+    pointer-events: none;
+  }
+
+  .dash-hero h1 {
+    color: #fff;
+    font-size: 1.5rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .dash-hero p {
+    color: rgba(255,255,255,0.78);
+    margin-bottom: 0;
+    font-size: 0.9rem;
+    max-width: 46ch;
+  }
+
+  .dash-hero-stats {
+    display: flex;
+    gap: 1.75rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+    position: relative;
+  }
+
+  .dash-hero-stat .num {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1.4rem;
+    line-height: 1;
+    display: block;
+  }
+
+  .dash-hero-stat .lbl {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.72);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  /* ---- Base card ---- */
   .panel {
     background: var(--clr-card);
     border: 1px solid var(--clr-border-subtle);
@@ -95,7 +158,6 @@
     width: 100%;
   }
 
-  /* Compact Minimal Icon Chips */
   .icon-chip {
     display: inline-flex;
     align-items: center;
@@ -110,21 +172,11 @@
     transition: transform var(--transition-fast);
   }
 
-  .icon-chip--amber {
-    background: var(--clr-amber-subtle);
-    color: var(--clr-amber);
-  }
+  .icon-chip--amber { background: var(--clr-amber-subtle); color: var(--clr-amber); }
+  .icon-chip--slate { background: #f1f5f9; color: var(--clr-text-muted); }
 
-  .icon-chip--slate {
-    background: #f1f5f9;
-    color: var(--clr-text-muted);
-  }
+  .panel-link:hover .icon-chip { transform: scale(1.05); }
 
-  .panel-link:hover .icon-chip {
-    transform: scale(1.05);
-  }
-
-  /* Minimal Typography Badges */
   .code-badge {
     display: inline-flex;
     align-items: center;
@@ -140,26 +192,18 @@
     text-transform: uppercase;
   }
 
-  /* Clean Section Headers */
+  .text-muted-2 { color: var(--clr-text-muted) !important; }
+
   .section-head {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    margin-top: 2.75rem;
+    margin-top: 2.5rem;
     margin-bottom: 1rem;
   }
 
-  .section-head h2 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin: 0;
-  }
-
-  .section-head .sub {
-    margin: 0;
-    font-size: 0.825rem;
-    color: var(--clr-text-muted);
-  }
+  .section-head h2 { font-size: 1.05rem; font-weight: 600; margin: 0; }
+  .section-head .sub { margin: 0; font-size: 0.8rem; color: var(--clr-text-muted); }
 
   .section-head .link {
     margin-left: auto;
@@ -173,54 +217,17 @@
     transition: gap var(--transition-fast);
   }
 
-  .section-head .link:hover {
-    gap: 0.5rem;
-  }
+  .section-head .link:hover { gap: 0.5rem; }
 
-  /* ---- "Just Published" Horizontal Feed ---- */
-  .whats-new { margin-top: 1.5rem; }
-
-  .whats-new-head {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 1.25rem;
-  }
-
-  .whats-new-head .bell {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: var(--radius-full);
-    background: var(--clr-brand-subtle);
-    color: var(--clr-brand);
-    border: 1px solid var(--clr-brand-border);
-    flex: none;
-    animation: bell-ring 4s ease-in-out infinite;
-  }
-
-  .whats-new-head h2 { margin: 0; font-weight: 600; font-size: 1.05rem; }
-  .whats-new-head .sub { margin: 0; color: var(--clr-text-muted); font-size: 0.825rem; }
-
+  /* ---- Just Published: full grid, no scrolling ---- */
   .whats-new-track {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
     gap: 1rem;
-    overflow-x: auto;
-    padding: 0.25rem 0.25rem 0.85rem 0.25rem;
-    scroll-snap-type: x proximity;
   }
-
-  .whats-new-track::-webkit-scrollbar { height: 4px; }
-  .whats-new-track::-webkit-scrollbar-track { background: transparent; }
-  .whats-new-track::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: var(--radius-full); }
 
   .new-card {
-    scroll-snap-align: start;
     position: relative;
-    flex: 0 0 auto;
-    width: 280px;
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
@@ -244,11 +251,12 @@
     color: inherit;
   }
 
-  .new-card:nth-child(1) { animation-delay: .05s; }
-  .new-card:nth-child(2) { animation-delay: .10s; }
-  .new-card:nth-child(3) { animation-delay: .15s; }
-  .new-card:nth-child(4) { animation-delay: .20s; }
-  .new-card:nth-child(5) { animation-delay: .25s; }
+  .new-card:nth-child(1) { animation-delay: .03s; }
+  .new-card:nth-child(2) { animation-delay: .06s; }
+  .new-card:nth-child(3) { animation-delay: .09s; }
+  .new-card:nth-child(4) { animation-delay: .12s; }
+  .new-card:nth-child(5) { animation-delay: .15s; }
+  .new-card:nth-child(6) { animation-delay: .18s; }
 
   .new-card .badge-new {
     position: absolute;
@@ -290,10 +298,8 @@
     overflow: hidden;
   }
 
-  .text-muted-2 { color: var(--clr-text-muted) !important; }
-
   .empty-state {
-    padding: 3rem 1.5rem;
+    padding: 2.5rem 1.5rem;
     text-align: center;
     background: var(--clr-card);
     border: 1px dashed var(--clr-border-subtle);
@@ -303,7 +309,29 @@
   .empty-state h3 { font-size: 0.975rem; font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.25rem; }
   .empty-state p { font-size: 0.825rem; color: var(--clr-text-muted); margin-bottom: 1.25rem; max-width: 400px; margin-left: auto; margin-right: auto; }
 
-  /* Custom Clean Buttons Override */
+  /* ---- Sidebar workspace cards (stacked, not full-width bars) ---- */
+  .side-stack { display: flex; flex-direction: column; gap: 1rem; }
+
+  .ws-card .panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.35rem;
+  }
+
+  .ws-card .ws-top { display: flex; align-items: center; gap: 0.75rem; }
+  .ws-card .ws-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .ws-card .ws-actions .btn { flex: 1; }
+
+  /* ---- Continue learning banner ---- */
+  .resume-banner {
+    background: linear-gradient(120deg, var(--clr-brand-subtle), #ffffff 65%);
+  }
+
+  /* ---- Level cards ---- */
+  .level-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.85rem; }
+
+  /* ---- Buttons ---- */
   .btn-primary {
     background-color: var(--clr-brand);
     border-color: var(--clr-brand);
@@ -332,24 +360,13 @@
     color: var(--clr-text-main);
   }
 
-  /* Micro Animations */
   @keyframes card-in {
     from { opacity: 0; transform: translateY(12px); }
     to   { opacity: 1; transform: translateY(0); }
   }
 
-  @keyframes bell-ring {
-    0%, 100% { transform: rotate(0); }
-    3%  { transform: rotate(-12deg); }
-    6%  { transform: rotate(10deg); }
-    9%  { transform: rotate(-8deg); }
-    12% { transform: rotate(6deg); }
-    15% { transform: rotate(0); }
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .new-card, .whats-new-empty { animation: none; opacity: 1; transform: none; }
-    .whats-new-head .bell { animation: none; }
+    .new-card { animation: none; opacity: 1; transform: none; }
   }
 </style>
 {% endblock %}
@@ -357,176 +374,204 @@
 {% block content %}
 <div class="container-xxl pb-5">
 
-  <!-- Just Published Spotlight -->
-  <section class="whats-new" aria-labelledby="whats-new-title">
-    <div class="whats-new-head">
-      <span class="bell"><i class="bi bi-bell-fill" aria-hidden="true"></i></span>
-      <div>
-        <h2 id="whats-new-title">Just published</h2>
-        <p class="sub">Fresh notes from your trainers, newest first</p>
-      </div>
-    </div>
-
-    {% if latest_notes %}
-    <div class="whats-new-track" role="list">
-      {% for n in latest_notes %}
-      <a href="{{ n.get_absolute_url }}" class="new-card" role="listitem">
-        {% if forloop.counter <= 3 %}<span class="badge-new">NEW</span>{% endif %}
-        <span class="type-tile type-tile--{{ n.file_type }}">
-          <i class="bi {% if n.is_pdf %}bi-file-earmark-pdf{% else %}bi-filetype-html{% endif %}"></i>
-        </span>
-        <span class="title">{{ n.title }}</span>
-        <span class="small text-muted-2 d-flex align-items-center gap-2">
-          <span class="code-badge">{{ n.module.code }}</span> 
-          <span class="text-truncate">{{ n.module.name }}</span>
-        </span>
-        <span class="small text-muted-2 mt-auto pt-2 border-top">
-          {{ n.published_at|date:"j M Y" }}{% if n.uploaded_by %} · {{ n.uploaded_by.first_name|default:n.uploaded_by.username }}{% endif %}
-        </span>
-      </a>
-      {% endfor %}
-    </div>
-    {% else %}
-    <div class="empty-state whats-new-empty">
-      <span class="icon-chip icon-chip--slate mb-2"><i class="bi bi-file-earmark-text"></i></span>
-      <h3>No notes published yet</h3>
-      <p>{% if request.is_trainer %}Add your first module notes — upload a PDF or HTML file and publish it for students.{% else %}Trainers are currently adding notes. Please check back soon.{% endif %}</p>
-      {% if request.is_trainer %}<a class="btn btn-primary btn-sm" href="{% url 'core:note_create' %}"><i class="bi bi-plus-lg me-1"></i>Add module notes</a>{% endif %}
-    </div>
-    {% endif %}
-  </section>
-
-  <!-- Trainer Workspaces -->
-  {% if my_notes is not None %}
-  <section class="panel mt-4" aria-labelledby="ws-title">
-    <div class="panel-body d-flex flex-wrap align-items-center gap-3">
-      <span class="icon-chip"><i class="bi bi-person-workspace"></i></span>
-      <div class="me-auto">
-        <h2 class="fs-6 mb-1 fw-semibold" id="ws-title">{% if request.is_admin_role %}Notes workspace{% else %}Your trainer workspace{% endif %}</h2>
-        <p class="mb-0 small text-muted-2">
-          {% if my_notes.total %}
-            {{ my_notes.published }} published · {{ my_notes.drafts }} draft{{ my_notes.drafts|pluralize }}
-            {% if request.is_admin_role %}across all trainers{% endif %}
-          {% else %}
-            Upload PDF or HTML notes for a module and publish them for students.
-          {% endif %}
-        </p>
-      </div>
-      {% if my_notes.total %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'core:notes_manage' %}">Manage notes</a>{% endif %}
-      <a class="btn btn-sm btn-primary" href="{% url 'core:note_create' %}"><i class="bi bi-plus-lg me-1"></i>Add module notes</a>
+  <!-- Hero -->
+  <section class="dash-hero mb-4" aria-labelledby="dash-hero-title">
+    <h1 id="dash-hero-title">{% if request.is_trainer %}Trainer dashboard{% else %}Welcome back{% endif %}</h1>
+    <p>Module notes, lessons and past papers for National IT levels 3 to 5.</p>
+    <div class="dash-hero-stats">
+      {% if stats.notes %}
+      <div class="dash-hero-stat"><span class="num">{{ stats.notes }}</span><span class="lbl">Notes</span></div>
+      {% endif %}
+      {% if stats.lessons %}
+      <div class="dash-hero-stat"><span class="num">{{ stats.lessons }}</span><span class="lbl">Lessons</span></div>
+      {% endif %}
+      {% if my_notes is not None and my_notes.total %}
+      <div class="dash-hero-stat"><span class="num">{{ my_notes.total }}</span><span class="lbl">Your notes</span></div>
+      {% endif %}
+      {% if my_activities is not None and my_activities.total %}
+      <div class="dash-hero-stat"><span class="num">{{ my_activities.total }}</span><span class="lbl">Your activities</span></div>
+      {% endif %}
     </div>
   </section>
-  {% endif %}
 
-  {% if my_activities is not None %}
-  <section class="panel mt-3" aria-labelledby="ws-activities-title">
-    <div class="panel-body d-flex flex-wrap align-items-center gap-3">
-      <span class="icon-chip icon-chip--amber"><i class="bi bi-clipboard2-check"></i></span>
-      <div class="me-auto">
-        <h2 class="fs-6 mb-1 fw-semibold" id="ws-activities-title">{% if request.is_admin_role %}Activities workspace{% else %}Your activities{% endif %}</h2>
-        <p class="mb-0 small text-muted-2">
-          {% if my_activities.total %}
-            {{ my_activities.published }} published · {{ my_activities.drafts }} draft{{ my_activities.drafts|pluralize }}
-            {% if request.is_admin_role %}across all trainers{% endif %}
-          {% else %}
-            Choose a module and topic, upload activity documents, and publish them for students.
-          {% endif %}
-        </p>
+  <div class="dash-shell">
+    <!-- Main column -->
+    <div class="dash-main">
+
+      <!-- Just Published -->
+      <section aria-labelledby="whats-new-title">
+        <div class="section-head">
+          <span class="icon-chip"><i class="bi bi-bell-fill" aria-hidden="true"></i></span>
+          <div>
+            <h2 id="whats-new-title">Just published</h2>
+            <p class="sub">Fresh notes from your trainers, newest first</p>
+          </div>
+        </div>
+
+        {% if latest_notes %}
+        <div class="whats-new-track" role="list">
+          {% for n in latest_notes %}
+          <a href="{{ n.get_absolute_url }}" class="new-card" role="listitem">
+            {% if forloop.counter <= 3 %}<span class="badge-new">NEW</span>{% endif %}
+            <span class="type-tile type-tile--{{ n.file_type }}">
+              <i class="bi {% if n.is_pdf %}bi-file-earmark-pdf{% else %}bi-filetype-html{% endif %}"></i>
+            </span>
+            <span class="title">{{ n.title }}</span>
+            <span class="small text-muted-2 d-flex align-items-center gap-2">
+              <span class="code-badge">{{ n.module.code }}</span>
+              <span class="text-truncate">{{ n.module.name }}</span>
+            </span>
+            <span class="small text-muted-2 mt-auto pt-2 border-top">
+              {{ n.published_at|date:"j M Y" }}{% if n.uploaded_by %} · {{ n.uploaded_by.first_name|default:n.uploaded_by.username }}{% endif %}
+            </span>
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <span class="icon-chip icon-chip--slate mb-2"><i class="bi bi-file-earmark-text"></i></span>
+          <h3>No notes published yet</h3>
+          <p>{% if request.is_trainer %}Add your first module notes — upload a PDF or HTML file and publish it for students.{% else %}Trainers are currently adding notes. Please check back soon.{% endif %}</p>
+          {% if request.is_trainer %}<a class="btn btn-primary btn-sm" href="{% url 'core:note_create' %}"><i class="bi bi-plus-lg me-1"></i>Add module notes</a>{% endif %}
+        </div>
+        {% endif %}
+      </section>
+
+      <!-- Resume Learning -->
+      {% if resume %}
+      <div class="section-head">
+        <span class="icon-chip"><i class="bi bi-play-circle"></i></span>
+        <h2>Continue learning</h2>
       </div>
-      {% if my_activities.total %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'core:activities_manage' %}">Manage activities</a>{% endif %}
-      <a class="btn btn-sm btn-primary" href="{% url 'core:activity_create' %}"><i class="bi bi-plus-lg me-1"></i>Add activity</a>
-    </div>
-  </section>
-  {% endif %}
-
-  <!-- Resume Learning -->
-  {% if resume %}
-  <div class="section-head">
-    <span class="icon-chip"><i class="bi bi-play-circle"></i></span>
-    <h2>Continue learning</h2>
-  </div>
-  <a href="{{ resume.lesson.get_absolute_url }}" class="panel panel-link panel-body">
-    <span class="code-badge align-self-start mb-2">{{ resume.lesson.module.code }}</span>
-    <span class="title fs-5 fw-semibold d-block text-dark">{{ resume.lesson.title }}</span>
-    <span class="small text-muted-2 mt-1 d-block">{{ resume.lesson.module.name }} · {{ resume.progress_pct }}% read · {{ resume.lesson.minutes }} min</span>
-  </a>
-  {% endif %}
-
-  <!-- Levels -->
-  <div class="section-head">
-    <span class="icon-chip"><i class="bi bi-diagram-3"></i></span>
-    <div>
-      <h2>Levels</h2>
-      <p class="sub">Choose a level to explore modules</p>
-    </div>
-    <a href="{% url 'core:browse' %}" class="link">Browse all <i class="bi bi-arrow-right"></i></a>
-  </div>
-  
-  <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
-    {% for trade in trades %}
-    {% with notes=trade.note_count lessons=trade.lesson_count %}
-    {% if notes or lessons %}
-    <div class="col">
-      <a href="{% url 'core:browse' %}?trade={{ trade.key }}" class="panel panel-link panel-body h-100 flex-column">
-        <span class="title fs-6 fw-semibold mb-1 text-dark">{{ trade.name }}</span>
-        <span class="small text-muted-2 mb-3 lh-sm">{{ trade.summary }}</span>
-        <span class="small text-muted-2 mt-auto d-flex gap-3 pt-2 border-top">
-          <span><i class="bi bi-collection me-1"></i>{{ trade.modules.count }} module{{ trade.modules.count|pluralize }}</span>
-          <span><i class="bi bi-file-earmark-text me-1"></i>{{ notes }} note{{ notes|pluralize }}</span>
-          {% if lessons %}<span><i class="bi bi-journal-text me-1"></i>{{ lessons }} lesson{{ lessons|pluralize }}</span>{% endif %}
-        </span>
+      <a href="{{ resume.lesson.get_absolute_url }}" class="panel panel-link panel-body resume-banner">
+        <span class="code-badge align-self-start mb-2">{{ resume.lesson.module.code }}</span>
+        <span class="title fs-5 fw-semibold d-block text-dark">{{ resume.lesson.title }}</span>
+        <span class="small text-muted-2 mt-1 d-block">{{ resume.lesson.module.name }} · {{ resume.progress_pct }}% read · {{ resume.lesson.minutes }} min</span>
       </a>
-    </div>
-    {% endif %}
-    {% endwith %}
-    {% endfor %}
-  </div>
-  
-  {% if not stats.notes and not stats.lessons %}
-  <div class="empty-state mt-3">
-    <span class="icon-chip icon-chip--slate"><i class="bi bi-diagram-3"></i></span>
-    <h3>Levels will appear here</h3>
-    <p>A level shows up once a module inside it has published notes or lessons.</p>
-  </div>
-  {% endif %}
+      {% endif %}
 
-  <!-- Recently Viewed -->
-  {% if recents %}
-  <div class="section-head">
-    <span class="icon-chip icon-chip--slate"><i class="bi bi-clock-history"></i></span>
-    <h2>Recently viewed</h2>
-  </div>
-  <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
-    {% for a in recents %}
-    <div class="col">
-      <a href="{{ a.lesson.get_absolute_url }}" class="panel panel-link panel-body h-100 flex-column">
-        <span class="code-badge align-self-start mb-2">{{ a.lesson.module.code }}</span>
-        <span class="title fw-semibold mb-1 text-dark">{{ a.lesson.title }}</span>
-        <span class="small text-muted-2">{{ a.lesson.module.name }}</span>
-        <span class="small text-muted-2 mt-auto pt-2 border-top">{{ a.last_viewed|timesince }} ago{% if a.progress_pct %} · {{ a.progress_pct }}% read{% endif %}</span>
-      </a>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
+      <!-- Levels -->
+      <div class="section-head">
+        <span class="icon-chip"><i class="bi bi-diagram-3"></i></span>
+        <div>
+          <h2>Levels</h2>
+          <p class="sub">Choose a level to explore modules</p>
+        </div>
+        <a href="{% url 'core:browse' %}" class="link">Browse all <i class="bi bi-arrow-right"></i></a>
+      </div>
 
-  <!-- Saved Lessons -->
-  {% if bookmarks %}
-  <div class="section-head">
-    <span class="icon-chip icon-chip--amber"><i class="bi bi-bookmark-star"></i></span>
-    <h2>Saved lessons</h2>
-  </div>
-  <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
-    {% for a in bookmarks %}
-    <div class="col">
-      <a href="{{ a.lesson.get_absolute_url }}" class="panel panel-link panel-body h-100 flex-column">
-        <span class="code-badge align-self-start mb-2">{{ a.lesson.module.code }}</span>
-        <span class="title fw-semibold mb-1 text-dark">{{ a.lesson.title }}</span>
-        <span class="small text-muted-2">{{ a.lesson.module.name }}</span>
-      </a>
+      <div class="level-grid">
+        {% for trade in trades %}
+        {% with notes=trade.note_count lessons=trade.lesson_count %}
+        {% if notes or lessons %}
+        <a href="{% url 'core:browse' %}?trade={{ trade.key }}" class="panel panel-link panel-body flex-column">
+          <span class="title fs-6 fw-semibold mb-1 text-dark">{{ trade.name }}</span>
+          <span class="small text-muted-2 mb-3 lh-sm">{{ trade.summary }}</span>
+          <span class="small text-muted-2 mt-auto d-flex gap-3 pt-2 border-top">
+            <span><i class="bi bi-collection me-1"></i>{{ trade.modules.count }} module{{ trade.modules.count|pluralize }}</span>
+            <span><i class="bi bi-file-earmark-text me-1"></i>{{ notes }} note{{ notes|pluralize }}</span>
+            {% if lessons %}<span><i class="bi bi-journal-text me-1"></i>{{ lessons }} lesson{{ lessons|pluralize }}</span>{% endif %}
+          </span>
+        </a>
+        {% endif %}
+        {% endwith %}
+        {% endfor %}
+      </div>
+
+      {% if not stats.notes and not stats.lessons %}
+      <div class="empty-state mt-3">
+        <span class="icon-chip icon-chip--slate"><i class="bi bi-diagram-3"></i></span>
+        <h3>Levels will appear here</h3>
+        <p>A level shows up once a module inside it has published notes or lessons.</p>
+      </div>
+      {% endif %}
+
+      <!-- Recently Viewed -->
+      {% if recents %}
+      <div class="section-head">
+        <span class="icon-chip icon-chip--slate"><i class="bi bi-clock-history"></i></span>
+        <h2>Recently viewed</h2>
+      </div>
+      <div class="level-grid">
+        {% for a in recents %}
+        <a href="{{ a.lesson.get_absolute_url }}" class="panel panel-link panel-body flex-column">
+          <span class="code-badge align-self-start mb-2">{{ a.lesson.module.code }}</span>
+          <span class="title fw-semibold mb-1 text-dark">{{ a.lesson.title }}</span>
+          <span class="small text-muted-2">{{ a.lesson.module.name }}</span>
+          <span class="small text-muted-2 mt-auto pt-2 border-top">{{ a.last_viewed|timesince }} ago{% if a.progress_pct %} · {{ a.progress_pct }}% read{% endif %}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
-    {% endfor %}
+
+    <!-- Sidebar column: trainer workspaces + saved lessons -->
+    <aside class="dash-side side-stack">
+      {% if my_notes is not None %}
+      <section class="panel ws-card" aria-labelledby="ws-title">
+        <div class="panel-body">
+          <div class="ws-top">
+            <span class="icon-chip"><i class="bi bi-person-workspace"></i></span>
+            <h2 class="fs-6 mb-0 fw-semibold" id="ws-title">{% if request.is_admin_role %}Notes workspace{% else %}Your trainer workspace{% endif %}</h2>
+          </div>
+          <p class="mb-0 small text-muted-2">
+            {% if my_notes.total %}
+              {{ my_notes.published }} published · {{ my_notes.drafts }} draft{{ my_notes.drafts|pluralize }}
+              {% if request.is_admin_role %}across all trainers{% endif %}
+            {% else %}
+              Upload PDF or HTML notes for a module and publish them for students.
+            {% endif %}
+          </p>
+          <div class="ws-actions">
+            {% if my_notes.total %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'core:notes_manage' %}">Manage notes</a>{% endif %}
+            <a class="btn btn-sm btn-primary" href="{% url 'core:note_create' %}"><i class="bi bi-plus-lg me-1"></i>Add notes</a>
+          </div>
+        </div>
+      </section>
+      {% endif %}
+
+      {% if my_activities is not None %}
+      <section class="panel ws-card" aria-labelledby="ws-activities-title">
+        <div class="panel-body">
+          <div class="ws-top">
+            <span class="icon-chip icon-chip--amber"><i class="bi bi-clipboard2-check"></i></span>
+            <h2 class="fs-6 mb-0 fw-semibold" id="ws-activities-title">{% if request.is_admin_role %}Activities workspace{% else %}Your activities{% endif %}</h2>
+          </div>
+          <p class="mb-0 small text-muted-2">
+            {% if my_activities.total %}
+              {{ my_activities.published }} published · {{ my_activities.drafts }} draft{{ my_activities.drafts|pluralize }}
+              {% if request.is_admin_role %}across all trainers{% endif %}
+            {% else %}
+              Choose a module and topic, upload activity documents, and publish them for students.
+            {% endif %}
+          </p>
+          <div class="ws-actions">
+            {% if my_activities.total %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'core:activities_manage' %}">Manage activities</a>{% endif %}
+            <a class="btn btn-sm btn-primary" href="{% url 'core:activity_create' %}"><i class="bi bi-plus-lg me-1"></i>Add activity</a>
+          </div>
+        </div>
+      </section>
+      {% endif %}
+
+      <!-- Saved Lessons -->
+      {% if bookmarks %}
+      <section aria-labelledby="saved-title">
+        <div class="section-head" style="margin-top: 0;">
+          <span class="icon-chip icon-chip--amber"><i class="bi bi-bookmark-star"></i></span>
+          <h2 id="saved-title">Saved lessons</h2>
+        </div>
+        <div class="side-stack">
+          {% for a in bookmarks %}
+          <a href="{{ a.lesson.get_absolute_url }}" class="panel panel-link panel-body flex-column">
+            <span class="code-badge align-self-start mb-2">{{ a.lesson.module.code }}</span>
+            <span class="title fw-semibold mb-1 text-dark">{{ a.lesson.title }}</span>
+            <span class="small text-muted-2">{{ a.lesson.module.name }}</span>
+          </a>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+    </aside>
   </div>
-  {% endif %}
 </div>
 {% endblock %}
