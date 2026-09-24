@@ -233,6 +233,7 @@
     gap: 0.6rem;
     background: var(--clr-card);
     border: 1px solid var(--clr-border-subtle);
+    border-left: 4px solid hsl(var(--module-hue, 230), 70%, 55%);
     border-radius: var(--radius-md);
     padding: 1.15rem;
     text-decoration: none;
@@ -270,6 +271,12 @@
     color: var(--clr-success);
     background: var(--clr-success-subtle);
     border: 1px solid var(--clr-success-border);
+  }
+
+  .new-card .code-badge {
+    background: hsl(var(--module-hue, 230), 85%, 95%);
+    color: hsl(var(--module-hue, 230), 55%, 32%);
+    border-color: hsl(var(--module-hue, 230), 70%, 85%);
   }
 
   .new-card .type-tile {
@@ -377,7 +384,7 @@
   <!-- Hero -->
   <section class="dash-hero mb-4" aria-labelledby="dash-hero-title">
     <h1 id="dash-hero-title">{% if request.is_trainer %}Trainer dashboard{% else %}Welcome back{% endif %}</h1>
-    <p>Module notes, lessons and past papers for National IT levels 3 to 5.</p>
+    <p>Module notes, lessons and past papers for NIT levels 3 to 5.</p>
     <div class="dash-hero-stats">
       {% if stats.notes %}
       <div class="dash-hero-stat"><span class="num">{{ stats.notes }}</span><span class="lbl">Notes</span></div>
@@ -411,7 +418,7 @@
         {% if latest_notes %}
         <div class="whats-new-track" role="list">
           {% for n in latest_notes %}
-          <a href="{{ n.get_absolute_url }}" class="new-card" role="listitem">
+          <a href="{{ n.get_absolute_url }}" class="new-card" role="listitem" data-module-code="{{ n.module.code }}">
             {% if forloop.counter <= 3 %}<span class="badge-new">NEW</span>{% endif %}
             <span class="type-tile type-tile--{{ n.file_type }}">
               <i class="bi {% if n.is_pdf %}bi-file-earmark-pdf{% else %}bi-filetype-html{% endif %}"></i>
@@ -574,4 +581,25 @@
     </aside>
   </div>
 </div>
+
+<script>
+  // Assign each module a consistent color by hashing its code to a hue.
+  // Same module code always produces the same hue, so notes from the
+  // same module read as one visual group across the page.
+  (function () {
+    function hueForCode(code) {
+      var hash = 0;
+      for (var i = 0; i < code.length; i++) {
+        hash = (hash * 31 + code.charCodeAt(i)) >>> 0;
+      }
+      return hash % 360;
+    }
+    document.querySelectorAll('.new-card[data-module-code]').forEach(function (card) {
+      var code = card.getAttribute('data-module-code');
+      if (code) {
+        card.style.setProperty('--module-hue', hueForCode(code));
+      }
+    });
+  })();
+</script>
 {% endblock %}
