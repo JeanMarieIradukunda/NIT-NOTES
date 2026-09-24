@@ -56,6 +56,28 @@
   </section>
   {% endif %}
 
+  {% if my_activities is not None %}
+  <section class="panel mt-3" aria-labelledby="ws-activities-title">
+    <div class="panel-body d-flex flex-wrap align-items-center gap-3">
+      <span class="icon-chip icon-chip--amber"><i class="bi bi-clipboard2-check"></i></span>
+      <div class="me-auto">
+        <h2 class="fs-6 mb-1" id="ws-activities-title">{% if request.is_admin_role %}Activities workspace{% else %}Your activities{% endif %}</h2>
+        <p class="mb-0 small text-muted-2">
+          {% if my_activities.total %}
+            {{ my_activities.published }} published · {{ my_activities.drafts }} draft{{ my_activities.drafts|pluralize }}
+            {% if request.is_admin_role %}across all trainers{% endif %}
+          {% else %}
+            Choose a module and topic, upload a PDF or HTML activity document, and publish it for students.
+          {% endif %}
+        </p>
+      </div>
+      {% if my_activities.total %}<a class="btn btn-outline-secondary" href="{% url 'core:activities_manage' %}">Manage activities</a>{% endif %}
+      <a class="btn btn-primary" href="{% url 'core:activity_create' %}"><i class="bi bi-plus-lg me-1"></i>Add activity</a>
+    </div>
+  </section>
+  {% endif %}
+
+
   {% if resume %}
   <div class="section-head"><span class="icon-chip"><i class="bi bi-play-circle"></i></span><h2>Continue learning</h2></div>
   <a href="{{ resume.lesson.get_absolute_url }}" class="panel panel-link panel-body">

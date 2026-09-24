@@ -15,6 +15,22 @@ from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load environment variables from a local .env file for development.
+# load_dotenv() never overwrites a variable that's already set in the real
+# process environment (override=False is the default), so this has no
+# effect in production (Vercel), where DATABASE_URL etc. are injected as
+# real env vars — it only fills the gap for `python manage.py ...` on a
+# developer's machine. .env.local takes priority over .env if both exist.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(BASE_DIR / ".env.local")
+    load_dotenv(BASE_DIR / ".env")
+except ImportError:
+    # python-dotenv isn't installed — fall back to whatever's already in
+    # the real environment (e.g. if variables were exported by hand).
+    pass
+
 # --------------------------------------------------------------------------- #
 # Core
 # --------------------------------------------------------------------------- #
@@ -37,7 +53,6 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
 ALLOWED_HOSTS = list({
     *(h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h.strip()),
     ".vercel.app",
-    "",
 })
 
 INSTALLED_APPS = [
@@ -89,28 +104,6 @@ TEMPLATES = [
 WSGI_APPLICATION = "nit_platform.wsgi.application"
 
 
-# --------------------------------------------------------------------------- #
-# Database — Neon Postgres in production, SQLite for local development
-# --------------------------------------------------------------------------- #
-#
-# SQLite doesn't work on Vercel: the deployed function's filesystem is
-# read-only (and ephemeral per-instance even where it isn't), and db.sqlite3
-# is gitignored anyway, so it doesn't exist in the deployed bundle at all —
-# every query fails with "unable to open database file". Use a real Postgres
-# database via DATABASE_URL in production, and keep SQLite only for local
-# development.
-#
-# Neon is the reference target here: connect it from the Vercel dashboard
-# (Storage -> Postgres, or the Neon integration) and Vercel injects
-# DATABASE_URL automatically — nothing to paste in by hand. Any other
-# Postgres provider works the same way, since this is just a standard
-# DATABASE_URL.
-#
-# Neon note: use the *pooled* connection string it gives you (the one with
-# "-pooler" in the hostname), not the direct one. Vercel Functions are
-# short-lived and can run many of them at once, and Neon's pooler is built
-# for exactly that; the direct connection string can exhaust Neon's own
-# connection limit under real traffic.
 import dj_database_url
 
 DATABASE_URL = os.environ.get("DATABASE_URL")

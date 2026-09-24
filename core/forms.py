@@ -309,54 +309,99 @@ ALLOWED_ACTIVITY_EXTENSIONS = {".pdf": Activity.TYPE_PDF, ".html": Activity.TYPE
                                ".htm": Activity.TYPE_HTML}
 
 
+class _TopicSelect(forms.Select):
+    """
+    Tags each <option> with its module id (data-module) so activity-form.js can
+    narrow the Topic list down to whichever Module is currently selected. Pure
+    progressive enhancement — the server re-checks the module/topic pairing
+    regardless (see ActivityForm.clean()), so this never has to be trusted.
+    """
+
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        instance = getattr(value, "instance", None)
+        if instance is not None:
+            option["attrs"]["data-module"] = instance.module_id
+        return option
+
+
 class _TopicChoiceField(forms.ModelChoiceField):
-    """Labels each topic with its module code so it reads sensibly on its own,
-    e.g. in an unfiltered dropdown that spans every module."""
+    """Labels each topic with its module code, so it still reads sensibly
+    before activity-form.js narrows the list to the selected module."""
 
     def label_from_instance(self, obj):
         return f"{obj.module.code} — {obj.title}"
 
 
-class ActivityForm(forms.ModelForm):
+class ActivityForm(forms.Form):
     """
     Add or edit an Activity. Only Module, Topic and the document are ever
-    required — everything else (title, type, size…) is optional or derived
-    automatically. Used by the Django Admin and available for reuse in any
-    future Trainer-facing upload page.
+    required — title is optional (defaults to the uploaded file's name), and
+    publishing is decided by which button is pressed (`intent`), handled in
+    `apply()`, exactly like module notes.
     """
 
+    module = _ModuleChoiceField(
+        queryset=Module.objects.none(), required=True, label="Module",
+        empty_label="Select a module…",
+        widget=forms.Select(attrs={"class": "form-select"}))
     topic = _TopicChoiceField(
-        queryset=Unit.objects.select_related("module").order_by(
-            "module__trade__order", "module__order", "order", "code"),
-        label="Topic",
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
+        queryset=Unit.objects.none(), required=True, label="Topic",
+        empty_label="Select the module above first…",
+        widget=_TopicSelect(attrs={"class": "form-select"}))
+    title = forms.CharField(
+        max_length=220, required=False, label="Title",
+        widget=forms.TextInput(attrs={"class": "form-control",
+                                      "placeholder": "Optional — defaults to the file name"}))
+    document = forms.FileField(
+        required=False, label="Activity document",
+        widget=forms.ClearableFileInput(attrs={"class": "form-control",
+                                               "accept": ".pdf,.html,.htm"}))
 
-    class Meta:
-        model = Activity
-        fields = ["module", "topic", "title", "document", "is_published", "order"]
-        widgets = {
-            "module": forms.Select(attrs={"class": "form-select"}),
-            "title": forms.TextInput(attrs={"class": "form-control",
-                                            "placeholder": "Optional — defaults to the file name"}),
-            "document": forms.ClearableFileInput(attrs={"class": "form-control",
-                                                         "accept": ".pdf,.html,.htm"}),
-            "order": forms.NumberInput(attrs={"class": "form-control", "style": "max-width:8rem"}),
-        }
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user, activity=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.max_bytes = settings.MAX_ACTIVITY_SIZE_MB * 1024 * 1024
-        self.fields["document"].required = not (self.instance and self.instance.pk)
-        if self.instance and self.instance.pk:
+        from accounts.roles import activity_modules_for
+
+        self.user = user
+        self.activity = activity
+        modules = activity_modules_for(user)
+        self.fields["module"].queryset = modules
+        self.fields["topic"].queryset = (
+            Unit.objects.filter(module__in=modules).select_related("module")
+            .order_by("module__trade__order", "module__order", "order", "code"))
+
+        if activity is not None:
+            # Editing: the current module/topic stay selectable even if the
+            # author was later unassigned from that module (an Administrator
+            # editing another Trainer's activity also needs it in the list).
+            self.fields["module"].queryset = (
+                self.fields["module"].queryset | Module.objects.filter(pk=activity.module_id)
+            ).distinct().select_related("trade").order_by("trade__order", "order", "code")
+            self.fields["topic"].queryset = (
+                self.fields["topic"].queryset | Unit.objects.filter(pk=activity.topic_id)
+            ).distinct()
             self.fields["document"].help_text = "Leave empty to keep the current file."
+            self.fields["title"].help_text = "Leave empty to keep the current title."
+        self.max_bytes = settings.MAX_ACTIVITY_SIZE_MB * 1024 * 1024
+
+    def full_clean(self):
+        super().full_clean()
+        # Flag failed inputs for styling and assistive technology.
+        for name in self.errors:
+            field = self.fields.get(name)
+            if field is not None:
+                attrs = field.widget.attrs
+                attrs["class"] = (attrs.get("class", "") + " is-invalid").strip()
+                attrs["aria-invalid"] = "true"
+
+    # -- fields ------------------------------------------------------------
+    def clean_title(self):
+        return re.sub(r"\s+", " ", self.cleaned_data.get("title", "")).strip()
 
     def clean_document(self):
         f = self.cleaned_data.get("document")
-        if not f or not hasattr(f, "size"):
-            # No new upload on an edit (a plain FieldFile, not an UploadedFile) —
-            # nothing further to validate.
-            return f
+        if not f:
+            return None
 
         ext = os.path.splitext(f.name)[1].lower()
         if ext not in ALLOWED_ACTIVITY_EXTENSIONS:
@@ -381,3 +426,55 @@ class ActivityForm(forms.ModelForm):
             raise forms.ValidationError(
                 "This is a PDF with an .html file name. Rename it to .pdf and upload it again.")
         return f
+
+    # -- whole form --------------------------------------------------------
+    def clean(self):
+        cleaned = super().clean()
+        module, topic = cleaned.get("module"), cleaned.get("topic")
+        if module and topic and topic.module_id != module.pk:
+            self.add_error("topic", "This topic doesn't belong to the selected module.")
+        if self.activity is None and not cleaned.get("document") and "document" not in self.errors:
+            self.add_error("document", "Choose a PDF or HTML file to upload.")
+        return cleaned
+
+    # -- persistence -------------------------------------------------------
+    @transaction.atomic
+    def apply(self, intent: str) -> Activity:
+        """
+        Create or update the activity. `intent` is 'draft', 'publish' or 'save'
+        ('save' leaves the published/draft state as it is).
+        """
+        data = self.cleaned_data
+        activity = self.activity or Activity(uploaded_by=self.user)
+        activity.module = data["module"]
+        activity.topic = data["topic"]
+
+        title = data.get("title") or ""
+        if title or not activity.pk:
+            # A blank title on create is fine — Activity.save() derives one
+            # from the file name. A blank title on edit just keeps the
+            # existing one (see the field's help text).
+            activity.title = title
+
+        old_file = None
+        upload = data.get("document")
+        if upload:
+            if activity.pk and activity.document:
+                old_file = (activity.document.storage, activity.document.name)
+            activity.document = upload
+            # document_type / original_filename / size_bytes are derived
+            # automatically from the upload in Activity.save().
+
+        if intent == "publish":
+            activity.is_published = True
+        elif intent == "draft":
+            activity.is_published = False
+        # 'save' leaves is_published as it is.
+
+        activity.full_clean()
+        activity.save()
+
+        if old_file:
+            storage, name = old_file
+            transaction.on_commit(lambda: storage.delete(name))
+        return activity

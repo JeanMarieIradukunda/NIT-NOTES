@@ -6,12 +6,13 @@ Two roles, implemented as Django Groups so they show up in /admin/ with no
 extra machinery: Trainer and Administrator. Students have no account at
 all — they browse, read and download the public library anonymously.
 
-* Trainer       — adds module notes (PDF / HTML), and publishes, edits,
-                   replaces, unpublishes and deletes the notes THEY added.
+* Trainer       — adds module notes (PDF / HTML) and activities (PDF / HTML,
+                   filed under a Module + Topic), and publishes, edits,
+                   replaces, unpublishes and deletes the ones THEY added.
                    Works within the modules assigned to them by an
                    Administrator, plus any module they register themselves
                    while adding notes. Cannot see or touch another Trainer's
-                   modules or notes.
+                   modules, notes or activities.
 * Administrator — full control, including creating and managing Trainer
                    accounts (Django superusers are always treated as
                    Administrators regardless of group membership).
@@ -112,3 +113,29 @@ def note_modules_for(user):
     if not is_trainer(user) or profile is None:
         return qs.none()
     return qs.filter(pk__in=profile.trainer_modules.values_list("pk", flat=True))
+
+
+# --------------------------------------------------------------------------- #
+# Activities
+# --------------------------------------------------------------------------- #
+
+def can_add_activities(user):
+    """Trainers and Administrators may add activities."""
+    return is_trainer(user)
+
+
+def can_manage_activity(user, activity):
+    """
+    An Administrator manages every activity. A Trainer manages only the
+    activities they added themselves — never another Trainer's, even in a
+    shared module.
+    """
+    if is_admin(user):
+        return True
+    return is_trainer(user) and activity.uploaded_by_id is not None \
+        and activity.uploaded_by_id == user.id
+
+
+def activity_modules_for(user):
+    """Modules the user may file activities under — same rule as notes."""
+    return note_modules_for(user)

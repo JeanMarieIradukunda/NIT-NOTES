@@ -34,3 +34,7 @@ markdown>=3.6
 # Production server (swap manage.py runserver for this in deployment)
 gunicorn>=22.0
 whitenoise>=6.6
+
+# Loads .env.local / .env for local development only (never overrides real
+# env vars, so this is a no-op in production on Vercel). See settings.py.
+python-dotenv>=1.0

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Delete activity{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="auth-wrap">
+    <div class="panel panel-body auth-card">
+      <span class="icon-chip icon-chip--amber mb-3" style="background:var(--c-danger-soft);color:var(--c-danger)"><i class="bi bi-trash"></i></span>
+      <h1 class="fs-4 mb-2">Delete this activity?</h1>
+      <p class="text-muted-2">This permanently removes the activity and its uploaded document. It can't be undone.
+        {% if activity.is_published %}It is currently <strong>published</strong> — students will lose access immediately. To hide it without deleting, unpublish instead.{% endif %}</p>
+
+      <div class="current-file">
+        <span class="type-tile type-tile--{{ activity.document_type }}"><i class="bi {% if activity.is_pdf %}bi-file-earmark-pdf{% else %}bi-filetype-html{% endif %}"></i></span>
+        <div style="min-width:0">
+          <div class="fw-semibold text-body-emphasis">{{ activity.title }}</div>
+          <div class="small text-muted-2"><span class="code-badge me-1">{{ activity.module.code }}</span>{{ activity.topic.title }} · {{ activity.original_filename }} · {{ activity.size_display }}</div>
+        </div>
+      </div>
+
+      <form method="post" class="d-flex flex-wrap gap-2">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Delete permanently</button>
+        <a href="{% url 'core:activities_manage' %}" class="btn btn-outline-secondary">Cancel</a>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

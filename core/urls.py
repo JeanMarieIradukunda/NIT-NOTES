@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import note_views, views
+from . import activity_views, note_views, views
 
 app_name = "core"
 
@@ -24,4 +24,13 @@ urlpatterns = [
     path("notes/<int:pk>/edit/", note_views.note_edit, name="note_edit"),
     path("notes/<int:pk>/publish/", note_views.note_toggle_publish, name="note_toggle_publish"),
     path("notes/<int:pk>/delete/", note_views.note_delete, name="note_delete"),
+
+    # Activities — Trainer/Admin workspace (replaces creating these in Django Admin).
+    path("activities/", activity_views.activities_manage, name="activities_manage"),
+    path("activities/new/", activity_views.activity_create, name="activity_create"),
+    path("activities/<int:pk>/file/", activity_views.activity_file, name="activity_file"),
+    path("activities/<int:pk>/edit/", activity_views.activity_edit, name="activity_edit"),
+    path("activities/<int:pk>/publish/", activity_views.activity_toggle_publish,
+        name="activity_toggle_publish"),
+    path("activities/<int:pk>/delete/", activity_views.activity_delete, name="activity_delete"),
 ]

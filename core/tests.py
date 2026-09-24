@@ -21,7 +21,6 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from core.forms import ActivityForm
 from core.html_processing import process_lesson_html
 from core.models import (Activity, Lesson, Module, ModuleNote, Resource,
                          StudentActivity, Trade, Unit)
@@ -627,8 +626,8 @@ class NotebookStyling(TestCase):
                     f"unscoped selector in notebook section: {part!r}")
 
 
-class ActivityTests(TestCase):
-    """Creating an Activity only ever needs a Module, a Topic and a document."""
+class ActivityModelTests(TestCase):
+    """The model itself only ever requires a Module, a Topic and a document."""
 
     def setUp(self):
         self.trade = Trade.objects.create(key="L4", name="Level 4")
@@ -674,20 +673,6 @@ class ActivityTests(TestCase):
         with self.assertRaises(ValidationError):
             activity.full_clean()
 
-    def test_form_only_requires_module_topic_and_document(self):
-        form = ActivityForm(data={"module": self.module.pk, "topic": self.topic.pk,
-                                  "title": "", "is_published": True, "order": 99},
-                            files={"document": self._pdf()})
-        self.assertTrue(form.is_valid(), form.errors)
-
-    def test_form_rejects_a_pdf_named_html_by_sniffing_content(self):
-        fake = SimpleUploadedFile("notes.html", PDF_BYTES, content_type="text/html")
-        form = ActivityForm(data={"module": self.module.pk, "topic": self.topic.pk,
-                                  "is_published": True, "order": 99},
-                            files={"document": fake})
-        self.assertFalse(form.is_valid())
-        self.assertIn("document", form.errors)
-
     def test_deleting_an_activity_removes_its_file_from_disk(self):
         activity = Activity.objects.create(module=self.module, topic=self.topic,
                                            document=self._pdf())
@@ -701,3 +686,179 @@ class ActivityTests(TestCase):
         out = StringIO()
         call_command("purge_module_data", "--yes", stdout=out)
         self.assertEqual(Activity.objects.count(), 0)
+
+
+class ActivityWorkspace(BaseCase):
+    """
+    The Trainer/Admin-facing workspace at /activities/ — the app-level
+    replacement for creating and managing Activity rows in Django Admin.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.module = Module.objects.create(trade=cls.level, key="GENCP302",
+                                           code="GENCP302", name="C Programming")
+        cls.topic = Unit.objects.create(module=cls.module, code="LO2", title="Loops")
+        cls.other_topic = Unit.objects.create(module=cls.module, code="LO3", title="Recursion")
+        cls.alice.profile.trainer_modules.add(cls.module)
+        # Bob is a Trainer but has no modules assigned — mirrors an
+        # unassigned Trainer in AddingNotes-style tests.
+
+    def _pdf(self, name="worksheet.pdf"):
+        return SimpleUploadedFile(name, PDF_BYTES, content_type="application/pdf")
+
+    def post_activity(self, user, *, intent="publish", module=None, topic=None,
+                      title="Loops worksheet", file=None, **extra):
+        self.client.force_login(user)
+        data = {"title": title, "intent": intent,
+                "module": (module or self.module).pk, "topic": (topic or self.topic).pk}
+        data.update(extra)
+        if file is not False:
+            data["document"] = file or self._pdf()
+        return self.client.post(reverse("core:activity_create"), data)
+
+    def make_activity(self, user=None, published=True):
+        self.post_activity(user or self.alice, intent="publish" if published else "draft")
+        return Activity.objects.latest("pk")
+
+    # -- creating ------------------------------------------------------------
+    def test_trainer_can_reach_the_add_page(self):
+        self.client.force_login(self.alice)
+        r = self.client.get(reverse("core:activity_create"))
+        self.assertEqual(r.status_code, 200)
+
+    def test_student_cannot_reach_the_workspace(self):
+        self.client.force_login(self.student)
+        for url in (reverse("core:activities_manage"), reverse("core:activity_create")):
+            self.assertEqual(self.client.get(url).status_code, 403)
+
+    def test_anonymous_is_sent_to_login(self):
+        r = self.client.get(reverse("core:activities_manage"))
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/login", r["Location"])
+
+    def test_creating_only_needs_module_topic_and_document(self):
+        r = self.post_activity(self.alice)
+        self.assertRedirects(r, reverse("core:activities_manage"))
+        activity = Activity.objects.get()
+        self.assertEqual(activity.module, self.module)
+        self.assertEqual(activity.topic, self.topic)
+        self.assertTrue(activity.is_published)
+        self.assertEqual(activity.uploaded_by, self.alice)
+
+    def test_a_blank_title_is_derived_from_the_file_name(self):
+        self.post_activity(self.alice, title="")
+        self.assertEqual(Activity.objects.get().title, "worksheet")
+
+    def test_draft_intent_leaves_it_unpublished(self):
+        self.post_activity(self.alice, intent="draft")
+        self.assertFalse(Activity.objects.get().is_published)
+
+    def test_trainer_cannot_file_an_activity_under_an_unassigned_module(self):
+        other = Module.objects.create(trade=self.level, key="GENDB301",
+                                      code="GENDB301", name="Databases")
+        other_topic = Unit.objects.create(module=other, code="LO1", title="Tables")
+        r = self.post_activity(self.alice, module=other, topic=other_topic)
+        self.assertEqual(r.status_code, 200)                    # re-rendered with errors
+        self.assertFalse(Activity.objects.exists())
+
+    def test_mismatched_module_and_topic_is_rejected(self):
+        other = Module.objects.create(trade=self.level, key="GENDB301",
+                                      code="GENDB301", name="Databases")
+        other_topic = Unit.objects.create(module=other, code="LO1", title="Tables")
+        self.alice.profile.trainer_modules.add(other)
+        r = self.post_activity(self.alice, module=self.module, topic=other_topic)
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(Activity.objects.exists())
+
+    def test_bob_with_no_assigned_modules_cannot_create_one(self):
+        r = self.post_activity(self.bob)
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(Activity.objects.exists())
+
+    def test_admin_may_use_any_module(self):
+        r = self.post_activity(self.admin)
+        self.assertRedirects(r, reverse("core:activities_manage"))
+        self.assertTrue(Activity.objects.exists())
+
+    def test_content_sniffing_rejects_a_pdf_named_html(self):
+        fake = SimpleUploadedFile("notes.html", PDF_BYTES, content_type="text/html")
+        r = self.post_activity(self.alice, file=fake)
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(Activity.objects.exists())
+
+    # -- managing -------------------------------------------------------------
+    def test_trainer_only_sees_and_manages_their_own_activities(self):
+        mine = self.make_activity(self.alice)
+        self.alice.profile.trainer_modules.add(self.module)  # no-op, already assigned
+        self.client.force_login(self.bob)
+        r = self.client.get(reverse("core:activities_manage"))
+        self.assertNotContains(r, mine.title)
+
+        r = self.client.get(reverse("core:activity_edit", args=[mine.pk]))
+        self.assertEqual(r.status_code, 403)
+
+    def test_admin_sees_and_manages_every_activity(self):
+        mine = self.make_activity(self.alice)
+        self.client.force_login(self.admin)
+        r = self.client.get(reverse("core:activities_manage"))
+        self.assertContains(r, mine.title)
+        r = self.client.get(reverse("core:activity_edit", args=[mine.pk]))
+        self.assertEqual(r.status_code, 200)
+
+    def test_editing_can_change_topic_without_replacing_the_file(self):
+        activity = self.make_activity(self.alice)
+        original_name = activity.document.name
+        self.client.force_login(self.alice)
+        r = self.client.post(reverse("core:activity_edit", args=[activity.pk]), {
+            "intent": "save", "module": self.module.pk, "topic": self.other_topic.pk,
+            "title": "", "document": "",
+        })
+        self.assertRedirects(r, reverse("core:activities_manage"))
+        activity.refresh_from_db()
+        self.assertEqual(activity.topic, self.other_topic)
+        self.assertEqual(activity.document.name, original_name)   # file untouched
+        self.assertEqual(activity.title, "Loops worksheet")        # title untouched
+
+    def test_toggle_publish(self):
+        activity = self.make_activity(self.alice, published=True)
+        self.client.force_login(self.alice)
+        self.client.post(reverse("core:activity_toggle_publish", args=[activity.pk]))
+        activity.refresh_from_db()
+        self.assertFalse(activity.is_published)
+
+    def test_delete_removes_the_row_and_its_file(self):
+        activity = self.make_activity(self.alice)
+        path = activity.document.path
+        self.client.force_login(self.alice)
+        self.client.post(reverse("core:activity_delete", args=[activity.pk]))
+        self.assertFalse(Activity.objects.exists())
+        self.assertFalse(Path(path).exists())
+
+    # -- serving the file ------------------------------------------------------
+    def test_published_activity_file_is_public(self):
+        activity = self.make_activity(self.alice, published=True)
+        r = self.client.get(reverse("core:activity_file", args=[activity.pk]))
+        self.assertEqual(r.status_code, 200)
+
+    def test_draft_activity_file_is_hidden_from_everyone_but_owner_and_admin(self):
+        activity = self.make_activity(self.alice, published=False)
+        self.client.logout()
+        r = self.client.get(reverse("core:activity_file", args=[activity.pk]))
+        self.assertEqual(r.status_code, 404)
+
+        self.client.force_login(self.bob)
+        r = self.client.get(reverse("core:activity_file", args=[activity.pk]))
+        self.assertEqual(r.status_code, 404)
+
+        self.client.force_login(self.alice)
+        r = self.client.get(reverse("core:activity_file", args=[activity.pk]))
+        self.assertEqual(r.status_code, 200)
+
+    # -- Django admin no longer creates these --------------------------------
+    def test_django_admin_cannot_add_an_activity(self):
+        from django.contrib import admin as django_admin
+
+        from core.admin import ActivityAdmin
+        self.assertFalse(ActivityAdmin(Activity, django_admin.site).has_add_permission(None))

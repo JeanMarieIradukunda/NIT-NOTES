@@ -34,6 +34,7 @@
         <li class="nav-item"><a class="nav-link {% if rm.url_name == 'browse' or rm.url_name == 'module_detail' %}active{% endif %}" href="{% url 'core:browse' %}">Browse</a></li>
         {% if request.is_trainer %}
         <li class="nav-item"><a class="nav-link {% if rm.url_name == 'notes_manage' or rm.url_name == 'note_create' or rm.url_name == 'note_edit' or rm.url_name == 'note_delete' %}active{% endif %}" href="{% url 'core:notes_manage' %}">{% if request.is_admin_role %}All notes{% else %}My notes{% endif %}</a></li>
+        <li class="nav-item"><a class="nav-link {% if rm.url_name == 'activities_manage' or rm.url_name == 'activity_create' or rm.url_name == 'activity_edit' or rm.url_name == 'activity_delete' %}active{% endif %}" href="{% url 'core:activities_manage' %}">{% if request.is_admin_role %}All activities{% else %}My activities{% endif %}</a></li>
         {% endif %}
         {% if request.is_admin_role %}
         <li class="nav-item"><a class="nav-link {% if rm.app_name == 'accounts' and rm.url_name != 'profile' and rm.url_name != 'login' and rm.url_name != 'password_change' %}active{% endif %}" href="{% url 'accounts:manage_trainers' %}">Trainers</a></li>

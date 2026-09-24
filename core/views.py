@@ -18,11 +18,11 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from accounts.roles import can_add_notes, can_manage, can_upload, is_admin
+from accounts.roles import can_add_activities, can_add_notes, can_manage, can_upload, is_admin
 from .forms import LessonUploadForm
 from .html_processing import LessonContentError, process_lesson_html
-from .models import (Lesson, LessonUpload, Module, ModuleNote, Resource,
-                     StudentActivity, Trade, Unit)
+from .models import (Activity, Lesson, LessonUpload, Module, ModuleNote,
+                     Resource, StudentActivity, Trade, Unit)
 
 
 # --------------------------------------------------------------------------- #
@@ -80,9 +80,17 @@ def dashboard(request):
                     "published": mine.filter(is_published=True).count(),
                     "drafts": mine.filter(is_published=False).count()}
 
+    my_activities = None
+    if can_add_activities(request.user):
+        mine = Activity.objects.all() if is_admin(request.user) \
+            else Activity.objects.filter(uploaded_by=request.user)
+        my_activities = {"total": mine.count(),
+                         "published": mine.filter(is_published=True).count(),
+                         "drafts": mine.filter(is_published=False).count()}
+
     return render(request, "core/dashboard.html", {
         "trades": trades, "stats": stats, "latest_notes": latest_notes,
-        "my_notes": my_notes,
+        "my_notes": my_notes, "my_activities": my_activities,
         "resume": resume, "recents": recents, "bookmarks": bookmarks,
     })
 

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}{% if activity %}Edit activity{% else %}Add activity{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'core:activities_manage' %}">Activities</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{% if activity %}Edit{% else %}Add{% endif %}</li>
+      </ol>
+    </nav>
+    <h1>{% if activity %}Edit activity{% else %}Add activity{% endif %}</h1>
+    <p class="lead">{% if activity %}Update the module, topic, title, or replace the document.{% else %}Choose the module and topic, upload a PDF or HTML activity document — then save a draft or publish straight away.{% endif %}</p>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <form method="post" enctype="multipart/form-data" class="panel" id="activity-form" novalidate
+            data-has-modules="{{ has_modules|yesno:'1,0' }}" data-max-mb="{{ max_mb }}">
+        {% csrf_token %}
+        {# Pressing Enter submits the first button: make that the safe one (never "publish"). #}
+        <button type="submit" name="intent" value="{% if activity %}save{% else %}draft{% endif %}" class="visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
+
+        {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
+
+        <section class="note-form-section" aria-labelledby="s1">
+          <h2 id="s1"><span class="step-num">1</span>Module</h2>
+          <p class="hint">{% if has_modules %}Choose one of your assigned modules.{% else %}You don't have any modules assigned yet — ask an administrator to assign one.{% endif %}</p>
+          <label class="visually-hidden" for="{{ form.module.id_for_label }}">{{ form.module.label }}</label>
+          {{ form.module }}
+          {% for e in form.module.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+        </section>
+
+        <section class="note-form-section" aria-labelledby="s2">
+          <h2 id="s2"><span class="step-num">2</span>Topic</h2>
+          <p class="hint">The learning outcome / topic within that module this activity belongs to.</p>
+          <label class="visually-hidden" for="{{ form.topic.id_for_label }}">{{ form.topic.label }}</label>
+          {{ form.topic }}
+          {% for e in form.topic.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+        </section>
+
+        <section class="note-form-section" aria-labelledby="s3">
+          <h2 id="s3"><span class="step-num">3</span>Title</h2>
+          <p class="hint">What students will see. Optional — {% if activity %}leave empty to keep the current title{% else %}defaults to the uploaded file's name{% endif %}.</p>
+          <label class="visually-hidden" for="{{ form.title.id_for_label }}">Title</label>
+          {{ form.title }}
+          {% for e in form.title.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+        </section>
+
+        <section class="note-form-section" aria-labelledby="s4">
+          <h2 id="s4"><span class="step-num">4</span>{% if activity %}Document{% else %}Upload document{% endif %}</h2>
+          <p class="hint">PDF or HTML, up to {{ max_mb }} MB.</p>
+
+          {% if activity %}
+          <div class="current-file">
+            <span class="type-tile type-tile--{{ activity.document_type }}"><i class="bi {% if activity.is_pdf %}bi-file-earmark-pdf{% else %}bi-filetype-html{% endif %}"></i></span>
+            <div class="me-auto" style="min-width:0">
+              <div class="fw-semibold text-body-emphasis" style="overflow-wrap:anywhere">{{ activity.original_filename }}</div>
+              <div class="small text-muted-2">Current file · {{ activity.get_document_type_display }} · {{ activity.size_display }}</div>
+            </div>
+            <a class="btn btn-outline-secondary btn-sm" href="{% url 'core:activity_file' activity.pk %}?download=1"><i class="bi bi-download me-1"></i>Download</a>
+          </div>
+          <label class="form-label" for="{{ form.document.id_for_label }}">Replace document <span class="fw-normal text-muted-2">(optional)</span></label>
+          {% else %}
+          <label class="visually-hidden" for="{{ form.document.id_for_label }}">Activity document</label>
+          {% endif %}
+          {{ form.document }}
+          {% if activity %}<div class="form-text">Leave empty to keep the current file. A new file replaces it completely.</div>{% endif %}
+          {% for e in form.document.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+        </section>
+
+        <div class="form-actions">
+          {% if activity %}
+            {% if activity.is_published %}
+            <button type="submit" name="intent" value="save" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Save changes</button>
+            <button type="submit" name="intent" value="draft" class="btn btn-outline-secondary"><i class="bi bi-eye-slash me-1"></i>Save &amp; unpublish</button>
+            {% else %}
+            <button type="submit" name="intent" value="publish" class="btn btn-primary"><i class="bi bi-cloud-arrow-up me-1"></i>Save &amp; publish</button>
+            <button type="submit" name="intent" value="save" class="btn btn-outline-secondary">Save draft</button>
+            {% endif %}
+          {% else %}
+            <button type="submit" name="intent" value="publish" class="btn btn-primary"><i class="bi bi-cloud-arrow-up me-1"></i>Publish now</button>
+            <button type="submit" name="intent" value="draft" class="btn btn-outline-secondary">Save as draft</button>
+          {% endif %}
+          <a href="{% url 'core:activities_manage' %}" class="btn btn-link ms-auto">Cancel</a>
+        </div>
+      </form>
+    </div>
+
+    <div class="col-lg-4">
+      <aside class="panel panel-body" aria-label="Guidance">
+        <h2 class="fs-6 mb-3">Before you upload</h2>
+        <ul class="guide-list">
+          <li><i class="bi bi-collection"></i><span>Pick the <strong>Module</strong> first — the <strong>Topic</strong> list narrows down to that module automatically.</span></li>
+          <li><i class="bi bi-file-earmark-pdf"></i><span><strong>PDF</strong> activities open in a built-in viewer, with a download button.</span></li>
+          <li><i class="bi bi-filetype-html"></i><span><strong>HTML</strong> activities are only ever offered as a download, never rendered live from this site.</span></li>
+          <li><i class="bi bi-eye"></i><span><strong>Publishing</strong> makes an activity visible to every student. A draft is visible only to you and administrators.</span></li>
+          <li><i class="bi bi-arrow-repeat"></i><span>You can edit, replace the file, unpublish or delete your activities at any time from <em>My activities</em>.</span></li>
+        </ul>
+      </aside>
+    </div>
+  </div>
+  <div class="pb-2"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/activity-form.js' %}"></script>
+{% endblock %}
