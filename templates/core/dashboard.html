@@ -1,269 +1,224 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — Learning Portal{% endblock %}
+{% block title %}Dashboard{% endblock %}
 
 {% block extra_css %}
-<!-- Google Fonts Integration -->
+<!-- Google Fonts Insertion -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
-  /* -----------------------------------------------------------------
-     GLOBAL OVERRIDES & VARIABLES
-  ----------------------------------------------------------------- */
+  /* ---- Base Modern Variables & Typography Override ---- */
   :root {
-    --font-heading: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     
-    /* Modern Slate & Indigo Palette */
-    --clr-brand: #4f46e5;
-    --clr-brand-hover: #4338ca;
-    --clr-brand-light: #eef2ff;
-    --clr-bg-subtle: #f8fafc;
-    --clr-surface: #ffffff;
+    /* Elegant Color System */
+    --clr-primary: #4f46e5;
+    --clr-primary-hover: #4338ca;
+    --clr-primary-light: rgba(79, 70, 229, 0.08);
+    --clr-success: #10b981;
+    --clr-success-light: rgba(16, 185, 129, 0.12);
+    --clr-amber: #f59e0b;
+    --clr-amber-light: rgba(245, 158, 11, 0.12);
+    --clr-slate-dark: #0f172a;
+    --clr-slate-body: #334155;
+    --clr-slate-muted: #64748b;
     --clr-border: #e2e8f0;
-    --clr-text-main: #0f172a;
-    --clr-text-muted: #64748b;
-    --clr-accent-emerald: #10b981;
-    --clr-accent-amber: #f59e0b;
-    --clr-accent-sky: #0ea5e9;
-
+    --clr-bg-card: #ffffff;
+    
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 18px;
-    --radius-full: 9999px;
-
-    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.04);
-    --shadow-md: 0 4px 16px -2px rgba(15, 23, 42, 0.06);
-    --shadow-hover: 0 12px 24px -4px rgba(15, 23, 42, 0.08);
+    --shadow-subtle: 0 1px 3px rgba(15, 23, 42, 0.03), 0 4px 12px rgba(15, 23, 42, 0.03);
+    --shadow-hover: 0 12px 24px -6px rgba(15, 23, 42, 0.08), 0 4px 8px -4px rgba(15, 23, 42, 0.04);
+    --transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   body {
     font-family: var(--font-body);
-    color: var(--clr-text-main);
-    background-color: var(--clr-bg-subtle);
+    color: var(--clr-slate-body);
     -webkit-font-smoothing: antialiased;
   }
 
-  h1, h2, h3, h4, h5, h6, .font-heading {
+  h1, h2, h3, h4, h5, h6, .hero-title {
     font-family: var(--font-heading);
     letter-spacing: -0.02em;
+    color: var(--clr-slate-dark);
   }
 
-  /* -----------------------------------------------------------------
-     HERO SECTION
-  ----------------------------------------------------------------- */
-  .hero-dashboard {
-    background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
-    border: 1px solid var(--clr-border);
-    border-radius: var(--radius-lg);
+  /* ---- Hero Styling ---- */
+  .hero {
+    position: relative;
     padding: 2.5rem 2rem;
     margin-top: 1rem;
     margin-bottom: 2rem;
-    box-shadow: var(--shadow-sm);
-    position: relative;
-    overflow: hidden;
+    background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,250,252,0.9) 100%);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-subtle);
   }
 
-  .hero-dashboard::before {
-    content: '';
-    position: absolute;
-    top: -50px; right: -50px;
-    width: 200px; height: 200px;
-    background: radial-gradient(circle, rgba(79, 70, 229, 0.08) 0%, rgba(255,255,255,0) 70%);
-    border-radius: 50%;
-    pointer-events: none;
-  }
-
-  .hero-eyebrow {
-    font-family: var(--font-heading);
+  .hero .eyebrow {
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--clr-brand);
-    background: var(--clr-brand-light);
-    padding: 0.35rem 0.75rem;
-    border-radius: var(--radius-full);
-    display: inline-block;
-    margin-bottom: 0.75rem;
-  }
-
-  .hero-dashboard h1 {
-    font-size: clamp(1.6rem, 3vw, 2.2rem);
-    font-weight: 800;
-    color: var(--clr-text-main);
+    color: var(--clr-primary);
     margin-bottom: 0.5rem;
   }
 
-  .hero-dashboard p {
-    color: var(--clr-text-muted);
-    font-size: 0.95rem;
-    max-width: 600px;
+  .hero h1 {
+    font-size: clamp(1.75rem, 3vw, 2.35rem);
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 0.5rem;
   }
 
+  .hero p {
+    color: var(--clr-slate-muted);
+    font-size: 1rem;
+    max-width: 620px;
+    margin-bottom: 1.5rem;
+  }
+
+  /* Search Container */
   .hero-search {
     position: relative;
-    max-width: 580px;
-    margin-top: 1.5rem;
+    max-width: 600px;
+    display: flex;
+    align-items: center;
   }
 
-  .hero-search .bi-search {
+  .hero-search i.bi-search {
     position: absolute;
-    left: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--clr-text-muted);
-    font-size: 1rem;
+    left: 1.2rem;
+    color: var(--clr-slate-muted);
+    font-size: 1.1rem;
     pointer-events: none;
   }
 
-  .hero-search input[type="search"] {
-    width: 100%;
-    padding: 0.85rem 7.5rem 0.85rem 2.8rem;
-    font-size: 0.9rem;
+  .hero-search .form-control {
+    padding: 0.85rem 1rem 0.85rem 3.1rem;
+    border-radius: 999px;
     border: 1px solid var(--clr-border);
-    border-radius: var(--radius-md);
-    background: #ffffff;
-    box-shadow: var(--shadow-sm);
-    transition: all 0.2s ease;
+    font-size: 0.95rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    transition: var(--transition);
   }
 
-  .hero-search input[type="search"]:focus {
-    outline: none;
-    border-color: var(--clr-brand);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  .hero-search .form-control:focus {
+    border-color: var(--clr-primary);
+    box-shadow: 0 0 0 4px var(--clr-primary-light);
   }
 
-  .hero-search button {
+  .hero-search .btn-primary {
     position: absolute;
-    right: 0.35rem;
-    top: 0.35rem;
-    bottom: 0.35rem;
-    padding: 0 1.25rem;
-    border-radius: var(--radius-sm);
-    background: var(--clr-brand);
-    color: #fff;
+    right: 5px;
+    border-radius: 999px;
+    padding: 0.55rem 1.4rem;
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.875rem;
+    background-color: var(--clr-primary);
     border: none;
-    transition: background 0.2s ease;
+    transition: var(--transition);
   }
 
-  .hero-search button:hover {
-    background: var(--clr-brand-hover);
+  .hero-search .btn-primary:hover {
+    background-color: var(--clr-primary-hover);
   }
 
-  /* -----------------------------------------------------------------
-     SECTION HEADINGS & CHIPS
-  ----------------------------------------------------------------- */
-  .section-head {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-top: 2rem;
-    margin-bottom: 1.25rem;
-  }
-
-  .section-head h2 {
-    font-size: 1.15rem;
-    font-weight: 700;
-    margin: 0;
-  }
-
-  .section-head .sub {
-    font-size: 0.825rem;
-    color: var(--clr-text-muted);
-    margin: 0;
-  }
-
-  .section-head .link {
-    margin-left: auto;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--clr-brand);
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-
-  .section-head .link:hover {
-    text-decoration: underline;
-  }
-
-  .icon-chip {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: var(--radius-md);
-    background: var(--clr-brand-light);
-    color: var(--clr-brand);
-    font-size: 1rem;
-    flex-shrink: 0;
-  }
-
-  .icon-chip--slate { background: #f1f5f9; color: #475569; }
-  .icon-chip--amber { background: #fef3c7; color: #d97706; }
-
-  /* -----------------------------------------------------------------
-     PANELS & CARDS (Minimal Modern Style)
-  ----------------------------------------------------------------- */
+  /* ---- Common Cards & Panels ---- */
   .panel {
-    background: var(--clr-surface);
+    background: var(--clr-bg-card);
     border: 1px solid var(--clr-border);
     border-radius: var(--radius-md);
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .panel-body {
-    padding: 1.25rem;
+    box-shadow: var(--shadow-subtle);
+    transition: var(--transition);
   }
 
   .panel-link {
     display: flex;
-    flex-direction: column;
     text-decoration: none;
     color: inherit;
-    height: 100%;
   }
 
   .panel-link:hover {
-    transform: translateY(-3px);
+    transform: translateY(-2px);
+    border-color: rgba(79, 70, 229, 0.3);
     box-shadow: var(--shadow-hover);
-    border-color: #cbd5e1;
     color: inherit;
   }
 
-  /* Code Badges & File Tiles */
-  .code-badge {
-    font-family: var(--font-heading);
-    font-size: 0.7rem;
-    font-weight: 700;
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    background: #f1f5f9;
-    color: #475569;
-    letter-spacing: 0.03em;
+  .panel-body {
+    padding: 1.25rem;
+    width: 100%;
   }
 
-  .type-tile {
+  /* Icon Chips */
+  .icon-chip {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.25rem;
-    height: 2.25rem;
+    width: 2.5rem;
+    height: 2.5rem;
     border-radius: var(--radius-sm);
-    background: #f8fafc;
-    color: var(--clr-brand);
+    background: var(--clr-primary-light);
+    color: var(--clr-primary);
     font-size: 1.2rem;
+    flex-shrink: 0;
   }
 
-  /* -----------------------------------------------------------------
-     "JUST PUBLISHED" SCROLLABLE TRACK
-  ----------------------------------------------------------------- */
+  .icon-chip--amber {
+    background: var(--clr-amber-light);
+    color: var(--clr-amber);
+  }
+
+  .icon-chip--slate {
+    background: #f1f5f9;
+    color: var(--clr-slate-muted);
+  }
+
+  .code-badge {
+    display: inline-block;
+    font-size: 0.725rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: var(--clr-slate-dark);
+    letter-spacing: 0.02em;
+  }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 2.5rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .section-head h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .section-head .sub {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--clr-slate-muted);
+  }
+
+  .section-head .link {
+    margin-left: auto;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--clr-primary);
+    text-decoration: none;
+  }
+
+  /* ---- "Just published" Notification Strip ---- */
   .whats-new { margin-top: 2rem; }
 
   .whats-new-head {
@@ -279,20 +234,24 @@
     justify-content: center;
     width: 2.25rem;
     height: 2.25rem;
-    border-radius: var(--radius-full);
-    background: var(--clr-brand);
+    border-radius: 999px;
+    background: var(--clr-primary);
     color: #fff;
-    font-size: 0.95rem;
+    flex: none;
+    box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
     animation: bell-ring 3s ease-in-out infinite;
+    animation-delay: 1s;
   }
+
+  .whats-new-head h2 { margin: 0; font-weight: 600; font-size: 1.05rem; }
+  .whats-new-head .sub { margin: 0; color: var(--clr-slate-muted); }
 
   .whats-new-track {
     display: flex;
     gap: 1rem;
     overflow-x: auto;
-    padding-bottom: 0.5rem;
-    padding-top: 0.25rem;
-    scroll-snap-type: x mandatory;
+    padding: 0.25rem 0.25rem 0.75rem 0.25rem;
+    scroll-snap-type: x proximity;
   }
 
   .whats-new-track::-webkit-scrollbar { height: 5px; }
@@ -302,46 +261,64 @@
   .new-card {
     scroll-snap-align: start;
     position: relative;
-    flex: 0 0 270px;
-    background: var(--clr-surface);
-    border: 1px solid var(--clr-border);
-    border-radius: var(--radius-md);
-    padding: 1.25rem;
+    flex: 0 0 auto;
+    width: 270px;
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 0.5rem;
+    background: var(--clr-bg-card);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius-md);
+    padding: 1.1rem;
     text-decoration: none;
     color: inherit;
-    transition: all 0.25s ease;
+    box-shadow: var(--shadow-subtle);
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(14px);
     animation: card-in 0.4s ease-out forwards;
+    transition: var(--transition);
   }
 
   .new-card:hover {
-    transform: translateY(-4px);
+    transform: translateY(-3px);
     box-shadow: var(--shadow-hover);
-    border-color: #cbd5e1;
+    border-color: rgba(79, 70, 229, 0.25);
+    color: inherit;
   }
 
-  .new-card:nth-child(1) { animation-delay: 0.05s; }
-  .new-card:nth-child(2) { animation-delay: 0.1s; }
-  .new-card:nth-child(3) { animation-delay: 0.15s; }
-  .new-card:nth-child(4) { animation-delay: 0.2s; }
-  .new-card:nth-child(5) { animation-delay: 0.25s; }
+  .new-card:nth-child(1) { animation-delay: .05s; }
+  .new-card:nth-child(2) { animation-delay: .12s; }
+  .new-card:nth-child(3) { animation-delay: .19s; }
+  .new-card:nth-child(4) { animation-delay: .26s; }
+  .new-card:nth-child(5) { animation-delay: .33s; }
+  .new-card:nth-child(6) { animation-delay: .40s; }
 
   .new-card .badge-new {
     position: absolute;
     top: 0.8rem;
     right: 0.8rem;
-    font-size: 0.65rem;
+    font-size: 0.625rem;
     font-weight: 700;
     letter-spacing: 0.05em;
-    padding: 0.15rem 0.5rem;
-    border-radius: var(--radius-full);
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
     color: #fff;
-    background: var(--clr-accent-emerald);
-    animation: badge-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    background: var(--clr-success);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    animation: badge-pulse 2s ease-out infinite;
+  }
+
+  .new-card .type-tile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: var(--clr-slate-dark);
+    font-size: 1.1rem;
+    align-self: flex-start;
   }
 
   .new-card .title {
@@ -349,59 +326,45 @@
     font-weight: 600;
     font-size: 0.95rem;
     line-height: 1.35;
+    color: var(--clr-slate-dark);
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    color: var(--clr-text-main);
   }
 
-  /* Empty State Modern Styling */
-  .empty-state {
-    background: var(--clr-surface);
-    border: 1px dashed var(--clr-border);
-    border-radius: var(--radius-md);
+  .text-muted-2 { color: var(--clr-slate-muted) !important; }
+
+  .whats-new-empty, .empty-state {
     padding: 2.5rem 1.5rem;
     text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.75rem;
+    background: var(--clr-bg-card);
+    border: 1px dashed var(--clr-border);
+    border-radius: var(--radius-md);
   }
 
-  .empty-state h3 {
-    font-size: 1.05rem;
-    font-weight: 700;
-    margin: 0;
-  }
+  .empty-state h3 { font-size: 1rem; font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.25rem; }
+  .empty-state p { font-size: 0.875rem; color: var(--clr-slate-muted); margin-bottom: 1rem; }
 
-  .empty-state p {
-    font-size: 0.875rem;
-    color: var(--clr-text-muted);
-    max-width: 400px;
-    margin: 0;
-  }
-
-  /* -----------------------------------------------------------------
-     ANIMATIONS & MEDIA QUERIES
-  ----------------------------------------------------------------- */
+  /* Animations */
   @keyframes card-in {
-    from { opacity: 0; transform: translateY(12px); }
+    from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
   }
 
   @keyframes badge-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
+    0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+    70%  { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
   }
 
   @keyframes bell-ring {
     0%, 100% { transform: rotate(0); }
-    3% { transform: rotate(-12deg); }
-    6% { transform: rotate(12deg); }
-    9% { transform: rotate(-8deg); }
-    12% { transform: rotate(8deg); }
-    15% { transform: rotate(0); }
+    4%  { transform: rotate(-14deg); }
+    8%  { transform: rotate(12deg); }
+    12% { transform: rotate(-10deg); }
+    16% { transform: rotate(8deg); }
+    20% { transform: rotate(0); }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -412,28 +375,27 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-xxl pb-5">
+<div class="container-xxl pb-4">
 
-  <!-- Hero Section -->
-  <section class="hero-dashboard" aria-labelledby="hero-title">
-    <span class="hero-eyebrow">{{ BRAND.department }}</span>
+  <!-- Hero Banner -->
+  <section class="hero" aria-labelledby="hero-title">
+    <p class="eyebrow">{{ BRAND.department }}</p>
     <h1 id="hero-title">Learning resources for NIT</h1>
     <p>Module notes, lessons, and past papers for Levels 3 to 5 — read online or download for offline study.</p>
-
     <form class="hero-search" role="search" action="{% url 'core:search' %}" method="get">
       <i class="bi bi-search" aria-hidden="true"></i>
-      <input type="search" name="q" class="form-control" placeholder="Search by module code, title or topic..." aria-label="Search the library">
-      <button type="submit">Search</button>
+      <input type="search" name="q" class="form-control" placeholder="Search by module code, title, or topic..." aria-label="Search the library">
+      <button class="btn btn-primary" type="submit">Search</button>
     </form>
   </section>
 
-  <!-- Just Published Section -->
+  <!-- Just Published Spotlight -->
   <section class="whats-new" aria-labelledby="whats-new-title">
     <div class="whats-new-head">
       <span class="bell"><i class="bi bi-bell-fill" aria-hidden="true"></i></span>
       <div>
         <h2 id="whats-new-title">Just published</h2>
-        <p class="sub">Fresh notes from your trainers, newest first</p>
+        <p class="sub small">Fresh notes from your trainers, newest first</p>
       </div>
     </div>
 
@@ -442,33 +404,40 @@
       {% for n in latest_notes %}
       <a href="{{ n.get_absolute_url }}" class="new-card" role="listitem">
         {% if forloop.counter <= 3 %}<span class="badge-new">NEW</span>{% endif %}
-        <span class="type-tile"><i class="bi {% if n.is_pdf %}bi-file-earmark-pdf-fill{% else %}bi-filetype-html{% endif %}"></i></span>
+        <span class="type-tile type-tile--{{ n.file_type }}">
+          <i class="bi {% if n.is_pdf %}bi-file-earmark-pdf{% else %}bi-filetype-html{% endif %}"></i>
+        </span>
         <span class="title">{{ n.title }}</span>
-        <span class="small text-muted"><span class="code-badge me-1">{{ n.module.code }}</span>{{ n.module.name }}</span>
-        <span class="small text-muted mt-auto pt-2 border-top">{{ n.published_at|date:"j M Y" }}{% if n.uploaded_by %} · {{ n.uploaded_by.first_name|default:n.uploaded_by.username }}{% endif %}</span>
+        <span class="small text-muted-2 d-flex align-items-center gap-1">
+          <span class="code-badge">{{ n.module.code }}</span> 
+          <span class="text-truncate">{{ n.module.name }}</span>
+        </span>
+        <span class="small text-muted-2 mt-auto pt-2 border-top">
+          {{ n.published_at|date:"j M Y" }}{% if n.uploaded_by %} · {{ n.uploaded_by.first_name|default:n.uploaded_by.username }}{% endif %}
+        </span>
       </a>
       {% endfor %}
     </div>
     {% else %}
     <div class="empty-state whats-new-empty">
-      <span class="icon-chip"><i class="bi bi-file-earmark-text"></i></span>
+      <span class="icon-chip icon-chip--slate mb-2"><i class="bi bi-file-earmark-text"></i></span>
       <h3>No notes published yet</h3>
-      <p>{% if request.is_trainer %}Upload a PDF or HTML file and publish it for your students.{% else %}Trainers are currently setting up module notes. Check back soon.{% endif %}</p>
-      {% if request.is_trainer %}<a class="btn btn-sm btn-primary mt-2" href="{% url 'core:note_create' %}"><i class="bi bi-plus-lg me-1"></i>Add module notes</a>{% endif %}
+      <p>{% if request.is_trainer %}Add your first module notes — upload a PDF or HTML file and publish it for students.{% else %}Trainers are currently adding notes. Please check back soon.{% endif %}</p>
+      {% if request.is_trainer %}<a class="btn btn-primary btn-sm" href="{% url 'core:note_create' %}"><i class="bi bi-plus-lg me-1"></i>Add module notes</a>{% endif %}
     </div>
     {% endif %}
   </section>
 
-  <!-- Workspace: Notes -->
+  <!-- Trainer Workspaces -->
   {% if my_notes is not None %}
   <section class="panel mt-4" aria-labelledby="ws-title">
     <div class="panel-body d-flex flex-wrap align-items-center gap-3">
       <span class="icon-chip"><i class="bi bi-person-workspace"></i></span>
       <div class="me-auto">
-        <h2 class="fs-6 mb-1 font-heading fw-bold" id="ws-title">{% if request.is_admin_role %}Notes Workspace{% else %}Your Trainer Workspace{% endif %}</h2>
-        <p class="mb-0 small text-muted">
+        <h2 class="fs-6 mb-1" id="ws-title">{% if request.is_admin_role %}Notes workspace{% else %}Your trainer workspace{% endif %}</h2>
+        <p class="mb-0 small text-muted-2">
           {% if my_notes.total %}
-            <strong>{{ my_notes.published }}</strong> published · <strong>{{ my_notes.drafts }}</strong> draft{{ my_notes.drafts|pluralize }}
+            {{ my_notes.published }} published · {{ my_notes.drafts }} draft{{ my_notes.drafts|pluralize }}
             {% if request.is_admin_role %}across all trainers{% endif %}
           {% else %}
             Upload PDF or HTML notes for a module and publish them for students.
@@ -476,24 +445,23 @@
         </p>
       </div>
       {% if my_notes.total %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'core:notes_manage' %}">Manage notes</a>{% endif %}
-      <a class="btn btn-sm btn-primary" href="{% url 'core:note_create' %}"><i class="bi bi-plus-lg me-1"></i>Add notes</a>
+      <a class="btn btn-sm btn-primary" href="{% url 'core:note_create' %}"><i class="bi bi-plus-lg me-1"></i>Add module notes</a>
     </div>
   </section>
   {% endif %}
 
-  <!-- Workspace: Activities -->
   {% if my_activities is not None %}
   <section class="panel mt-3" aria-labelledby="ws-activities-title">
     <div class="panel-body d-flex flex-wrap align-items-center gap-3">
       <span class="icon-chip icon-chip--amber"><i class="bi bi-clipboard2-check"></i></span>
       <div class="me-auto">
-        <h2 class="fs-6 mb-1 font-heading fw-bold" id="ws-activities-title">{% if request.is_admin_role %}Activities Workspace{% else %}Your Activities{% endif %}</h2>
-        <p class="mb-0 small text-muted">
+        <h2 class="fs-6 mb-1" id="ws-activities-title">{% if request.is_admin_role %}Activities workspace{% else %}Your activities{% endif %}</h2>
+        <p class="mb-0 small text-muted-2">
           {% if my_activities.total %}
-            <strong>{{ my_activities.published }}</strong> published · <strong>{{ my_activities.drafts }}</strong> draft{{ my_activities.drafts|pluralize }}
+            {{ my_activities.published }} published · {{ my_activities.drafts }} draft{{ my_activities.drafts|pluralize }}
             {% if request.is_admin_role %}across all trainers{% endif %}
           {% else %}
-            Choose a module and topic, upload an activity document, and publish it.
+            Choose a module and topic, upload activity documents, and publish them for students.
           {% endif %}
         </p>
       </div>
@@ -503,38 +471,38 @@
   </section>
   {% endif %}
 
-  <!-- Continue Learning -->
+  <!-- Resume Learning -->
   {% if resume %}
   <div class="section-head">
-    <span class="icon-chip"><i class="bi bi-play-circle-fill"></i></span>
+    <span class="icon-chip"><i class="bi bi-play-circle"></i></span>
     <h2>Continue learning</h2>
   </div>
   <a href="{{ resume.lesson.get_absolute_url }}" class="panel panel-link panel-body">
     <span class="code-badge align-self-start mb-2">{{ resume.lesson.module.code }}</span>
-    <span class="title fs-5 font-heading fw-bold">{{ resume.lesson.title }}</span>
-    <span class="small text-muted mt-1">{{ resume.lesson.module.name }} · {{ resume.progress_pct }}% read · {{ resume.lesson.minutes }} min</span>
+    <span class="title fs-5 fw-semibold d-block">{{ resume.lesson.title }}</span>
+    <span class="small text-muted-2 mt-1 d-block">{{ resume.lesson.module.name }} · {{ resume.progress_pct }}% read · {{ resume.lesson.minutes }} min</span>
   </a>
   {% endif %}
 
   <!-- Levels -->
   <div class="section-head">
-    <span class="icon-chip"><i class="bi bi-diagram-3-fill"></i></span>
+    <span class="icon-chip"><i class="bi bi-diagram-3"></i></span>
     <div>
       <h2>Levels</h2>
-      <p class="sub">Choose a level to see its modules</p>
+      <p class="sub">Choose a level to explore modules</p>
     </div>
     <a href="{% url 'core:browse' %}" class="link">Browse all <i class="bi bi-arrow-right"></i></a>
   </div>
-
+  
   <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
     {% for trade in trades %}
     {% with notes=trade.note_count lessons=trade.lesson_count %}
     {% if notes or lessons %}
     <div class="col">
-      <a href="{% url 'core:browse' %}?trade={{ trade.key }}" class="panel panel-link panel-body">
-        <span class="title fs-6 font-heading fw-bold mb-1">{{ trade.name }}</span>
-        <span class="small text-muted mb-3">{{ trade.summary }}</span>
-        <span class="small text-muted mt-auto d-flex gap-3 pt-2 border-top">
+      <a href="{% url 'core:browse' %}?trade={{ trade.key }}" class="panel panel-link panel-body h-100 flex-column">
+        <span class="title fs-6 fw-semibold mb-1">{{ trade.name }}</span>
+        <span class="small text-muted-2 mb-3">{{ trade.summary }}</span>
+        <span class="small text-muted-2 mt-auto d-flex gap-3 pt-2 border-top">
           <span><i class="bi bi-collection me-1"></i>{{ trade.modules.count }} module{{ trade.modules.count|pluralize }}</span>
           <span><i class="bi bi-file-earmark-text me-1"></i>{{ notes }} note{{ notes|pluralize }}</span>
           {% if lessons %}<span><i class="bi bi-journal-text me-1"></i>{{ lessons }} lesson{{ lessons|pluralize }}</span>{% endif %}
@@ -545,7 +513,7 @@
     {% endwith %}
     {% endfor %}
   </div>
-
+  
   {% if not stats.notes and not stats.lessons %}
   <div class="empty-state mt-3">
     <span class="icon-chip icon-chip--slate"><i class="bi bi-diagram-3"></i></span>
@@ -563,11 +531,11 @@
   <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
     {% for a in recents %}
     <div class="col">
-      <a href="{{ a.lesson.get_absolute_url }}" class="panel panel-link panel-body">
+      <a href="{{ a.lesson.get_absolute_url }}" class="panel panel-link panel-body h-100 flex-column">
         <span class="code-badge align-self-start mb-2">{{ a.lesson.module.code }}</span>
-        <span class="title font-heading fw-semibold mb-1">{{ a.lesson.title }}</span>
-        <span class="small text-muted">{{ a.lesson.module.name }}</span>
-        <span class="small text-muted mt-auto pt-2">{{ a.last_viewed|timesince }} ago{% if a.progress_pct %} · {{ a.progress_pct }}% read{% endif %}</span>
+        <span class="title fw-semibold mb-1">{{ a.lesson.title }}</span>
+        <span class="small text-muted-2">{{ a.lesson.module.name }}</span>
+        <span class="small text-muted-2 mt-auto pt-2 border-top">{{ a.last_viewed|timesince }} ago{% if a.progress_pct %} · {{ a.progress_pct }}% read{% endif %}</span>
       </a>
     </div>
     {% endfor %}
@@ -577,21 +545,20 @@
   <!-- Saved Lessons -->
   {% if bookmarks %}
   <div class="section-head">
-    <span class="icon-chip icon-chip--amber"><i class="bi bi-bookmark-star-fill"></i></span>
+    <span class="icon-chip icon-chip--amber"><i class="bi bi-bookmark-star"></i></span>
     <h2>Saved lessons</h2>
   </div>
   <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
     {% for a in bookmarks %}
     <div class="col">
-      <a href="{{ a.lesson.get_absolute_url }}" class="panel panel-link panel-body">
+      <a href="{{ a.lesson.get_absolute_url }}" class="panel panel-link panel-body h-100 flex-column">
         <span class="code-badge align-self-start mb-2">{{ a.lesson.module.code }}</span>
-        <span class="title font-heading fw-semibold mb-1">{{ a.lesson.title }}</span>
-        <span class="small text-muted">{{ a.lesson.module.name }}</span>
+        <span class="title fw-semibold mb-1">{{ a.lesson.title }}</span>
+        <span class="small text-muted-2">{{ a.lesson.module.name }}</span>
       </a>
     </div>
     {% endfor %}
   </div>
   {% endif %}
-
 </div>
 {% endblock %}
