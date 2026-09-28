@@ -18,6 +18,7 @@ Access rules mirror module notes exactly:
                                Administrators only if a draft
 """
 
+import logging
 from functools import wraps
 
 import re
@@ -37,6 +38,8 @@ from accounts.roles import (activity_modules_for, can_add_activities,
                             can_manage_activity, is_admin)
 from .forms import ActivityForm
 from .models import Activity, Module
+
+logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 15
 
@@ -276,6 +279,13 @@ def activity_file(request, pk):
             "detail": "The document for this activity is missing from the server. "
                       "Please tell the Trainer who added it, or an administrator.",
         }, status=404)
+    except OSError:
+        logger.exception("Could not read the document for activity %s", activity.pk)
+        return render(request, "core/error_panel.html", {
+            "title": "This file can't be opened right now",
+            "detail": "The file store didn't respond. Please try again in a moment; "
+                      "if it keeps happening, tell an administrator.",
+        }, status=502)
 
     stem = activity.title or activity.original_filename or "activity"
     stem = re.sub(r"[^\w\s-]", "", stem).strip()

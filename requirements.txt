@@ -15,9 +15,12 @@ dj-database-url>=2.2
 # Vercel Blob storage (core/storage.py) — used for uploaded/imported files
 # (module notes, resources, lesson source HTML) whenever BLOB_READ_WRITE_TOKEN
 # is set, for the same reason SQLite doesn't work above: Vercel's filesystem
-# doesn't persist uploads between requests. Only `requests` is needed; there's
-# no official Vercel Blob Python SDK, so core/storage.py talks to its REST
-# API directly.
+# doesn't persist uploads between requests. core/storage.py talks to the Blob
+# REST API directly with `requests` (upload) and reads blobs back from their
+# public CDN URL, https://<store-id>.<public|private>.blob.vercel-storage.com/
+# — that CDN host, not the API host, is what was missing before and is why
+# published PDFs wouldn't open. Run `python manage.py check_blob` after
+# deploying to verify read/write end to end.
 requests>=2.31
 
 # PDF export (server-side, via CSS paged media — real A4 pages, headers,

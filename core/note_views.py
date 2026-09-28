@@ -18,6 +18,7 @@ Note files are stored outside MEDIA_ROOT and only ever leave the server through
 `note_file`, which applies those rules on every request.
 """
 
+import logging
 from functools import wraps
 
 from django.conf import settings
@@ -37,6 +38,8 @@ from accounts.roles import (can_add_notes, can_manage_note, is_admin,
 from .forms import ModuleNoteForm
 from .models import Module, ModuleNote
 
+logger = logging.getLogger(__name__)
+
 PAGE_SIZE = 15
 
 # Applied to the note reader. Note HTML is sanitised on upload, but this makes
@@ -47,6 +50,10 @@ READER_CSP = (
     "img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; "
     "frame-src 'self'; frame-ancestors 'self'; form-action 'self'"
 )
+# A PDF note's page renders no author HTML, only our own same-origin <iframe> of
+# the PDF. Browsers' built-in PDF viewers are plugins, and some refuse to start
+# under `object-src 'none'`, so PDF pages allow same-origin objects.
+READER_CSP_PDF = READER_CSP.replace("object-src 'none'", "object-src 'self'")
 
 
 # --------------------------------------------------------------------------- #
@@ -273,7 +280,7 @@ def note_detail(request, pk):
         "can_manage": can_manage_note(request.user, note),
         "siblings": [n for n in siblings if n.pk != note.pk][:6],
     })
-    response["Content-Security-Policy"] = READER_CSP
+    response["Content-Security-Policy"] = READER_CSP_PDF if note.is_pdf else READER_CSP
     return response
 
 
@@ -298,6 +305,15 @@ def note_file(request, pk):
             "detail": "The file for these notes is missing from the server. "
                       "Please tell the Trainer who added it, or an administrator.",
         }, status=404)
+    except OSError:
+        # File store (e.g. Vercel Blob) unreachable or refusing access: say so
+        # plainly instead of a bare 500, and log the cause for the admin.
+        logger.exception("Could not read the file for note %s", note.pk)
+        return render(request, "core/error_panel.html", {
+            "title": "This file can't be opened right now",
+            "detail": "The file store didn't respond. Please try again in a moment; "
+                      "if it keeps happening, tell an administrator.",
+        }, status=502)
 
     as_attachment = note.is_html or request.GET.get("download") == "1"
     response = FileResponse(

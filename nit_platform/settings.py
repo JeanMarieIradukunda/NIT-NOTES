@@ -171,6 +171,11 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # local-disk storage exactly as before — nothing about that setup changes.
 BLOB_READ_WRITE_TOKEN = os.environ.get("BLOB_READ_WRITE_TOKEN", "")
 
+# Optional: "public" or "private", matching how the connected Blob store was
+# created. Only needed if you want to skip storage.py's automatic detection
+# (it tries both on first use and remembers the answer); leave unset otherwise.
+BLOB_ACCESS = os.environ.get("BLOB_ACCESS", "")
+
 # Vercel sets its own VERCEL=1 env var on every deployment. If we're running
 # there with no Blob token, both STORAGES["default"] below and
 # core.models.private_storage() would silently fall back to
