@@ -687,6 +687,15 @@ class ActivityModelTests(TestCase):
         call_command("purge_module_data", "--yes", stdout=out)
         self.assertEqual(Activity.objects.count(), 0)
 
+    def test_get_or_create_general_is_idempotent_per_module(self):
+        first = Unit.get_or_create_general(self.module)
+        second = Unit.get_or_create_general(self.module)
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(first.title, "General")
+        other = Unit.get_or_create_general(self.other_module)
+        self.assertNotEqual(first.pk, other.pk)
+        self.assertEqual(other.module, self.other_module)
+
 
 class ActivityWorkspace(BaseCase):
     """
@@ -708,11 +717,10 @@ class ActivityWorkspace(BaseCase):
     def _pdf(self, name="worksheet.pdf"):
         return SimpleUploadedFile(name, PDF_BYTES, content_type="application/pdf")
 
-    def post_activity(self, user, *, intent="publish", module=None, topic=None,
+    def post_activity(self, user, *, intent="publish", module=None,
                       title="Loops worksheet", file=None, **extra):
         self.client.force_login(user)
-        data = {"title": title, "intent": intent,
-                "module": (module or self.module).pk, "topic": (topic or self.topic).pk}
+        data = {"title": title, "intent": intent, "module": (module or self.module).pk}
         data.update(extra)
         if file is not False:
             data["document"] = file or self._pdf()
@@ -738,14 +746,30 @@ class ActivityWorkspace(BaseCase):
         self.assertEqual(r.status_code, 302)
         self.assertIn("/login", r["Location"])
 
-    def test_creating_only_needs_module_topic_and_document(self):
+    def test_creating_only_needs_module_and_document(self):
         r = self.post_activity(self.alice)
         self.assertRedirects(r, reverse("core:activities_manage"))
         activity = Activity.objects.get()
         self.assertEqual(activity.module, self.module)
-        self.assertEqual(activity.topic, self.topic)
+        # No Topic field on the form — a new activity is filed under the
+        # module's automatic "General" topic (see Unit.get_or_create_general).
+        self.assertEqual(activity.topic.title, "General")
+        self.assertEqual(activity.topic.module, self.module)
         self.assertTrue(activity.is_published)
         self.assertEqual(activity.uploaded_by, self.alice)
+
+    def test_the_general_topic_is_reused_not_duplicated(self):
+        self.post_activity(self.alice, title="First")
+        self.post_activity(self.alice, title="Second")
+        first, second = Activity.objects.order_by("pk")
+        self.assertEqual(first.topic_id, second.topic_id)
+        self.assertEqual(Unit.objects.filter(module=self.module, code="GENERAL").count(), 1)
+
+    def test_the_activity_form_has_no_topic_field(self):
+        self.client.force_login(self.alice)
+        r = self.client.get(reverse("core:activity_create"))
+        self.assertNotIn("topic", r.context["form"].fields)
+        self.assertNotContains(r, 'name="topic"')
 
     def test_a_blank_title_is_derived_from_the_file_name(self):
         self.post_activity(self.alice, title="")
@@ -758,18 +782,8 @@ class ActivityWorkspace(BaseCase):
     def test_trainer_cannot_file_an_activity_under_an_unassigned_module(self):
         other = Module.objects.create(trade=self.level, key="GENDB301",
                                       code="GENDB301", name="Databases")
-        other_topic = Unit.objects.create(module=other, code="LO1", title="Tables")
-        r = self.post_activity(self.alice, module=other, topic=other_topic)
+        r = self.post_activity(self.alice, module=other)
         self.assertEqual(r.status_code, 200)                    # re-rendered with errors
-        self.assertFalse(Activity.objects.exists())
-
-    def test_mismatched_module_and_topic_is_rejected(self):
-        other = Module.objects.create(trade=self.level, key="GENDB301",
-                                      code="GENDB301", name="Databases")
-        other_topic = Unit.objects.create(module=other, code="LO1", title="Tables")
-        self.alice.profile.trainer_modules.add(other)
-        r = self.post_activity(self.alice, module=self.module, topic=other_topic)
-        self.assertEqual(r.status_code, 200)
         self.assertFalse(Activity.objects.exists())
 
     def test_bob_with_no_assigned_modules_cannot_create_one(self):
@@ -807,19 +821,34 @@ class ActivityWorkspace(BaseCase):
         r = self.client.get(reverse("core:activity_edit", args=[mine.pk]))
         self.assertEqual(r.status_code, 200)
 
-    def test_editing_can_change_topic_without_replacing_the_file(self):
+    def test_editing_without_changing_the_module_keeps_its_topic(self):
         activity = self.make_activity(self.alice)
+        original_topic_id = activity.topic_id
         original_name = activity.document.name
         self.client.force_login(self.alice)
         r = self.client.post(reverse("core:activity_edit", args=[activity.pk]), {
-            "intent": "save", "module": self.module.pk, "topic": self.other_topic.pk,
-            "title": "", "document": "",
+            "intent": "save", "module": self.module.pk, "title": "", "document": "",
         })
         self.assertRedirects(r, reverse("core:activities_manage"))
         activity.refresh_from_db()
-        self.assertEqual(activity.topic, self.other_topic)
-        self.assertEqual(activity.document.name, original_name)   # file untouched
+        self.assertEqual(activity.topic_id, original_topic_id)     # topic left as it was
+        self.assertEqual(activity.document.name, original_name)    # file untouched
         self.assertEqual(activity.title, "Loops worksheet")        # title untouched
+
+    def test_editing_to_a_different_module_refiles_it_under_that_modules_topic(self):
+        activity = self.make_activity(self.alice)
+        other = Module.objects.create(trade=self.level, key="GENDB301",
+                                      code="GENDB301", name="Databases")
+        self.alice.profile.trainer_modules.add(other)
+        self.client.force_login(self.alice)
+        r = self.client.post(reverse("core:activity_edit", args=[activity.pk]), {
+            "intent": "save", "module": other.pk, "title": "", "document": "",
+        })
+        self.assertRedirects(r, reverse("core:activities_manage"))
+        activity.refresh_from_db()
+        self.assertEqual(activity.module, other)
+        self.assertEqual(activity.topic.module, other)
+        self.assertEqual(activity.topic.title, "General")
 
     def test_toggle_publish(self):
         activity = self.make_activity(self.alice, published=True)

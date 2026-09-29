@@ -180,6 +180,19 @@ class Unit(models.Model):
     def __str__(self):
         return f"{self.module.code} · {self.title}"
 
+    @classmethod
+    def get_or_create_general(cls, module):
+        """
+        The catch-all Topic used for Activities, which (unlike Lessons) don't
+        ask a Trainer to choose one — see ActivityForm. `topic` stays a
+        required field on Activity, so every module gets exactly one
+        "General" Unit, created the first time it's needed.
+        """
+        unit, _ = cls.objects.get_or_create(
+            module=module, code="GENERAL",
+            defaults={"title": "General", "kind": cls.KIND_TOPIC, "order": 0})
+        return unit
+
     @property
     def is_general(self):
         return self.code == "LO0"
@@ -324,9 +337,11 @@ class Activity(models.Model):
     and Topic (Unit).
 
     Deliberately independent of any specific Lesson — a Trainer only needs to
-    pick the Module and Topic it belongs to and upload the document; nothing
-    else is required. `document_type`, `original_filename` and `size_bytes`
-    are derived automatically from the uploaded file on save.
+    pick the Module and upload the document; nothing else is required.
+    `topic` is filled in automatically (see `Unit.get_or_create_general()`
+    and `ActivityForm.apply()` in core/forms.py) rather than chosen by the
+    Trainer. `document_type`, `original_filename` and `size_bytes` are
+    derived automatically from the uploaded file on save.
     """
 
     TYPE_PDF = "pdf"

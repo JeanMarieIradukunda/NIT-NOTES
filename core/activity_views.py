@@ -218,7 +218,7 @@ def activity_edit(request, pk):
             return redirect("core:activities_manage")
     else:
         form = ActivityForm(user=request.user, activity=activity, initial={
-            "module": activity.module_id, "topic": activity.topic_id, "title": activity.title})
+            "module": activity.module_id, "title": activity.title})
 
     return render(request, "core/activity_form.html", {
         "form": form, "activity": activity, "max_mb": settings.MAX_ACTIVITY_SIZE_MB,

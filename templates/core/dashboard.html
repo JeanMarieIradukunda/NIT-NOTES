@@ -90,7 +90,7 @@
           {% if my_activities.total %}
             {{ my_activities.published }} published, {{ my_activities.drafts }} draft{{ my_activities.drafts|pluralize }}{% if request.is_admin_role %} across all trainers{% endif %}
           {% else %}
-            Choose a module and topic, upload a PDF or HTML activity document, and publish it for students.
+            Choose a module, upload a PDF or HTML activity document, and publish it for students.
           {% endif %}
         </p>
       </div>

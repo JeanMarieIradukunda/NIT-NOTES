@@ -309,46 +309,23 @@ ALLOWED_ACTIVITY_EXTENSIONS = {".pdf": Activity.TYPE_PDF, ".html": Activity.TYPE
                                ".htm": Activity.TYPE_HTML}
 
 
-class _TopicSelect(forms.Select):
-    """
-    Tags each <option> with its module id (data-module) so activity-form.js can
-    narrow the Topic list down to whichever Module is currently selected. Pure
-    progressive enhancement — the server re-checks the module/topic pairing
-    regardless (see ActivityForm.clean()), so this never has to be trusted.
-    """
-
-    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
-        option = super().create_option(name, value, label, selected, index, subindex, attrs)
-        instance = getattr(value, "instance", None)
-        if instance is not None:
-            option["attrs"]["data-module"] = instance.module_id
-        return option
-
-
-class _TopicChoiceField(forms.ModelChoiceField):
-    """Labels each topic with its module code, so it still reads sensibly
-    before activity-form.js narrows the list to the selected module."""
-
-    def label_from_instance(self, obj):
-        return f"{obj.module.code} — {obj.title}"
-
-
 class ActivityForm(forms.Form):
     """
-    Add or edit an Activity. Only Module, Topic and the document are ever
-    required — title is optional (defaults to the uploaded file's name), and
-    publishing is decided by which button is pressed (`intent`), handled in
-    `apply()`, exactly like module notes.
+    Add or edit an Activity. Only Module and the document are ever required —
+    title is optional (defaults to the uploaded file's name), and publishing
+    is decided by which button is pressed (`intent`), handled in `apply()`,
+    exactly like module notes.
+
+    Activities are still filed under a Topic (Unit) internally — `apply()`
+    files them under that module's "General" topic automatically, via
+    `Unit.get_or_create_general()` — but a Trainer publishing an activity no
+    longer has to choose one.
     """
 
     module = _ModuleChoiceField(
         queryset=Module.objects.none(), required=True, label="Module",
         empty_label="Select a module…",
         widget=forms.Select(attrs={"class": "form-select"}))
-    topic = _TopicChoiceField(
-        queryset=Unit.objects.none(), required=True, label="Topic",
-        empty_label="Select the module above first…",
-        widget=_TopicSelect(attrs={"class": "form-select"}))
     title = forms.CharField(
         max_length=220, required=False, label="Title",
         widget=forms.TextInput(attrs={"class": "form-control",
@@ -366,20 +343,14 @@ class ActivityForm(forms.Form):
         self.activity = activity
         modules = activity_modules_for(user)
         self.fields["module"].queryset = modules
-        self.fields["topic"].queryset = (
-            Unit.objects.filter(module__in=modules).select_related("module")
-            .order_by("module__trade__order", "module__order", "order", "code"))
 
         if activity is not None:
-            # Editing: the current module/topic stay selectable even if the
-            # author was later unassigned from that module (an Administrator
-            # editing another Trainer's activity also needs it in the list).
+            # Editing: the current module stays selectable even if the author
+            # was later unassigned from it (an Administrator editing another
+            # Trainer's activity also needs it in the list).
             self.fields["module"].queryset = (
                 self.fields["module"].queryset | Module.objects.filter(pk=activity.module_id)
             ).distinct().select_related("trade").order_by("trade__order", "order", "code")
-            self.fields["topic"].queryset = (
-                self.fields["topic"].queryset | Unit.objects.filter(pk=activity.topic_id)
-            ).distinct()
             self.fields["document"].help_text = "Leave empty to keep the current file."
             self.fields["title"].help_text = "Leave empty to keep the current title."
         self.max_bytes = settings.MAX_ACTIVITY_SIZE_MB * 1024 * 1024
@@ -430,9 +401,6 @@ class ActivityForm(forms.Form):
     # -- whole form --------------------------------------------------------
     def clean(self):
         cleaned = super().clean()
-        module, topic = cleaned.get("module"), cleaned.get("topic")
-        if module and topic and topic.module_id != module.pk:
-            self.add_error("topic", "This topic doesn't belong to the selected module.")
         if self.activity is None and not cleaned.get("document") and "document" not in self.errors:
             self.add_error("document", "Choose a PDF or HTML file to upload.")
         return cleaned
@@ -446,8 +414,13 @@ class ActivityForm(forms.Form):
         """
         data = self.cleaned_data
         activity = self.activity or Activity(uploaded_by=self.user)
-        activity.module = data["module"]
-        activity.topic = data["topic"]
+        module = data["module"]
+        if not activity.pk or activity.module_id != module.pk:
+            # New activity, or moved to a different module: file it under
+            # that module's catch-all topic. An edit that keeps the same
+            # module keeps whatever topic the activity already had.
+            activity.topic = Unit.get_or_create_general(module)
+        activity.module = module
 
         title = data.get("title") or ""
         if title or not activity.pk:

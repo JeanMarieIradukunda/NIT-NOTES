@@ -12,7 +12,7 @@
       </ol>
     </nav>
     <h1>{% if activity %}Edit activity{% else %}Add activity{% endif %}</h1>
-    <p class="lead">{% if activity %}Update the module, topic, title, or replace the document.{% else %}Choose the module and topic, upload a PDF or HTML activity document — then save a draft or publish straight away.{% endif %}</p>
+    <p class="lead">{% if activity %}Update the module, title, or replace the document.{% else %}Choose the module, add a title, and upload a PDF or HTML activity document — then save a draft or publish straight away.{% endif %}</p>
   </div>
 
   <div class="row g-4">
@@ -34,23 +34,15 @@
         </section>
 
         <section class="note-form-section" aria-labelledby="s2">
-          <h2 id="s2"><span class="step-num">2</span>Topic</h2>
-          <p class="hint">The learning outcome / topic within that module this activity belongs to.</p>
-          <label class="visually-hidden" for="{{ form.topic.id_for_label }}">{{ form.topic.label }}</label>
-          {{ form.topic }}
-          {% for e in form.topic.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
-        </section>
-
-        <section class="note-form-section" aria-labelledby="s3">
-          <h2 id="s3"><span class="step-num">3</span>Title</h2>
+          <h2 id="s2"><span class="step-num">2</span>Title</h2>
           <p class="hint">What students will see. Optional — {% if activity %}leave empty to keep the current title{% else %}defaults to the uploaded file's name{% endif %}.</p>
           <label class="visually-hidden" for="{{ form.title.id_for_label }}">Title</label>
           {{ form.title }}
           {% for e in form.title.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
         </section>
 
-        <section class="note-form-section" aria-labelledby="s4">
-          <h2 id="s4"><span class="step-num">4</span>{% if activity %}Document{% else %}Upload document{% endif %}</h2>
+        <section class="note-form-section" aria-labelledby="s3">
+          <h2 id="s3"><span class="step-num">3</span>{% if activity %}Document{% else %}Upload document{% endif %}</h2>
           <p class="hint">PDF or HTML, up to {{ max_mb }} MB.</p>
 
           {% if activity %}
@@ -93,7 +85,7 @@
       <aside class="panel panel-body" aria-label="Guidance">
         <h2 class="fs-6 mb-3">Before you upload</h2>
         <ul class="guide-list">
-          <li><i class="bi bi-collection"></i><span>Pick the <strong>Module</strong> first — the <strong>Topic</strong> list narrows down to that module automatically.</span></li>
+          <li><i class="bi bi-collection"></i><span>Pick the <strong>Module</strong> this activity belongs to — it's filed under that module automatically.</span></li>
           <li><i class="bi bi-file-earmark-pdf"></i><span><strong>PDF</strong> activities open in a built-in viewer, with a download button.</span></li>
           <li><i class="bi bi-filetype-html"></i><span><strong>HTML</strong> activities are only ever offered as a download, never rendered live from this site.</span></li>
           <li><i class="bi bi-eye"></i><span><strong>Publishing</strong> makes an activity visible to every student. A draft is visible only to you and administrators.</span></li>
