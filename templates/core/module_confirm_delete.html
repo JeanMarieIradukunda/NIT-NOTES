@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Delete module{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="auth-wrap">
+    <div class="panel panel-body auth-card">
+      <span class="icon-chip mb-3" style="background:var(--c-danger-soft);color:var(--c-danger)"><i class="bi bi-trash"></i></span>
+      <h1 class="fs-4 mb-2">Delete “{{ module.code }}”?</h1>
+      <p class="text-muted-2">This permanently removes the module <strong>and everything filed under it</strong>. It can't be undone.</p>
+
+      {% if module.note_count_db or module.lesson_count_db or module.activity_count_db or module.unit_count %}
+      <ul class="mb-3">
+        {% if module.note_count_db %}<li>{{ module.note_count_db }} module note{{ module.note_count_db|pluralize }}</li>{% endif %}
+        {% if module.lesson_count_db %}<li>{{ module.lesson_count_db }} lesson{{ module.lesson_count_db|pluralize }}</li>{% endif %}
+        {% if module.activity_count_db %}<li>{{ module.activity_count_db }} activit{{ module.activity_count_db|pluralize:"y,ies" }}</li>{% endif %}
+        {% if module.unit_count %}<li>{{ module.unit_count }} learning outcome{{ module.unit_count|pluralize }} / topic{{ module.unit_count|pluralize }}</li>{% endif %}
+      </ul>
+      {% endif %}
+      {% if trainer_count %}
+      <p class="text-muted-2">{{ trainer_count }} trainer{{ trainer_count|pluralize }} currently assigned to this module will lose it from their workspace.</p>
+      {% endif %}
+
+      <form method="post" class="d-flex flex-wrap gap-2">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Delete permanently</button>
+        <a href="{% url 'core:curriculum' %}" class="btn btn-outline-secondary">Cancel</a>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

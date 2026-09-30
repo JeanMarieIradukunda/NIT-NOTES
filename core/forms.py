@@ -451,3 +451,96 @@ class ActivityForm(forms.Form):
             storage, name = old_file
             transaction.on_commit(lambda: storage.delete(name))
         return activity
+
+
+# --------------------------------------------------------------------------- #
+# Curriculum (Trades and Modules) — Administrator only, in-app replacement
+# for what used to be managed at /admin/core/trade/ and /admin/core/module/.
+# --------------------------------------------------------------------------- #
+
+class TradeForm(forms.ModelForm):
+    """Add or edit a Trade (a level, e.g. "Level 4 — National IT", or the
+    past-papers archive)."""
+
+    class Meta:
+        model = Trade
+        fields = ["name", "short_name", "key", "summary", "kind", "order"]
+        labels = {"key": "URL key", "kind": "Type"}
+        help_texts = {
+            "key": "Short, unique, and used in the level's web address — "
+                   "letters, numbers and hyphens only, e.g. L4, L5NIT.",
+            "short_name": "A compact label for tight spaces, e.g. \"L4\" for "
+                          "\"Level 4 — National IT\". Optional — falls back to the full name.",
+            "order": "Levels are listed lowest number first.",
+        }
+        widgets = {
+            "name": forms.TextInput(attrs={"class": "form-control",
+                                           "placeholder": "e.g. Level 4 — National IT"}),
+            "short_name": forms.TextInput(attrs={"class": "form-control",
+                                                 "placeholder": "e.g. Level 4"}),
+            "key": forms.TextInput(attrs={"class": "form-control", "placeholder": "e.g. L4"}),
+            "summary": forms.TextInput(attrs={"class": "form-control",
+                                              "placeholder": "One line describing this level"}),
+            "kind": forms.Select(attrs={"class": "form-select"}),
+            "order": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
+        }
+
+    def clean_key(self):
+        key = (self.cleaned_data.get("key") or "").strip().lower()
+        if not re.match(r"^[a-z0-9-]+$", key):
+            raise forms.ValidationError(
+                "Use only lowercase letters, numbers and hyphens, e.g. l4 or l5nit.")
+        clash = Trade.objects.filter(key__iexact=key).exclude(pk=self.instance.pk)
+        if clash.exists():
+            raise forms.ValidationError("A level with this URL key already exists.")
+        return key
+
+
+class ModuleForm(forms.ModelForm):
+    """
+    Add or edit a Module. The folder-style `key` used in the module's web
+    address is derived automatically from the code, exactly like a Trainer
+    registering a new module from the "Add module notes" form — so nobody
+    has to think about it twice.
+    """
+
+    class Meta:
+        model = Module
+        fields = ["trade", "code", "name", "order"]
+        labels = {"trade": "Level"}
+        help_texts = {"order": "Modules are listed lowest number first within their level."}
+        widgets = {
+            "trade": forms.Select(attrs={"class": "form-select"}),
+            "code": forms.TextInput(attrs={"class": "form-control", "placeholder": "e.g. GENCP302"}),
+            "name": forms.TextInput(attrs={"class": "form-control",
+                                           "placeholder": "e.g. C Programming Fundamentals"}),
+            "order": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["trade"].queryset = Trade.objects.order_by("order", "name")
+
+    def clean(self):
+        cleaned = super().clean()
+        trade, code = cleaned.get("trade"), (cleaned.get("code") or "").strip()
+        if not (trade and code):
+            return cleaned
+        key = module_key_from_code(code)
+        if not key:
+            self.add_error("code", "Use letters and numbers in the module code, e.g. GENCP302.")
+            return cleaned
+        clash = Module.objects.filter(trade=trade).filter(
+            models.Q(key__iexact=key) | models.Q(code__iexact=code)
+        ).exclude(pk=self.instance.pk).first()
+        if clash:
+            self.add_error("code", f"{clash.code} already exists at this level.")
+        cleaned["key"] = key
+        return cleaned
+
+    def save(self, commit=True):
+        module = super().save(commit=False)
+        module.key = self.cleaned_data["key"]
+        if commit:
+            module.save()
+        return module

@@ -37,6 +37,7 @@
         <li class="nav-item"><a class="nav-link {% if rm.url_name == 'activities_manage' or rm.url_name == 'activity_create' or rm.url_name == 'activity_edit' or rm.url_name == 'activity_delete' %}active{% endif %}" href="{% url 'core:activities_manage' %}">{% if request.is_admin_role %}All activities{% else %}My activities{% endif %}</a></li>
         {% endif %}
         {% if request.is_admin_role %}
+        <li class="nav-item"><a class="nav-link {% if rm.url_name == 'curriculum' or rm.url_name == 'trade_create' or rm.url_name == 'trade_edit' or rm.url_name == 'trade_delete' or rm.url_name == 'module_create' or rm.url_name == 'module_edit' or rm.url_name == 'module_delete' %}active{% endif %}" href="{% url 'core:curriculum' %}">Curriculum</a></li>
         <li class="nav-item"><a class="nav-link {% if rm.app_name == 'accounts' and rm.url_name != 'profile' and rm.url_name != 'login' and rm.url_name != 'password_change' %}active{% endif %}" href="{% url 'accounts:manage_trainers' %}">Trainers</a></li>
         {% endif %}
       </ul>
@@ -69,9 +70,6 @@
             {% endif %}
             <li><a class="dropdown-item" href="{% url 'accounts:profile' %}"><i class="bi bi-person me-2"></i>My profile</a></li>
             <li><a class="dropdown-item" href="{% url 'accounts:password_change' %}"><i class="bi bi-key me-2"></i>Change password</a></li>
-            {% if request.is_admin_role %}
-            <li><a class="dropdown-item" href="{% url 'admin:index' %}"><i class="bi bi-gear me-2"></i>Django admin</a></li>
-            {% endif %}
             <li><hr class="dropdown-divider"></li>
             <li>
               <form method="post" action="{% url 'accounts:logout' %}">

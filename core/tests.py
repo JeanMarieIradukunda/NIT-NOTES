@@ -567,28 +567,147 @@ class EmptyLibraryRenders(BaseCase):
 
 
 # --------------------------------------------------------------------------- #
-class AdminIsThemed(BaseCase):
-    """The Django admin picks up the platform theme and its key pages render."""
+class DjangoAdminRemoved(BaseCase):
+    """
+    The Django admin site has been retired — Trades and Modules moved to
+    /curriculum/ (see CurriculumManagement below). Nothing should still
+    point at /admin/.
+    """
 
-    def test_login_and_admin_pages_use_the_theme(self):
-        r = self.client.get("/admin/login/")
-        self.assertContains(r, "css/admin-theme.css")
-        self.assertContains(r, "nit-mark")
+    def test_admin_urls_all_404(self):
         self.client.force_login(self.admin)
-        for url in ("/admin/", "/admin/core/module/", "/admin/core/module/add/",
-                    "/admin/core/modulenote/", "/admin/core/trade/", "/admin/auth/user/"):
-            r = self.client.get(url)
-            self.assertEqual(r.status_code, 200, url)
-            self.assertContains(r, "css/admin-theme.css")
-        self.assertContains(self.client.get("/admin/"), "NIT Learning Resources")
-        self.assertContains(self.client.get("/admin/"), reverse("core:notes_manage"))
+        for url in ("/admin/", "/admin/login/", "/admin/core/module/",
+                    "/admin/core/trade/", "/admin/auth/user/"):
+            self.assertEqual(self.client.get(url).status_code, 404, url)
 
-    def test_note_change_page_renders_without_exposing_a_public_file_link(self):
-        n = self.make_note()
+    def test_no_page_links_to_admin_anymore(self):
         self.client.force_login(self.admin)
-        r = self.client.get(f"/admin/core/modulenote/{n.pk}/change/")
+        for url in (reverse("core:dashboard"), reverse("core:curriculum")):
+            self.assertNotContains(self.client.get(url), 'href="/admin/')
+
+
+class CurriculumManagement(BaseCase):
+    """Administrator-only management of Trades and Modules at /curriculum/ —
+    the in-app replacement for the old /admin/core/trade/ and
+    /admin/core/module/ changelists."""
+
+    def setUp(self):
+        super().setUp()
+        self.module = Module.objects.create(trade=self.level, key="GENCP302",
+                                            code="GENCP302", name="C Programming")
+
+    # -- permissions ---------------------------------------------------- #
+    def test_only_administrators_may_reach_curriculum_pages(self):
+        urls = [reverse("core:curriculum"), reverse("core:trade_create"),
+                reverse("core:trade_edit", args=[self.level.pk]),
+                reverse("core:module_create"),
+                reverse("core:module_edit", args=[self.module.pk])]
+        for u in urls:
+            self.client.logout()
+            self.assertEqual(self.client.get(u).status_code, 302, u)          # anonymous -> login
+            self.client.force_login(self.student)
+            self.assertEqual(self.client.get(u).status_code, 403, u)
+            self.client.force_login(self.alice)                              # Trainer, not Admin
+            self.assertEqual(self.client.get(u).status_code, 403, u)
+            self.client.force_login(self.admin)
+            self.assertEqual(self.client.get(u).status_code, 200, u)
+
+    # -- Trades ----------------------------------------------------------- #
+    def test_admin_can_create_a_trade(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("core:trade_create"), {
+            "name": "Level 5 — National IT", "short_name": "L5", "key": "l5",
+            "summary": "", "kind": Trade.KIND_TRADE, "order": 3,
+        })
+        self.assertRedirects(r, reverse("core:curriculum"))
+        trade = Trade.objects.get(key="l5")
+        self.assertEqual(trade.name, "Level 5 — National IT")
+
+    def test_trade_key_must_be_unique(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("core:trade_create"), {
+            "name": "Another level", "short_name": "", "key": self.level.key,
+            "summary": "", "kind": Trade.KIND_TRADE, "order": 9,
+        })
         self.assertEqual(r.status_code, 200)
-        self.assertNotContains(r, "/media/module_notes")
+        self.assertContains(r, "already exists")
+        self.assertEqual(Trade.objects.filter(key=self.level.key).count(), 1)
+
+    def test_admin_can_edit_a_trade(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("core:trade_edit", args=[self.level.pk]), {
+            "name": "Level 3 (renamed)", "short_name": "", "key": self.level.key,
+            "summary": "", "kind": Trade.KIND_TRADE, "order": 1,
+        })
+        self.assertRedirects(r, reverse("core:curriculum"))
+        self.level.refresh_from_db()
+        self.assertEqual(self.level.name, "Level 3 (renamed)")
+
+    def test_cannot_delete_a_trade_that_still_has_modules(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("core:trade_delete", args=[self.level.pk]), follow=True)
+        self.assertContains(r, "still has")
+        self.assertTrue(Trade.objects.filter(pk=self.level.pk).exists())
+
+    def test_can_delete_an_empty_trade(self):
+        empty = Trade.objects.create(key="empty", name="Empty level", order=9)
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("core:trade_delete", args=[empty.pk]))
+        self.assertRedirects(r, reverse("core:curriculum"))
+        self.assertFalse(Trade.objects.filter(pk=empty.pk).exists())
+
+    # -- Modules ------------------------------------------------------------ #
+    def test_admin_can_create_a_module_and_its_key_is_derived_from_the_code(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("core:module_create"), {
+            "trade": self.level.pk, "code": "GEN DB-401", "name": "Databases", "order": 5,
+        })
+        self.assertRedirects(r, reverse("core:curriculum"))
+        module = Module.objects.get(code="GEN DB-401")
+        self.assertEqual(module.key, "GEN-DB-401")
+
+    def test_duplicate_module_code_in_the_same_level_is_rejected(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("core:module_create"), {
+            "trade": self.level.pk, "code": self.module.code, "name": "Duplicate", "order": 1,
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "already exists")
+        self.assertEqual(Module.objects.filter(code=self.module.code).count(), 1)
+
+    def test_admin_can_edit_a_module(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("core:module_edit", args=[self.module.pk]), {
+            "trade": self.level.pk, "code": self.module.code,
+            "name": "C Programming (renamed)", "order": 2,
+        })
+        self.assertRedirects(r, reverse("core:curriculum"))
+        self.module.refresh_from_db()
+        self.assertEqual(self.module.name, "C Programming (renamed)")
+
+    def _note_in(self, module):
+        return ModuleNote.objects.create(
+            module=module, title="Test note",
+            file=SimpleUploadedFile("n.pdf", PDF_BYTES, "application/pdf"),
+            file_type="pdf", original_filename="n.pdf", size_bytes=len(PDF_BYTES),
+            is_published=True, uploaded_by=self.alice)
+
+    def test_deleting_a_module_cascades_to_its_notes(self):
+        note = self._note_in(self.module)
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("core:module_delete", args=[self.module.pk]))
+        self.assertRedirects(r, reverse("core:curriculum"))
+        self.assertFalse(Module.objects.filter(pk=self.module.pk).exists())
+        self.assertFalse(ModuleNote.objects.filter(pk=note.pk).exists())
+
+    def test_module_delete_confirmation_shows_what_will_be_removed(self):
+        self._note_in(self.module)
+        self.alice.profile.trainer_modules.add(self.module)
+        self.client.force_login(self.admin)
+        r = self.client.get(reverse("core:module_delete", args=[self.module.pk]))
+        self.assertContains(r, "1 module note")
+        self.assertContains(r, "1 trainer")
+        self.assertTrue(Module.objects.filter(pk=self.module.pk).exists())   # GET never deletes
 
 
 # --------------------------------------------------------------------------- #

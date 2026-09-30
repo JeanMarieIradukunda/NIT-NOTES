@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import activity_views, note_views, views
+from . import activity_views, curriculum_views, note_views, views
 
 app_name = "core"
 
@@ -8,6 +8,16 @@ urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("browse/", views.browse, name="browse"),
     path("search/", views.search, name="search"),
+
+    # Curriculum — Administrator workspace (replaces Django admin's Trade
+    # and Module changelists; see core/curriculum_views.py).
+    path("curriculum/", curriculum_views.curriculum, name="curriculum"),
+    path("curriculum/trades/new/", curriculum_views.trade_create, name="trade_create"),
+    path("curriculum/trades/<int:pk>/edit/", curriculum_views.trade_edit, name="trade_edit"),
+    path("curriculum/trades/<int:pk>/delete/", curriculum_views.trade_delete, name="trade_delete"),
+    path("curriculum/modules/new/", curriculum_views.module_create, name="module_create"),
+    path("curriculum/modules/<int:pk>/edit/", curriculum_views.module_edit, name="module_edit"),
+    path("curriculum/modules/<int:pk>/delete/", curriculum_views.module_delete, name="module_delete"),
 
     path("m/<slug:trade_key>/<slug:module_key>/", views.module_detail, name="module_detail"),
     path("m/<slug:trade_key>/<slug:module_key>/upload/", views.upload_lesson, name="upload_lesson"),

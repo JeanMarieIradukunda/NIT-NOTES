@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{% if trade %}Edit level{% else %}Add level{% endif %}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'core:curriculum' %}">Curriculum</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{% if trade %}Edit{% else %}Add{% endif %} level</li>
+    </ol></nav>
+    <h1>{% if trade %}Edit “{{ trade.name }}”{% else %}Add a level{% endif %}</h1>
+    <p class="lead">{% if trade %}Update this level's name, key or order.{% else %}A level (e.g. a class year, or the past-papers archive) that modules are filed under.{% endif %}</p>
+  </div>
+  <div class="row"><div class="col-lg-7">
+    <form method="post" class="panel panel-body" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+      {% for f in form %}
+      <div class="mb-3">
+        <label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>
+        {{ f }}
+        {% for e in f.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+        {% if f.help_text %}<div class="form-text">{{ f.help_text }}</div>{% endif %}
+      </div>
+      {% endfor %}
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>{% if trade %}Save changes{% else %}Add level{% endif %}</button>
+      <a href="{% url 'core:curriculum' %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+  </div></div>
+  <div class="pb-2"></div>
+</div>
+{% endblock %}
