@@ -1,9 +1,10 @@
 """Tests for the dark student dashboard (landing page)."""
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from core.models import ModuleNote
-from core.tests import BaseCase
+from core.models import Activity, Module, ModuleNote, Unit
+from core.tests import PDF_BYTES, BaseCase
 
 
 class DashboardPage(BaseCase):
@@ -75,3 +76,48 @@ class DashboardPage(BaseCase):
         self.assertContains(r, "Add module notes")
         self.client.force_login(self.admin)
         self.assertContains(self.get(), "Notes workspace")
+
+
+class DashboardActivities(BaseCase):
+    """Published activities appear on the dashboard for everyone; drafts never do."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.module = Module.objects.create(trade=cls.level, key="GENCP302",
+                                           code="GENCP302", name="C Programming")
+        cls.topic = Unit.objects.create(module=cls.module, code="LO2", title="Loops")
+
+    def make_activity(self, title, published=True, name="worksheet.pdf"):
+        return Activity.objects.create(
+            module=self.module, topic=self.topic, title=title, is_published=published,
+            uploaded_by=self.alice,
+            document=SimpleUploadedFile(name, PDF_BYTES, content_type="application/pdf"))
+
+    def get(self):
+        return self.client.get(reverse("core:dashboard"))
+
+    def test_published_activity_is_listed_for_anonymous_visitors(self):
+        activity = self.make_activity("Loops worksheet")
+        self.client.logout()
+        r = self.get()
+        self.assertContains(r, 'id="activities-title"')
+        self.assertContains(r, "Loops worksheet")
+        self.assertContains(r, reverse("core:activity_file", args=[activity.pk]))
+
+    def test_published_activity_is_listed_for_signed_in_students(self):
+        self.make_activity("Loops worksheet")
+        self.client.force_login(self.student)
+        self.assertContains(self.get(), "Loops worksheet")
+
+    def test_draft_activities_never_appear(self):
+        self.make_activity("Secret draft activity", published=False)
+        self.client.logout()
+        r = self.get()
+        self.assertNotContains(r, "Secret draft activity")
+        self.assertNotContains(r, 'id="activities-title"')
+
+    def test_html_activity_is_offered_as_a_download(self):
+        self.make_activity("Loops page", name="page.html")
+        Activity.objects.filter(title="Loops page").update(document_type=Activity.TYPE_HTML)
+        self.assertContains(self.get(), "Download")

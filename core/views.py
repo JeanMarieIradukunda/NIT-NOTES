@@ -72,6 +72,12 @@ def dashboard(request):
                         .select_related("module", "module__trade", "uploaded_by")
                         .order_by("-published_at")[:6])
 
+    # Published activities are public, exactly like published notes: drafts are
+    # excluded here, and the file itself is served by core:activity_file.
+    latest_activities = list(Activity.objects.filter(is_published=True)
+                             .select_related("module", "module__trade", "uploaded_by")
+                             .order_by("-updated_at")[:6])
+
     my_notes = None
     if can_add_notes(request.user):
         mine = ModuleNote.objects.all() if is_admin(request.user) \
@@ -90,6 +96,7 @@ def dashboard(request):
 
     return render(request, "core/dashboard.html", {
         "trades": trades, "stats": stats, "latest_notes": latest_notes,
+        "latest_activities": latest_activities,
         "my_notes": my_notes, "my_activities": my_activities,
         "resume": resume, "recents": recents, "bookmarks": bookmarks,
     })
