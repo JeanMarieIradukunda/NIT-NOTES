@@ -4,7 +4,6 @@
 {% block body_class %}night{% endblock %}
 
 {% block extra_css %}
-<link rel="preload" href="{% static 'vendor/newsreader/newsreader-latin-wght-normal.woff2' %}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
 {% endblock %}
 
@@ -19,11 +18,6 @@
       <div>
         <h1 id="hero-title" class="nd-rise" style="--i:0">Everything you need to study NIT, in one place.</h1>
         <p class="lead nd-rise" style="--i:1">Module notes, lessons and past papers for Levels 3 to 5. Read online, or download for offline study.</p>
-        <form class="nd-search nd-rise" style="--i:2" role="search" action="{% url 'core:search' %}" method="get">
-          <i class="bi bi-search" aria-hidden="true"></i>
-          <input type="search" name="q" placeholder="Search by module or topic" aria-label="Search the library by module code, title or topic" autocomplete="off">
-          <button class="btn btn-primary" type="submit">Search</button>
-        </form>
         {% if stats.modules %}<p class="nd-hero-note nd-rise" style="--i:3">Currently covering {{ stats.modules }} module{{ stats.modules|pluralize }} across Levels 3 to 5.</p>{% endif %}
       </div>
 

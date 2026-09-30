@@ -16,7 +16,7 @@ class DashboardPage(BaseCase):
         self.assertIn('<body class="night">', html)
         self.assertIn("css/dashboard.css", html)
         self.assertIn("css/platform.css", html)
-        self.assertIn("newsreader-latin-wght-normal.woff2", html)
+        self.assertIn("plus-jakarta-sans-latin-wght-normal.woff2", html)
         self.assertIn('data-bs-theme="light"', html)          # Bootstrap mode unchanged
         self.assertNotIn("fonts.googleapis", html)            # fonts stay self-hosted
         self.assertNotIn("cdn.jsdelivr", html)
@@ -123,3 +123,56 @@ class DashboardActivities(BaseCase):
         html = self.get().content.decode()
         self.assertIn(reverse("core:activity_detail", args=[activity.pk]), html)
         self.assertNotIn(reverse("core:activity_file", args=[activity.pk]), html)
+
+
+class SiteHeaderLayout(BaseCase):
+    """Header = logo + user menu; then one menu bar; then the search field."""
+
+    def html(self, who=None):
+        self.client.logout()
+        if who:
+            self.client.force_login(who)
+        return self.client.get(reverse("core:dashboard")).content.decode()
+
+    def test_three_rows_in_order(self):
+        html = self.html()
+        top, menu, search = (html.index(x) for x in
+                             ("app-topbar", "app-menubar", "app-searchbar"))
+        self.assertLess(top, menu)
+        self.assertLess(menu, search)
+
+    def test_header_row_holds_only_brand_and_user_area(self):
+        top = self.html(self.alice).split('class="app-topbar"', 1)[1].split("</header>", 1)[0]
+        self.assertIn("brand-mark", top)
+        self.assertIn("user-toggle", top)
+        self.assertNotIn("nav-link", top)
+        self.assertNotIn('type="search"', top)
+
+    def test_menu_bar_is_role_aware(self):
+        def menu(who):
+            h = self.html(who)
+            return h.split('class="app-menubar"', 1)[1].split("</nav>", 1)[0]
+        anon, trainer, admin = menu(None), menu(self.alice), menu(self.admin)
+        for text in ("Dashboard", "Browse"):
+            self.assertIn(text, anon)
+        self.assertNotIn("notes", anon.lower().replace("module notes", ""))
+        self.assertNotIn("Curriculum", trainer)
+        self.assertIn("My notes", trainer)
+        self.assertIn("My activities", trainer)
+        for text in ("All notes", "All activities", "Curriculum", "Trainers"):
+            self.assertIn(text, admin)
+
+    def test_search_lives_under_the_menu_and_is_not_duplicated_in_the_hero(self):
+        html = self.html()
+        self.assertEqual(html.count('type="search"'), 1)
+        self.assertIn(reverse("core:search"), html.split("app-searchbar", 1)[1])
+
+    def test_dashboard_uses_the_shared_palette_not_a_private_dark_one(self):
+        css = open("static/css/dashboard.css", encoding="utf-8").read()
+        self.assertNotIn("color-scheme: dark", css)
+        self.assertNotIn("#090e1a", css)
+        self.assertIn("var(--c-brand)", css)
+
+    def test_search_page_does_not_show_a_second_search_field(self):
+        r = self.client.get(reverse("core:search"))
+        self.assertEqual(r.content.decode().count('type="search"'), 1)
