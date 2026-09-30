@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ activity.title }}{% endblock %}
+{% block description %}{{ activity.module.code }} · {{ activity.title }} — activity ({{ activity.get_document_type_display }}).{% endblock %}
+
+{% block content %}
+<div class="subbar no-print">
+  <div class="container-xxl d-flex align-items-center gap-2 py-2 flex-wrap">
+    <a href="{% url 'core:dashboard' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Dashboard</a>
+    <span class="flex-grow-1"></span>
+    {% if can_manage %}
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'core:activity_edit' activity.pk %}"><i class="bi bi-pencil me-1"></i>Edit</a>
+    {% endif %}
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'core:activity_file' activity.pk %}{% if activity.is_html %}?view=1{% endif %}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>Open in new tab</a>
+    <a class="btn btn-sm btn-primary" href="{% url 'core:activity_file' activity.pk %}?download=1"><i class="bi bi-download me-1"></i>Download {{ activity.get_document_type_display }}</a>
+  </div>
+</div>
+
+<div class="container-xxl py-4">
+  {% if not activity.is_published %}
+  <div class="draft-banner no-print" role="status">
+    <i class="bi bi-eye-slash fs-5"></i>
+    <div><strong>Draft — not visible to students.</strong> Only you and administrators can see this page. Publish it when it's ready.</div>
+  </div>
+  {% endif %}
+
+  <nav aria-label="breadcrumb" class="no-print">
+    <ol class="breadcrumb flex-wrap">
+      <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item">{{ activity.module.trade.short_name|default:activity.module.trade.name }}</li>
+      <li class="breadcrumb-item"><a href="{{ activity.module.get_absolute_url }}">{{ activity.module.code }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ activity.title }}</li>
+    </ol>
+  </nav>
+
+  <header class="mb-4">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <span class="type-badge type-badge--{{ activity.document_type }}">{{ activity.get_document_type_display }}</span>
+      <span class="code-badge">{{ activity.module.code }}</span>
+    </div>
+    <h1 class="fs-2 mb-2">{{ activity.title }}</h1>
+    <div class="d-flex flex-wrap small text-muted-2" style="column-gap:1.25rem;row-gap:.25rem">
+      <span>{{ activity.module.name }}</span>
+      {% if activity.uploaded_by %}<span><i class="bi bi-person me-1"></i>{{ activity.uploaded_by.first_name|default:activity.uploaded_by.username }}</span>{% endif %}
+      <span><i class="bi bi-calendar3 me-1"></i>{{ activity.updated_at|date:"j F Y" }}</span>
+      <span>{{ activity.size_display }}</span>
+    </div>
+  </header>
+
+  {% if activity.is_pdf %}
+    <div class="d-none d-md-block panel" style="padding:.5rem">
+      <iframe class="pdf-frame" src="{% url 'core:activity_file' activity.pk %}#view=FitH" title="{{ activity.title }} (PDF)"></iframe>
+    </div>
+    <div class="d-md-none panel panel-body text-center">
+      <span class="type-tile type-tile--pdf mb-3"><i class="bi bi-file-earmark-pdf"></i></span>
+      <p class="mb-3">PDFs open best in your device's own viewer.</p>
+      <div class="d-grid gap-2">
+        <a class="btn btn-primary" href="{% url 'core:activity_file' activity.pk %}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>Open PDF</a>
+        <a class="btn btn-outline-secondary" href="{% url 'core:activity_file' activity.pk %}?download=1"><i class="bi bi-download me-1"></i>Download</a>
+      </div>
+    </div>
+  {% else %}
+    <div class="panel" style="padding:.5rem">
+      <iframe class="pdf-frame" src="{% url 'core:activity_file' activity.pk %}?view=1"
+              sandbox="allow-scripts allow-forms allow-modals allow-popups"
+              title="{{ activity.title }}"></iframe>
+    </div>
+  {% endif %}
+
+  {% if siblings %}
+  <section class="mt-5 no-print" aria-labelledby="more-h">
+    <h2 class="fs-6 mb-2" id="more-h">More activities in {{ activity.module.code }}</h2>
+    <div class="panel list-panel">
+      {% for a in siblings %}
+      <a href="{% url 'core:activity_detail' a.pk %}" class="list-row">
+        <span class="type-tile type-tile--{{ a.document_type }}"><i class="bi {% if a.is_pdf %}bi-file-earmark-pdf{% else %}bi-filetype-html{% endif %}"></i></span>
+        <span class="main"><span class="title">{{ a.title }}</span><span class="meta">{{ a.get_document_type_display }} · {{ a.size_display }}</span></span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

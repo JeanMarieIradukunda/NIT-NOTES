@@ -103,7 +103,7 @@ class DashboardActivities(BaseCase):
         r = self.get()
         self.assertContains(r, 'id="activities-title"')
         self.assertContains(r, "Loops worksheet")
-        self.assertContains(r, reverse("core:activity_file", args=[activity.pk]))
+        self.assertContains(r, reverse("core:activity_detail", args=[activity.pk]))
 
     def test_published_activity_is_listed_for_signed_in_students(self):
         self.make_activity("Loops worksheet")
@@ -117,7 +117,9 @@ class DashboardActivities(BaseCase):
         self.assertNotContains(r, "Secret draft activity")
         self.assertNotContains(r, 'id="activities-title"')
 
-    def test_html_activity_is_offered_as_a_download(self):
-        self.make_activity("Loops page", name="page.html")
-        Activity.objects.filter(title="Loops page").update(document_type=Activity.TYPE_HTML)
-        self.assertContains(self.get(), "Download")
+    def test_activities_open_in_the_reader_not_as_a_download(self):
+        activity = self.make_activity("Loops worksheet")
+        self.client.logout()
+        html = self.get().content.decode()
+        self.assertIn(reverse("core:activity_detail", args=[activity.pk]), html)
+        self.assertNotIn(reverse("core:activity_file", args=[activity.pk]), html)

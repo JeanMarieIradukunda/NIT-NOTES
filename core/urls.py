@@ -38,6 +38,7 @@ urlpatterns = [
     # Activities — Trainer/Admin workspace (replaces creating these in Django Admin).
     path("activities/", activity_views.activities_manage, name="activities_manage"),
     path("activities/new/", activity_views.activity_create, name="activity_create"),
+    path("activities/<int:pk>/", activity_views.activity_detail, name="activity_detail"),
     path("activities/<int:pk>/file/", activity_views.activity_file, name="activity_file"),
     path("activities/<int:pk>/edit/", activity_views.activity_edit, name="activity_edit"),
     path("activities/<int:pk>/publish/", activity_views.activity_toggle_publish,

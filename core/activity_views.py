@@ -38,10 +38,22 @@ from accounts.roles import (activity_modules_for, can_add_activities,
                             can_manage_activity, is_admin)
 from .forms import ActivityForm
 from .models import Activity, Module
+from .note_views import READER_CSP_PDF
 
 logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 15
+
+# Policy for an HTML activity shown *inside* the reader page (?view=1). The
+# `sandbox` directive gives the document an opaque origin, so it can't read our
+# cookies or touch the surrounding site even though its own inline scripts and
+# styles run. `default-src 'none'` blocks every network request (no fetch,
+# no remote scripts/images), so a worksheet can only use what is in the file.
+ACTIVITY_INLINE_CSP = (
+    "sandbox allow-scripts allow-forms allow-modals allow-popups; "
+    "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+    "img-src data: blob:; font-src data:; media-src data:; frame-ancestors 'self'"
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -257,6 +269,27 @@ def activity_delete(request, pk):
 
 
 # --------------------------------------------------------------------------- #
+# Reading an activity inside the site
+# --------------------------------------------------------------------------- #
+
+def activity_detail(request, pk):
+    """The in-page reader: the activity's document shown in a frame on our own page."""
+    activity = _visible_activity_or_none(request, pk)
+    if activity is None:
+        return _not_found(request)
+
+    siblings = (_activity_qs().filter(module=activity.module, is_published=True)
+                .exclude(pk=activity.pk)[:6])
+    response = render(request, "core/activity_detail.html", {
+        "activity": activity,
+        "can_manage": can_manage_activity(request.user, activity),
+        "siblings": siblings,
+    })
+    response["Content-Security-Policy"] = READER_CSP_PDF
+    return response
+
+
+# --------------------------------------------------------------------------- #
 # Serving the document
 # --------------------------------------------------------------------------- #
 
@@ -291,13 +324,17 @@ def activity_file(request, pk):
     stem = re.sub(r"[^\w\s-]", "", stem).strip()
     stem = re.sub(r"\s+", "_", stem)[:110] or "activity"
     filename = f"{stem}.{'pdf' if activity.is_pdf else 'html'}"
-    as_attachment = activity.is_html or request.GET.get("download") == "1"
+    # ?view=1 is what the reader page's frame requests: HTML is then shown
+    # inline (under ACTIVITY_INLINE_CSP) instead of being forced to download.
+    inline_view = activity.is_html and request.GET.get("view") == "1"
+    as_attachment = (activity.is_html and not inline_view) or request.GET.get("download") == "1"
     response = FileResponse(
         handle, as_attachment=as_attachment, filename=filename,
         content_type="application/pdf" if activity.is_pdf else "text/html; charset=utf-8")
     response["X-Content-Type-Options"] = "nosniff"
     if activity.is_html:
-        response["Content-Security-Policy"] = "sandbox; default-src 'none'"
+        response["Content-Security-Policy"] = (
+            ACTIVITY_INLINE_CSP if inline_view else "sandbox; default-src 'none'")
     response["Cache-Control"] = ("private, max-age=300" if activity.is_published
                                  else "private, no-store")
     return response
