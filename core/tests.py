@@ -539,7 +539,7 @@ class EmptyLibraryRenders(BaseCase):
                 r = self.client.get(u)
                 self.assertEqual(r.status_code, 200, (who, u))
                 html = r.content.decode()
-                self.assertIn('data-bs-theme="light"', html)
+                self.assertIn('data-bs-theme="dark"', html)
                 self.assertIn("css/platform.css", html)
                 self.assertNotIn("solarized", html.lower())
                 self.assertNotIn("cdn.jsdelivr", html)

@@ -1,10 +1,10 @@
 /* =============================================================================
-   dashboard.css — the dashboard / landing page content
+   dashboard.css — the dashboard / landing page content (dark theme)
    -----------------------------------------------------------------------------
    Loaded only by templates/core/dashboard.html. Uses the SAME palette as every
    other page: the --nd-* tokens below are simply aliases of platform.css's
    --c-* tokens, so a palette change in platform.css changes the dashboard too.
-   (The <body class="night"> hook is historical — it no longer means dark.)
+   (The <body class="night"> hook is the dashboard's original name for the dark look.)
 
    Type   Plus Jakarta Sans (self-hosted Google font) for headings, labels and
           menu; Inter for reading text.
@@ -23,6 +23,8 @@ body.night {
   --nd-muted:  var(--c-muted);
   --nd-lamp:   var(--c-brand);
   --nd-lamp-2: var(--c-brand-2);
+  --nd-solid:  var(--c-brand-solid);   /* fill behind white text */
+  --nd-solid-2: #4472ee;
   --nd-lamp-ink: #fff;
   --nd-lamp-soft: var(--c-brand-soft);
   --nd-ice:    var(--c-brand);
@@ -41,7 +43,7 @@ body.night {
 .nd-hero {
   position: relative; overflow: hidden;
   padding-block: clamp(1.5rem, 3.5vw, 2.5rem) clamp(1.5rem, 3vw, 2.25rem);
-  background: radial-gradient(48rem 22rem at 0% 0%, var(--c-brand-soft), transparent 70%), transparent;
+  background: radial-gradient(52rem 24rem at 0% 0%, rgba(47, 95, 224, .22), transparent 70%), transparent;
 }
 .nd-hero-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(1.25rem, 3vw, 2.25rem); align-items: center; }
 @media (min-width: 992px) { .nd-hero-grid { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); } }
@@ -87,11 +89,11 @@ body.night {
 .nd-spot-date { color: var(--nd-muted); font-size: .76rem; }
 .nd-cta {
   display: inline-flex; align-items: center; gap: .4rem; height: 34px; padding-inline: .9rem;
-  border-radius: 10px; background: var(--nd-lamp); color: var(--nd-lamp-ink);
+  border-radius: 10px; background: var(--nd-solid); color: var(--nd-lamp-ink);
   font-family: var(--font-display); font-weight: 650; font-size: .8rem; white-space: nowrap;
   transition: background-color .15s, gap .15s;
 }
-.nd-spot:hover .nd-cta { background: var(--nd-lamp-2); gap: .6rem; }
+.nd-spot:hover .nd-cta { background: var(--nd-solid-2); gap: .6rem; }
 
 .nd-empty {
   padding: 1.25rem 1.4rem; border-radius: 16px; text-align: left;
@@ -169,7 +171,7 @@ a.nd-row:hover .nd-row-title { color: var(--nd-lamp); }
   grid-column: 2; grid-row: 1; display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
   background: var(--nd-lamp-soft); color: var(--nd-lamp); font-size: .85rem; transition: background-color .15s, color .15s, transform .15s;
 }
-.nd-level:hover .nd-level-go, .nd-level:focus-visible .nd-level-go { background: var(--nd-lamp); color: var(--nd-lamp-ink); transform: rotate(45deg); }
+.nd-level:hover .nd-level-go, .nd-level:focus-visible .nd-level-go { background: var(--nd-solid); color: var(--nd-lamp-ink); transform: rotate(45deg); }
 /* When there are no notes to put beside them, the levels span the page as a wider grid. */
 @media (min-width: 768px) {
   .nd-body--solo .nd-levels { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }

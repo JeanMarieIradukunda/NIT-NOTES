@@ -17,7 +17,7 @@ class DashboardPage(BaseCase):
         self.assertIn("css/dashboard.css", html)
         self.assertIn("css/platform.css", html)
         self.assertIn("plus-jakarta-sans-latin-wght-normal.woff2", html)
-        self.assertIn('data-bs-theme="light"', html)          # Bootstrap mode unchanged
+        self.assertIn('data-bs-theme="dark"', html)           # one dark theme, site-wide
         self.assertNotIn("fonts.googleapis", html)            # fonts stay self-hosted
         self.assertNotIn("cdn.jsdelivr", html)
 
@@ -176,3 +176,47 @@ class SiteHeaderLayout(BaseCase):
     def test_search_page_does_not_show_a_second_search_field(self):
         r = self.client.get(reverse("core:search"))
         self.assertEqual(r.content.decode().count('type="search"'), 1)
+
+
+class DarkTheme(BaseCase):
+    """One dark palette for every dashboard: public site, workspaces and Django admin."""
+
+    def css(self, path):
+        return open(path, encoding="utf-8").read()
+
+    def test_every_page_asks_bootstrap_for_dark_mode(self):
+        for name in ("core:dashboard", "core:browse", "core:search"):
+            html = self.client.get(reverse(name)).content.decode()
+            self.assertIn('data-bs-theme="dark"', html, name)
+        self.client.force_login(self.alice)
+        for name in ("core:notes_manage", "core:activities_manage"):
+            html = self.client.get(reverse(name)).content.decode()
+            self.assertIn('data-bs-theme="dark"', html, name)
+
+    def test_shared_tokens_are_dark(self):
+        css = self.css("static/css/platform.css")
+        self.assertIn("color-scheme: dark;", css)
+        self.assertIn("--c-bg:         #0a101d;", css)
+        self.assertNotIn("rgba(255, 255, 255, .94)", css)    # no white header bar left
+
+    def test_white_text_only_sits_on_solid_cobalt(self):
+        css = self.css("static/css/platform.css")
+        self.assertIn("--bs-btn-bg: var(--c-brand-solid)", css)
+        self.assertIn(".btn-danger { --bs-btn-bg: var(--c-danger-solid)", css)
+
+    def test_note_reader_keeps_a_light_sheet_of_paper(self):
+        css = self.css("static/css/platform.css")
+        paper = css.split("#note-prose {", 1)[1].split("}", 1)[0]
+        self.assertIn("color-scheme: light;", paper)
+        self.assertIn("--c-text: #0f172a;", paper)
+
+    def test_admin_uses_the_same_dark_palette_in_every_theme_mode(self):
+        css = self.css("static/css/admin-theme.css")
+        self.assertIn("--page-bg: #0a101d;", css)
+        self.assertNotIn("--page-bg: #eef1f4", css)
+        self.assertNotIn("prefers-color-scheme: light", css)
+        self.assertIn(".theme-toggle { display: none !important; }", css)
+
+    def test_dashboard_accents_use_the_shared_cobalt(self):
+        css = self.css("static/css/dashboard.css")
+        self.assertIn("var(--c-brand-solid)", css)
