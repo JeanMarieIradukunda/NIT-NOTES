@@ -1,9 +1,41 @@
-/* Activity form: guard against oversize files and double submits. The
+/* Activity form: choose the module (from the list, or by its code and name),
+   and guard against oversize files and double submits. The
    server re-checks the file regardless — this only improves the
    experience. */
 document.addEventListener('DOMContentLoaded', function () {
   var form = document.getElementById('activity-form');
   if (!form) return;
+
+  // "Select from my list" / "Find by code & name": only one of the two is ever sent.
+  var paneExisting = document.getElementById('pane-existing');
+  var paneFind = document.getElementById('pane-find');
+  var modeExisting = document.getElementById('mode-existing');
+  var modeFind = document.getElementById('mode-find');
+  var select = form.querySelector('[name="module"]');
+  var findFields = form.querySelectorAll('[name^="lookup_"]');
+  var hasModules = form.dataset.hasModules === '1';
+
+  function anyFindValue() {
+    return Array.prototype.some.call(findFields, function (f) { return f.value.trim() !== ''; });
+  }
+  function hasFindErrors() {
+    return !!paneFind.querySelector('.invalid-msg');
+  }
+  function show(mode) {
+    var find = mode === 'find';
+    paneExisting.hidden = find;
+    paneFind.hidden = !find;
+    (find ? modeFind : modeExisting).checked = true;
+    if (find && select) select.value = '';
+    if (!find) Array.prototype.forEach.call(findFields, function (f) { f.value = ''; });
+  }
+
+  if (paneExisting && paneFind && modeExisting && modeFind) {
+    modeExisting.addEventListener('change', function () { show('existing'); });
+    modeFind.addEventListener('change', function () { show('find'); });
+    show((hasFindErrors() || (anyFindValue() && !(select && select.value))) ? 'find'
+         : (!hasModules ? 'find' : 'existing'));
+  }
 
   var file = form.querySelector('input[type="file"]');
   var maxBytes = parseInt(form.dataset.maxMb || '25', 10) * 1024 * 1024;

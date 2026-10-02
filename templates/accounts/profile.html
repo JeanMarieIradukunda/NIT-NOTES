@@ -20,7 +20,7 @@
       <div class="mb-4">
         <p class="small fw-semibold text-body-emphasis mb-2">Your modules</p>
         {% if managed_modules %}<div>{% for m in managed_modules %}<span class="module-chip">{{ m.code }}</span>{% endfor %}</div>
-        {% else %}<p class="small text-muted-2 mb-0">None yet. Register a module when you <a href="{% url 'core:note_create' %}">add module notes</a>, or ask an administrator to assign one.</p>{% endif %}
+        {% else %}<p class="small text-muted-2 mb-0">None yet. Ask an administrator to assign you a module, then you can <a href="{% url 'core:note_create' %}">add module notes</a>.</p>{% endif %}
       </div>
       {% endif %}
       <form method="post">

@@ -27,10 +27,37 @@
 
         <section class="note-form-section" aria-labelledby="s1">
           <h2 id="s1"><span class="step-num">1</span>Module</h2>
-          <p class="hint">{% if has_modules %}Choose one of your assigned modules.{% else %}You don't have any modules assigned yet — ask an administrator to assign one.{% endif %}</p>
-          <label class="visually-hidden" for="{{ form.module.id_for_label }}">{{ form.module.label }}</label>
-          {{ form.module }}
-          {% for e in form.module.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+          <p class="hint">Activities go under a module that already exists — pick one from your list, or type its code and name so we can find it. New modules are added by an administrator.</p>
+
+          <div class="segmented mb-3" role="radiogroup" aria-label="How to choose the module" id="module-mode">
+            <input type="radio" class="btn-check" name="module_mode" id="mode-existing" value="existing" autocomplete="off" checked>
+            <label class="btn" for="mode-existing">Select from my list</label>
+            <input type="radio" class="btn-check" name="module_mode" id="mode-find" value="find" autocomplete="off">
+            <label class="btn" for="mode-find">Find by code &amp; name</label>
+          </div>
+
+          <div id="pane-existing">
+            <label class="form-label" for="{{ form.module.id_for_label }}">{{ form.module.label }}</label>
+            {{ form.module }}
+            {% if not has_modules %}<div class="form-text">You aren't assigned to any modules yet — ask an administrator to assign you, or use <strong>Find by code &amp; name</strong>.</div>{% endif %}
+            {% for e in form.module.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+          </div>
+
+          <div id="pane-find" class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label" for="{{ form.lookup_code.id_for_label }}">{{ form.lookup_code.label }}</label>
+              {{ form.lookup_code }}
+              {% for e in form.lookup_code.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-md-8">
+              <label class="form-label" for="{{ form.lookup_name.id_for_label }}">{{ form.lookup_name.label }}</label>
+              {{ form.lookup_name }}
+              {% for e in form.lookup_name.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-12">
+              <div class="form-text">Both are checked against the modules that already exist. If they match, it is saved under that module (published or as a draft); if not, nothing is saved.</div>
+            </div>
+          </div>
         </section>
 
         <section class="note-form-section" aria-labelledby="s2">

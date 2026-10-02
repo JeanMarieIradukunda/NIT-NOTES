@@ -220,3 +220,14 @@ class DarkTheme(BaseCase):
     def test_dashboard_accents_use_the_shared_cobalt(self):
         css = self.css("static/css/dashboard.css")
         self.assertIn("var(--c-brand-solid)", css)
+
+
+class MenuBarWidth(BaseCase):
+    def test_menu_bar_is_a_compact_pill_not_a_full_width_strip(self):
+        css = open("static/css/platform.css", encoding="utf-8").read()
+        menu = css.split(".app-menu {", 1)[1].split("}", 1)[0]
+        self.assertIn("width: fit-content", menu)
+        self.assertIn("max-width: 100%", menu)
+        self.assertIn("border-radius: 999px", menu)
+        bar = css.split(".app-menubar {", 1)[1].split("}", 1)[0]
+        self.assertNotIn("background", bar)       # no full-width band behind the pill

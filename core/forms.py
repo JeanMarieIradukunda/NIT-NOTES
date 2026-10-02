@@ -81,32 +81,111 @@ def module_key_from_code(code: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]+", "-", code.strip()).strip("-").upper()
 
 
-class ModuleNoteForm(forms.Form):
-    """
-    Add or edit a module note.
+def _code_token(text: str) -> str:
+    """Compare codes loosely: 'gen cp-302' == 'GENCP302'."""
+    return re.sub(r"[^A-Za-z0-9]+", "", text or "").upper()
 
-    Module: pick one of your modules, or register a new one by entering its code,
-    name and level. Title: what students will see. File: a PDF or an HTML file.
-    Publishing is decided by which button is pressed (`intent`), handled in
-    `apply()`.
+
+def _name_token(text: str) -> str:
+    """Compare names loosely: ignore case and repeated spaces."""
+    return re.sub(r"\s+", " ", text or "").strip().casefold()
+
+
+class _ExistingModuleForm(forms.Form):
+    """
+    The "Module" step shared by the notes and activity forms.
+
+    A module can only ever be one that already exists — nothing here creates
+    one (administrators add modules under Curriculum). The person either picks
+    from their list, or types the module's CODE and NAME, which are compared
+    with the existing modules. Only when both match one module does the form
+    go on to publish or save a draft under it.
     """
 
     module = _ModuleChoiceField(
         queryset=Module.objects.none(), required=False,
         empty_label="Select a module…", label="Module",
         widget=forms.Select(attrs={"class": "form-select"}))
-    new_module_code = forms.CharField(
+    lookup_code = forms.CharField(
         max_length=30, required=False, label="Module code",
         widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "e.g. GENCP302",
                                       "autocomplete": "off"}))
-    new_module_name = forms.CharField(
+    lookup_name = forms.CharField(
         max_length=200, required=False, label="Module name",
-        widget=forms.TextInput(attrs={"class": "form-control",
+        widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "off",
                                       "placeholder": "e.g. C Programming Fundamentals"}))
-    new_module_level = forms.ModelChoiceField(
-        queryset=Trade.objects.none(), required=False, label="Level",
-        empty_label="Select a level…",
-        widget=forms.Select(attrs={"class": "form-select"}))
+
+    def _resolve_module(self, cleaned):
+        """
+        Return the existing Module this submission refers to, or None after
+        adding an explanatory error. A module picked from the list wins;
+        otherwise the typed code + name are compared with every module.
+        """
+        picked = cleaned.get("module")
+        if picked:
+            return picked
+
+        code = (cleaned.get("lookup_code") or "").strip()
+        name = (cleaned.get("lookup_name") or "").strip()
+        if not code and not name:
+            self.add_error("module", "Select a module, or type its code and name to find it.")
+            return None
+        if not code:
+            self.add_error("lookup_code", "Enter the module code.")
+        if not name:
+            self.add_error("lookup_name", "Enter the module name.")
+        if not (code and name):
+            return None
+
+        code_tok, name_tok = _code_token(code), _name_token(name)
+        if not code_tok:
+            self.add_error("lookup_code", "Use letters and numbers in the module code, e.g. GENCP302.")
+            return None
+
+        everything = list(Module.objects.select_related("trade"))
+        by_code = [m for m in everything if code_tok in (_code_token(m.code), _code_token(m.key))]
+        by_name = [m for m in everything if _name_token(m.name) == name_tok]
+        both = [m for m in by_code if m in by_name]
+
+        if both:
+            allowed = set(self.fields["module"].queryset.values_list("pk", flat=True))
+            usable = [m for m in both if m.pk in allowed]
+            if len(usable) == 1:
+                return usable[0]
+            if len(usable) > 1:
+                self.add_error("module", "More than one module has this code and name — "
+                                         "select the right one from the list instead.")
+                return None
+            self.add_error("lookup_code",
+                           f"{both[0].code} exists, but it isn't assigned to you. "
+                           "Ask an administrator to assign it to you.")
+            return None
+
+        if by_code:
+            self.add_error("lookup_name",
+                           f"The code {by_code[0].code} belongs to “{by_code[0].name}” — "
+                           "the name you entered doesn't match.")
+        elif by_name:
+            self.add_error("lookup_code",
+                           f"“{by_name[0].name}” exists with the code {by_name[0].code} — "
+                           "the code you entered doesn't match.")
+        else:
+            self.add_error("lookup_code",
+                           "No module with this code and name exists. Notes and activities can only "
+                           "be added to existing modules — ask an administrator to add it under Curriculum.")
+        return None
+
+
+class ModuleNoteForm(_ExistingModuleForm):
+    """
+    Add or edit a module note.
+
+    Module: an EXISTING one — picked from your list, or found by typing its
+    code and name (see `_ExistingModuleForm`). Title: what students will see.
+    File: a PDF or an HTML file.
+    Publishing is decided by which button is pressed (`intent`), handled in
+    `apply()`.
+    """
 
     title = forms.CharField(
         max_length=200, label="Title",
@@ -126,7 +205,6 @@ class ModuleNoteForm(forms.Form):
         self._parsed_html = None
         self._file_type = None
         self.fields["module"].queryset = note_modules_for(user)
-        self.fields["new_module_level"].queryset = Trade.objects.order_by("order", "name")
 
         if note is not None:
             # Editing: the current module is always selectable, even if the
@@ -198,47 +276,13 @@ class ModuleNoteForm(forms.Form):
     # -- whole form --------------------------------------------------------
     def clean(self):
         cleaned = super().clean()
-        module = cleaned.get("module")
-        code = (cleaned.get("new_module_code") or "").strip()
-        name = (cleaned.get("new_module_name") or "").strip()
-        level = cleaned.get("new_module_level")
 
         if self.note is None and not cleaned.get("file") and "file" not in self.errors:
             self.add_error("file", "Choose a PDF or HTML file to upload.")
 
-        if module:
-            return cleaned
-
-        if not (code or name or level):
-            self.add_error("module", "Select a module, or enter the code, name and level of a new one.")
-            return cleaned
-
-        if not code:
-            self.add_error("new_module_code", "Enter the module code.")
-        if not name:
-            self.add_error("new_module_name", "Enter the module name.")
-        if not level:
-            self.add_error("new_module_level", "Choose the level this module belongs to.")
-        if not (code and name and level):
-            return cleaned
-
-        key = module_key_from_code(code)
-        if not key:
-            self.add_error("new_module_code",
-                           "Use letters and numbers in the module code, e.g. GENCP302.")
-            return cleaned
-
-        clash = Module.objects.filter(trade=level).filter(
-            models.Q(key__iexact=key) | models.Q(code__iexact=code)).first()
-        if clash:
-            if self.fields["module"].queryset.filter(pk=clash.pk).exists():
-                msg = (f"{clash.code} already exists — pick it from the Module list "
-                       "instead of entering it again.")
-            else:
-                msg = (f"A module with the code {clash.code} already exists at this level "
-                       "and isn't assigned to you. If you teach it, ask an administrator "
-                       "to assign it to you.")
-            self.add_error("new_module_code", msg)
+        module = self._resolve_module(cleaned)
+        if module is not None:
+            cleaned["module"] = module
         return cleaned
 
     # -- persistence -------------------------------------------------------
@@ -248,21 +292,8 @@ class ModuleNoteForm(forms.Form):
         Create or update the note. `intent` is 'draft', 'publish' or 'save'
         ('save' leaves the published/draft state as it is).
         """
-        from accounts.roles import is_admin
-
         data = self.cleaned_data
-        module = data.get("module")
-        if module is None:
-            module = Module.objects.create(
-                trade=data["new_module_level"],
-                key=module_key_from_code(data["new_module_code"]),
-                code=data["new_module_code"].strip(),
-                name=data["new_module_name"].strip(),
-            )
-            # A Trainer who registers a module is assigned to it, so it shows up
-            # in their Module list from now on.
-            if not is_admin(self.user):
-                self.user.profile.trainer_modules.add(module)
+        module = data["module"]          # always an existing module (see _resolve_module)
 
         note = self.note or ModuleNote(uploaded_by=self.user)
         note.module = module
@@ -309,9 +340,10 @@ ALLOWED_ACTIVITY_EXTENSIONS = {".pdf": Activity.TYPE_PDF, ".html": Activity.TYPE
                                ".htm": Activity.TYPE_HTML}
 
 
-class ActivityForm(forms.Form):
+class ActivityForm(_ExistingModuleForm):
     """
-    Add or edit an Activity. Only Module and the document are ever required —
+    Add or edit an Activity. Only an EXISTING module (picked, or found by its
+    code and name — see `_ExistingModuleForm`) and the document are required —
     title is optional (defaults to the uploaded file's name), and publishing
     is decided by which button is pressed (`intent`), handled in `apply()`,
     exactly like module notes.
@@ -322,10 +354,6 @@ class ActivityForm(forms.Form):
     longer has to choose one.
     """
 
-    module = _ModuleChoiceField(
-        queryset=Module.objects.none(), required=True, label="Module",
-        empty_label="Select a module…",
-        widget=forms.Select(attrs={"class": "form-select"}))
     title = forms.CharField(
         max_length=220, required=False, label="Title",
         widget=forms.TextInput(attrs={"class": "form-control",
@@ -403,6 +431,10 @@ class ActivityForm(forms.Form):
         cleaned = super().clean()
         if self.activity is None and not cleaned.get("document") and "document" not in self.errors:
             self.add_error("document", "Choose a PDF or HTML file to upload.")
+
+        module = self._resolve_module(cleaned)
+        if module is not None:
+            cleaned["module"] = module
         return cleaned
 
     # -- persistence -------------------------------------------------------
@@ -499,9 +531,8 @@ class TradeForm(forms.ModelForm):
 class ModuleForm(forms.ModelForm):
     """
     Add or edit a Module. The folder-style `key` used in the module's web
-    address is derived automatically from the code, exactly like a Trainer
-    registering a new module from the "Add module notes" form — so nobody
-    has to think about it twice.
+    address is derived automatically from the code, so nobody has to think
+    about it twice. This is the only place modules are created.
     """
 
     class Meta:

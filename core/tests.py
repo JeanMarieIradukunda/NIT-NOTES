@@ -85,12 +85,21 @@ class BaseCase(TestCase):
     def files_on_disk(self):
         return [p for p in Path(self.tmp).rglob("*") if p.is_file()]
 
+    def ensure_module(self, code="GENCP302", name="C Programming", *trainers):
+        """An EXISTING module (modules are only ever created by an administrator)."""
+        module, _ = Module.objects.get_or_create(
+            trade=self.level, key=code, defaults={"code": code, "name": name})
+        for trainer in trainers:
+            trainer.profile.trainer_modules.add(module)
+        return module
+
     def post_note(self, user, *, file=None, title="Loops notes", intent="publish", module_data=None, **extra):
         self.client.force_login(user)
         data = {"title": title, "intent": intent}
-        data.update(module_data or {"new_module_code": "GENCP302",
-                                    "new_module_name": "C Programming",
-                                    "new_module_level": self.level.pk})
+        if module_data is None:
+            self.ensure_module("GENCP302", "C Programming", self.alice)
+            module_data = {"lookup_code": "GENCP302", "lookup_name": "C Programming"}
+        data.update(module_data)
         data.update(extra)
         if file is not False:
             data["file"] = file or SimpleUploadedFile("notes.pdf", PDF_BYTES, "application/pdf")
@@ -104,7 +113,7 @@ class BaseCase(TestCase):
 
 # --------------------------------------------------------------------------- #
 class AddingNotes(BaseCase):
-    def test_trainer_publishes_pdf_and_new_module_is_created_and_assigned(self):
+    def test_trainer_publishes_pdf_to_an_existing_module(self):
         r = self.post_note(self.alice)
         self.assertRedirects(r, reverse("core:notes_manage"))
         n = ModuleNote.objects.get()
@@ -112,7 +121,7 @@ class AddingNotes(BaseCase):
         self.assertIsNotNone(n.published_at)
         self.assertEqual((n.file_type, n.title, n.uploaded_by), ("pdf", "Loops notes", self.alice))
         self.assertEqual((n.module.code, n.module.name, n.module.trade), ("GENCP302", "C Programming", self.level))
-        self.assertIn(n.module, self.alice.profile.trainer_modules.all())
+        self.assertEqual(Module.objects.count(), 1)               # found, never created
         self.assertEqual(len(self.files_on_disk()), 1)
 
     def test_save_as_draft_is_not_published(self):
@@ -149,13 +158,82 @@ class AddingNotes(BaseCase):
         self.assertEqual(r.status_code, 200)                     # form re-rendered with an error
         self.assertEqual(ModuleNote.objects.count(), 1)
 
-    def test_new_module_code_clash_is_explained(self):
-        self.post_note(self.alice)
-        r = self.post_note(self.bob)                             # same code + level, not assigned to bob
+    # -- the module must already exist: matched by CODE and NAME ------------
+    def lookup(self, code, name):
+        return {"lookup_code": code, "lookup_name": name}
+
+    def test_code_and_name_find_the_existing_module_loosely(self):
+        m = self.ensure_module("GENCP302", "C Programming", self.alice)
+        r = self.post_note(self.alice, module_data=self.lookup(" gen cp-302 ", "  c   PROGRAMMING "))
+        self.assertRedirects(r, reverse("core:notes_manage"))
+        n = ModuleNote.objects.get()
+        self.assertEqual(n.module, m)
+        self.assertTrue(n.is_published)
+        self.assertEqual(Module.objects.count(), 1)
+
+    def test_found_module_can_take_a_draft_instead(self):
+        self.ensure_module("GENCP302", "C Programming", self.alice)
+        self.post_note(self.alice, intent="draft", module_data=self.lookup("GENCP302", "C Programming"))
+        n = ModuleNote.objects.get()
+        self.assertFalse(n.is_published)
+        self.assertIsNone(n.published_at)
+
+    def test_right_code_wrong_name_is_refused_and_explained(self):
+        self.ensure_module("GENCP302", "C Programming", self.alice)
+        r = self.post_note(self.alice, module_data=self.lookup("GENCP302", "Python Basics"))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "belongs to")
+        self.assertContains(r, "C Programming")
+        self.assertEqual((ModuleNote.objects.count(), self.files_on_disk()), (0, []))
+
+    def test_right_name_wrong_code_is_refused_and_explained(self):
+        self.ensure_module("GENCP302", "C Programming", self.alice)
+        r = self.post_note(self.alice, module_data=self.lookup("GENCP999", "C Programming"))
+        self.assertContains(r, "the code you entered doesn&#x27;t match")
+        self.assertEqual(ModuleNote.objects.count(), 0)
+
+    def test_a_module_that_does_not_exist_is_never_created(self):
+        self.ensure_module("GENCP302", "C Programming", self.alice)
+        before = Module.objects.count()
+        r = self.post_note(self.alice, module_data=self.lookup("NITWA401", "Web Servers"))
+        self.assertContains(r, "No module with this code and name exists")
+        self.assertContains(r, "ask an administrator")
+        self.assertEqual(Module.objects.count(), before)
+        self.assertEqual((ModuleNote.objects.count(), self.files_on_disk()), (0, []))
+
+    def test_the_old_register_new_module_fields_are_ignored(self):
+        r = self.post_note(self.alice, module_data={
+            "new_module_code": "NITWA401", "new_module_name": "Servers", "new_module_level": self.level.pk})
+        self.assertContains(r, "Select a module")
+        self.assertEqual((Module.objects.count(), ModuleNote.objects.count()), (0, 0))
+
+    def test_an_existing_module_you_are_not_assigned_to_is_refused(self):
+        self.ensure_module("GENCP302", "C Programming", self.alice)
+        r = self.post_note(self.bob, module_data=self.lookup("GENCP302", "C Programming"))
         self.assertContains(r, "isn&#x27;t assigned to you")
-        self.assertEqual(ModuleNote.objects.count(), 1)
-        r = self.post_note(self.alice)                           # alice already has it
-        self.assertContains(r, "pick it from the Module list")
+        self.assertEqual(ModuleNote.objects.count(), 0)
+
+    def test_an_administrator_can_find_any_existing_module(self):
+        self.ensure_module("GENCP302", "C Programming")
+        self.post_note(self.admin, module_data=self.lookup("GENCP302", "C Programming"))
+        self.assertEqual(ModuleNote.objects.get().module.code, "GENCP302")
+
+    def test_code_and_name_must_both_be_given(self):
+        self.ensure_module("GENCP302", "C Programming", self.alice)
+        self.assertContains(self.post_note(self.alice, module_data=self.lookup("GENCP302", "")),
+                            "Enter the module name")
+        self.assertContains(self.post_note(self.alice, module_data=self.lookup("", "C Programming")),
+                            "Enter the module code")
+        self.assertEqual(ModuleNote.objects.count(), 0)
+
+    def test_the_form_offers_find_by_code_and_name_and_no_new_module_option(self):
+        self.client.force_login(self.alice)
+        html = self.client.get(reverse("core:note_create")).content.decode()
+        self.assertIn('name="lookup_code"', html)
+        self.assertIn('name="lookup_name"', html)
+        self.assertIn("Find by code", html)
+        for gone in ("new_module_", "Enter new module", "register a new"):
+            self.assertNotIn(gone, html)
 
     def test_missing_module_and_missing_file_are_reported(self):
         r = self.post_note(self.alice, module_data={"title": "x"}, file=False)
@@ -270,9 +348,9 @@ class ManagingNotes(BaseCase):
 
     def test_trainer_sees_only_own_notes_admin_sees_all(self):
         a = self.make_note(self.alice)
+        self.ensure_module("NITWA401", "Servers", self.bob)
         b = self.post_note(self.bob, title="Bob notes",
-                           module_data={"new_module_code": "NITWA401", "new_module_name": "Servers",
-                                        "new_module_level": self.level.pk}) and ModuleNote.objects.get(title="Bob notes")
+                           module_data={"lookup_code": "NITWA401", "lookup_name": "Servers"}) and ModuleNote.objects.get(title="Bob notes")
         self.client.force_login(self.alice)
         page = self.client.get(reverse("core:notes_manage"))
         self.assertContains(page, a.title)
@@ -318,10 +396,11 @@ class ManagingNotes(BaseCase):
     def test_edit_title_and_module_keeps_file_and_state(self):
         n = self.make_note(self.alice)
         old_file = n.file.name
+        self.ensure_module("NITWA401", "Servers", self.alice)
         self.client.force_login(self.alice)
         r = self.client.post(reverse("core:note_edit", args=[n.pk]), {
             "title": "  Renamed   notes ", "intent": "save",
-            "new_module_code": "NITWA401", "new_module_name": "Servers", "new_module_level": self.level.pk})
+            "lookup_code": "NITWA401", "lookup_name": "Servers"})
         self.assertRedirects(r, reverse("core:notes_manage"))
         n.refresh_from_db()
         self.assertEqual((n.title, n.module.code, n.file.name, n.is_published),
@@ -897,6 +976,45 @@ class ActivityWorkspace(BaseCase):
     def test_draft_intent_leaves_it_unpublished(self):
         self.post_activity(self.alice, intent="draft")
         self.assertFalse(Activity.objects.get().is_published)
+
+    # -- the module must already exist: matched by CODE and NAME ------------
+    def post_activity_lookup(self, user, code, name, intent="publish"):
+        self.client.force_login(user)
+        return self.client.post(reverse("core:activity_create"), {
+            "title": "Loops worksheet", "intent": intent, "document": self._pdf(),
+            "lookup_code": code, "lookup_name": name})
+
+    def test_activity_is_filed_under_the_module_found_by_code_and_name(self):
+        r = self.post_activity_lookup(self.alice, "gencp 302", " c programming ")
+        self.assertRedirects(r, reverse("core:activities_manage"))
+        a = Activity.objects.get()
+        self.assertEqual(a.module, self.module)
+        self.assertTrue(a.is_published)
+
+    def test_activity_found_by_code_and_name_can_be_saved_as_a_draft(self):
+        self.post_activity_lookup(self.alice, "GENCP302", "C Programming", intent="draft")
+        self.assertFalse(Activity.objects.get().is_published)
+
+    def test_activity_with_a_mismatched_or_unknown_module_is_refused(self):
+        modules_before = Module.objects.count()
+        for code, name, message in (("GENCP302", "Python Basics", "belongs to"),
+                                    ("GENCP999", "C Programming", "the code you entered"),
+                                    ("NITWA401", "Web Servers", "No module with this code and name exists")):
+            r = self.post_activity_lookup(self.alice, code, name)
+            self.assertEqual(r.status_code, 200)
+            self.assertContains(r, message)
+        self.assertEqual((Activity.objects.count(), Module.objects.count()), (0, modules_before))
+
+    def test_activity_module_you_are_not_assigned_to_is_refused(self):
+        r = self.post_activity_lookup(self.bob, "GENCP302", "C Programming")
+        self.assertContains(r, "isn&#x27;t assigned to you")
+        self.assertEqual(Activity.objects.count(), 0)
+
+    def test_activity_form_offers_find_by_code_and_name(self):
+        self.client.force_login(self.alice)
+        html = self.client.get(reverse("core:activity_create")).content.decode()
+        self.assertIn('name="lookup_code"', html)
+        self.assertIn("Find by code", html)
 
     def test_trainer_cannot_file_an_activity_under_an_unassigned_module(self):
         other = Module.objects.create(trade=self.level, key="GENDB301",
