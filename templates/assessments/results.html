@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Results · {{ exam.title }}{% endblock %}
+{% block site_search %}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_list' %}">Assessments</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_detail' exam.pk %}">{{ exam.title }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Results</li>
+    </ol></nav>
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div><h1>Results</h1><p class="lead">{{ attempts|length }} candidate{{ attempts|length|pluralize }}. Marked out of {{ exam.total_marks|floatformat:"-2" }}. Final = objective + marked open questions − penalty, never below 0.</p></div>
+      <a class="btn btn-outline-secondary" href="?format=csv"><i class="bi bi-download me-1"></i>Export CSV</a>
+    </div>
+  </div>
+  {% if not attempts %}
+  <div class="empty-state"><span class="icon-chip"><i class="bi bi-people"></i></span><h3>No one has entered yet</h3><p>Attempts appear here as soon as a candidate opens the assessment.</p></div>
+  {% else %}
+  <div class="panel list-panel mb-5"><div class="table-responsive">
+    <table class="table grid-table align-middle">
+      <thead><tr><th scope="col">Candidate</th><th scope="col">Status</th><th scope="col" class="text-end">Opens</th><th scope="col" class="text-end">Violations</th><th scope="col" class="text-end">Penalty</th><th scope="col" class="text-end">Final</th><th scope="col" class="text-end">Open marking</th><th scope="col"></th></tr></thead>
+      <tbody>
+      {% for a in attempts %}
+        <tr>
+          <td><a class="title-link" href="{% url 'assessments:attempt_detail' exam.pk a.pk %}">{{ a.candidate_name }}</a><div class="small text-muted-2">{{ a.reg_no_display|default:a.reg_no }}</div></td>
+          <td>{% if a.is_submitted %}<span class="pill pill--success">Submitted</span><div class="small text-muted-2">{{ a.get_submit_reason_display }}</div>{% elif a.end_at %}<span class="pill pill--warning">In progress</span>{% else %}<span class="pill pill--muted">Not started</span>{% endif %}</td>
+          <td class="text-end">{{ a.total_opens }}</td>
+          <td class="text-end">{{ a.violation_count }}</td>
+          <td class="text-end">{% if a.penalty_total %}−{{ a.penalty_total|floatformat:"-2" }}{% else %}0{% endif %}</td>
+          <td class="text-end">{% if a.is_submitted %}{{ a.final_score|floatformat:"-2" }}{% else %}—{% endif %}</td>
+          <td class="text-end">{% if not a.is_submitted %}—{% elif a.marking_complete %}<span class="pill pill--success">Done</span>{% else %}<span class="pill pill--warning">Pending</span>{% endif %}</td>
+          <td class="text-end"><a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:attempt_detail' exam.pk a.pk %}">Open</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% endif %}
+</div>
+{% endblock %}

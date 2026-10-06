@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}{% if exam %}Edit assessment{% else %}New assessment{% endif %}{% endblock %}
+{% block site_search %}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_list' %}">Assessments</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{% if exam %}Settings{% else %}New{% endif %}</li>
+    </ol></nav>
+    <h1>{% if exam %}Settings: {{ exam.title }}{% else %}New assessment{% endif %}</h1>
+    <p class="lead">Time, access limits, marks and the penalty for each kind of violation. Penalties are applied by the server.</p>
+  </div>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="row g-4">
+      <div class="col-lg-7">
+        <div class="panel panel-body mb-4">
+          <h2 class="fs-6 mb-3">Assessment</h2>
+          {% for f in form %}{% if f.name == "title" or f.name == "module" or f.name == "instructions" or f.name == "exam_date" or f.name == "new_password" or f.name == "is_open" or f.name == "show_results" %}
+          <div class="mb-3{% if f.field.widget.input_type == 'checkbox' %} form-check{% endif %}">
+            {% if f.field.widget.input_type == 'checkbox' %}{{ f }}<label class="form-check-label" for="{{ f.id_for_label }}">{{ f.label }}</label>
+            {% else %}<label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{% endif %}
+            {% for e in f.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+            {% if f.help_text %}<div class="form-text">{{ f.help_text }}</div>{% endif %}
+          </div>{% endif %}{% endfor %}
+        </div>
+        <div class="panel panel-body">
+          <h2 class="fs-6 mb-3">Penalty per violation (marks)</h2>
+          <p class="small text-muted-2">One penalty per away episode: leaving full screen, switching tab and losing focus together count once. A type set to 0 is recorded but does not count toward the violation limit.</p>
+          <div class="pen-grid">
+            {% for f in form.penalty_fields %}
+            <div><label class="form-label small" for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{% for e in f.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="panel panel-body mb-4">
+          <h2 class="fs-6 mb-3">Time and limits</h2>
+          {% for f in form %}{% if f.name == "duration_minutes" or f.name == "max_opens" or f.name == "max_devices" or f.name == "max_violations" %}
+          <div class="mb-3"><label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}
+            {% for e in f.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}{% if f.help_text %}<div class="form-text">{{ f.help_text }}</div>{% endif %}</div>
+          {% endif %}{% endfor %}
+        </div>
+        <div class="panel panel-body">
+          <h2 class="fs-6 mb-3">Marks per section</h2>
+          {% for f in form %}{% if f.name == "marks_mcq" or f.name == "marks_fill" or f.name == "marks_open" or f.name == "marks_match" %}
+          <div class="mb-3"><label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{% for e in f.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}</div>
+          {% endif %}{% endfor %}
+          <div class="form-text">Each section's marks are shared between its questions by weight.</div>
+        </div>
+      </div>
+    </div>
+    <div class="mt-4 mb-4">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-check2 me-1"></i>{% if exam %}Save settings{% else %}Create assessment{% endif %}</button>
+      <a class="btn btn-outline-secondary" href="{% if exam %}{% url 'assessments:exam_detail' exam.pk %}{% else %}{% url 'assessments:exam_list' %}{% endif %}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

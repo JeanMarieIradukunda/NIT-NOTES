@@ -71,6 +71,7 @@
         {% if request.is_trainer %}
         <li class="nav-item"><a class="nav-link {% if rm.url_name == 'notes_manage' or rm.url_name == 'note_create' or rm.url_name == 'note_edit' or rm.url_name == 'note_delete' %}active{% endif %}" href="{% url 'core:notes_manage' %}"><i class="bi bi-journal-text" aria-hidden="true"></i>{% if request.is_admin_role %}All notes{% else %}My notes{% endif %}</a></li>
         <li class="nav-item"><a class="nav-link {% if rm.url_name == 'activities_manage' or rm.url_name == 'activity_create' or rm.url_name == 'activity_edit' or rm.url_name == 'activity_delete' %}active{% endif %}" href="{% url 'core:activities_manage' %}"><i class="bi bi-clipboard2-check" aria-hidden="true"></i>{% if request.is_admin_role %}All activities{% else %}My activities{% endif %}</a></li>
+        <li class="nav-item"><a class="nav-link {% if rm.app_name == 'assessments' %}active{% endif %}" href="{% url 'assessments:exam_list' %}"><i class="bi bi-shield-check" aria-hidden="true"></i>{% if request.is_admin_role %}All assessments{% else %}My assessments{% endif %}</a></li>
         {% endif %}
         {% if request.is_admin_role %}
         <li class="nav-item"><a class="nav-link {% if rm.url_name == 'curriculum' or rm.url_name == 'trade_create' or rm.url_name == 'trade_edit' or rm.url_name == 'trade_delete' or rm.url_name == 'module_create' or rm.url_name == 'module_edit' or rm.url_name == 'module_delete' %}active{% endif %}" href="{% url 'core:curriculum' %}"><i class="bi bi-diagram-3" aria-hidden="true"></i>Curriculum</a></li>

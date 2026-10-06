@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Assessments{% endblock %}
+{% block site_search %}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Assessments</li>
+    </ol></nav>
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div>
+        <h1>{% if show_owner %}All assessments{% else %}My assessments{% endif %}</h1>
+        <p class="lead">Timed online assessments with an exam password, a limit on opens, browser lockdown and automatic mark deductions.</p>
+      </div>
+      <a class="btn btn-primary" href="{% url 'assessments:exam_create' %}"><i class="bi bi-plus-lg me-1"></i>New assessment</a>
+    </div>
+  </div>
+
+  {% if not exams %}
+  <div class="empty-state">
+    <span class="icon-chip"><i class="bi bi-shield-check"></i></span>
+    <h3>No assessments yet</h3>
+    <p>Create one, add questions, then open it and share its link and password with candidates.</p>
+    <a class="btn btn-primary" href="{% url 'assessments:exam_create' %}"><i class="bi bi-plus-lg me-1"></i>Create your first assessment</a>
+  </div>
+  {% else %}
+  <div class="panel list-panel">
+    <div class="table-responsive">
+      <table class="table grid-table align-middle">
+        <thead><tr>
+          <th scope="col">Assessment</th><th scope="col">Module</th><th scope="col">Date</th><th scope="col">Status</th>
+          <th scope="col" class="text-end">Candidates</th><th scope="col" class="text-end">Actions</th>
+        </tr></thead>
+        <tbody>
+        {% for e in exams %}
+          <tr>
+            <td><a class="title-link" href="{% url 'assessments:exam_detail' e.pk %}">{{ e.title }}</a>
+              <div class="small text-muted-2">{{ e.duration_minutes }} min · {{ e.total_marks|floatformat:"-2" }} marks{% if show_owner and e.created_by %} · {{ e.created_by.first_name|default:e.created_by.username }}{% endif %}</div></td>
+            <td>{% if e.module %}<span class="code-badge">{{ e.module.code }}</span>{% else %}<span class="text-muted-2">—</span>{% endif %}</td>
+            <td>{{ e.exam_date|date:"j M Y"|default:"Any day" }}</td>
+            <td>{% if e.is_open %}<span class="pill pill--success">Open</span>{% else %}<span class="pill pill--muted">Closed</span>{% endif %}</td>
+            <td class="text-end">{{ e.n_attempts }}</td>
+            <td class="text-end">
+              <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:exam_results' e.pk %}">Results</a>
+              <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:exam_detail' e.pk %}">Manage</a>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

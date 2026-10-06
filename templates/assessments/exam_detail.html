@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}{{ exam.title }}{% endblock %}
+{% block site_search %}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_list' %}">Assessments</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ exam.title }}</li>
+    </ol></nav>
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div>
+        <h1>{{ exam.title }} {% if exam.is_open %}<span class="pill pill--success ms-2">Open</span>{% else %}<span class="pill pill--muted ms-2">Closed</span>{% endif %}</h1>
+        <p class="lead">{{ exam.duration_minutes }} minutes · {{ exam.total_marks|floatformat:"-2" }} marks · {{ exam.max_opens }} open{{ exam.max_opens|pluralize }} per device{% if exam.max_violations %} · auto-submit at {{ exam.max_violations }} violations{% endif %}</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <form method="post" action="{% url 'assessments:exam_toggle_open' exam.pk %}">{% csrf_token %}
+          <button class="btn {% if exam.is_open %}btn-outline-secondary{% else %}btn-primary{% endif %}" type="submit"><i class="bi bi-{% if exam.is_open %}lock{% else %}unlock{% endif %} me-1"></i>{% if exam.is_open %}Close{% else %}Open to candidates{% endif %}</button>
+        </form>
+        <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_results' exam.pk %}"><i class="bi bi-table me-1"></i>Results ({{ n_attempts }})</a>
+        <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_edit' exam.pk %}"><i class="bi bi-sliders me-1"></i>Settings</a>
+      </div>
+    </div>
+  </div>
+
+  {% for w in warnings %}<div class="alert alert-warning py-2">{{ w }}</div>{% endfor %}
+  {% if not exam.has_password %}<div class="alert alert-warning py-2">No exam password is set, so nobody can enter. Open Settings and set one.</div>{% endif %}
+
+  <div class="panel panel-body mb-4">
+    <h2 class="fs-6">Candidate link</h2>
+    <div class="copy-box">
+      <input class="form-control" id="entry-url" readonly value="{{ entry_url }}" aria-label="Candidate link">
+      <button class="btn btn-outline-secondary" type="button" id="copy-url">Copy</button>
+    </div>
+    <p class="small text-muted-2 mt-2 mb-0">Share the link and the exam password separately. The password is stored hashed and cannot be displayed; set a new one in Settings if it is lost.</p>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="fs-5 mb-0">Questions</h2>
+    <a class="btn btn-primary btn-sm" href="{% url 'assessments:question_create' exam.pk %}"><i class="bi bi-plus-lg me-1"></i>Add question</a>
+  </div>
+  {% for g in groups %}
+  <div class="panel list-panel mb-3">
+    <div class="panel-head"><h2>{{ g.label }}</h2><span class="small text-muted-2 ms-auto">{{ g.questions|length }} question{{ g.questions|length|pluralize }} · {{ g.marks|floatformat:"-2" }} marks</span></div>
+    {% if g.questions %}
+    <ul class="list-group list-group-flush">
+      {% for q in g.questions %}
+      <li class="list-group-item d-flex flex-wrap gap-2 align-items-center" style="background:transparent">
+        <span class="small text-muted-2" style="min-width:2rem">{{ q.order }}.</span>
+        <span class="flex-grow-1" style="min-width:12rem;overflow-wrap:anywhere">{{ q.text|truncatechars:140 }}</span>
+        <span class="small text-muted-2">{{ q.max_marks|floatformat:"-2" }} marks</span>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:question_edit' exam.pk q.pk %}">Edit</a>
+        <form method="post" action="{% url 'assessments:question_delete' exam.pk q.pk %}" onsubmit="return confirm('Delete this question?');">{% csrf_token %}<button class="btn btn-outline-danger btn-sm" type="submit">Delete</button></form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<div class="p-3 small text-muted-2">No questions in this section.</div>{% endif %}
+  </div>
+  {% endfor %}
+
+  <div class="panel panel-body mb-4">
+    <h2 class="fs-6">Penalties in force</h2>
+    <ul class="small text-muted-2 ps-3 mb-0">
+      {% for key, label, marks, away in penalties %}<li>{{ label }}: {% if marks %}−{{ marks|floatformat:"-2" }}{% else %}recorded only{% endif %}{% if away %} <span class="text-muted-2">(once per away episode)</span>{% endif %}</li>{% endfor %}
+    </ul>
+  </div>
+
+  <form method="post" action="{% url 'assessments:exam_delete' exam.pk %}" onsubmit="return confirm('Delete this assessment and every candidate attempt? This cannot be undone.');" class="mb-5">
+    {% csrf_token %}<button class="btn btn-outline-danger btn-sm" type="submit"><i class="bi bi-trash me-1"></i>Delete assessment</button>
+  </form>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.getElementById("copy-url").addEventListener("click", function () {
+  var i = document.getElementById("entry-url"); i.select();
+  if (navigator.clipboard) { navigator.clipboard.writeText(i.value); } else { document.execCommand("copy"); }
+  this.textContent = "Copied";
+});
+</script>
+{% endblock %}

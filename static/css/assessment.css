@@ -1,0 +1,57 @@
+/* Secure Online Assessment — candidate shell, exam page and staff helpers.
+   Uses the platform design tokens from platform.css. */
+
+.assess-shell, .assess-exam { background: var(--c-bg); min-height: 100vh; }
+.assess-top { display: flex; align-items: center; gap: .75rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--c-border); }
+.assess-main { padding: 2rem 1rem 3rem; }
+.assess-card { max-width: 560px; margin: 0 auto; }
+.result-total { text-align: center; padding: 1rem; border: 1px solid var(--c-border); border-radius: var(--r-lg); background: var(--c-surface-2); }
+.result-total .num { font-size: 2.4rem; font-weight: 700; color: var(--c-text); font-variant-numeric: tabular-nums; }
+.result-total .num span { font-size: 1.1rem; font-weight: 500; color: var(--c-muted); }
+
+/* ---- Exam page ---- */
+.assess-exam { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.assess-exam input, .assess-exam textarea { -webkit-user-select: text; user-select: text; }
+.gate, .pause { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center;
+  padding: 1rem; overflow: auto; background: var(--c-bg); }
+.pause { z-index: 3000; }
+.gate-card { width: min(560px, 100%); }
+.d-none { display: none !important; }
+
+.exam-root[hidden] { display: none; }
+.hud { position: sticky; top: 0; z-index: 1000; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: .5rem 1.25rem; padding: .6rem 1.25rem; background: var(--c-bar-bg); backdrop-filter: blur(8px); border-bottom: 1px solid var(--c-border); }
+.hud-title { font-weight: 600; color: var(--c-text); max-width: 32ch; }
+.hud-items { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; align-items: center; }
+.hud-item { display: flex; flex-direction: column; line-height: 1.15; }
+.hud-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--c-muted); }
+.hud-val { font-size: 1.1rem; font-weight: 700; color: var(--c-text); font-variant-numeric: tabular-nums; }
+.hud-val.warn { color: var(--c-warning); } .hud-val.crit { color: var(--c-danger); }
+
+.questions { max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem 6rem; }
+.q-section { margin: 2rem 0 .75rem; font-size: 1.05rem; color: var(--c-brand); }
+.q-card { padding: 1.1rem 1.25rem; margin-bottom: 1rem; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg); }
+.q-card.answered { border-color: var(--c-success-line); }
+.q-num { font-weight: 700; color: var(--c-text); margin-right: .4rem; }
+.q-text { color: var(--c-text); white-space: pre-wrap; margin-bottom: .75rem; }
+.q-opt { display: flex; gap: .6rem; align-items: flex-start; padding: .5rem .6rem; border-radius: var(--r-sm); cursor: pointer; }
+.q-opt:hover { background: var(--c-surface-2); }
+.q-fill-inline { width: 12rem; display: inline-block; vertical-align: baseline; margin: 0 .25rem; }
+.match-row { display: grid; grid-template-columns: 1fr minmax(10rem, 45%); gap: .75rem; align-items: center; padding: .35rem 0; }
+.submit-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; display: flex; justify-content: space-between; align-items: center;
+  gap: 1rem; padding: .75rem 1.25rem; background: var(--c-bar-bg); backdrop-filter: blur(8px); border-top: 1px solid var(--c-border); }
+
+@media print { body * { display: none !important; } body::before { content: "Printing is not allowed during the assessment."; display: block; } }
+
+/* ---- Staff helpers ---- */
+.type-fields[hidden] { display: none; }
+.pen-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .75rem 1rem; }
+.mono { font-family: var(--font-mono); }
+.copy-box { display: flex; gap: .5rem; align-items: center; }
+.copy-box input { font-family: var(--font-mono); font-size: .85rem; }
+.answer-box { white-space: pre-wrap; padding: .6rem .75rem; background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: var(--r-sm); }
+
+.toast-lite { position: fixed; left: 50%; bottom: 4.5rem; transform: translate(-50%, 12px); z-index: 2500; max-width: min(92vw, 520px);
+  padding: .6rem 1rem; border-radius: var(--r-md); background: var(--c-surface-3); color: var(--c-text); border: 1px solid var(--c-warning-line);
+  opacity: 0; pointer-events: none; transition: opacity .15s, transform .15s; font-size: .9rem; }
+.toast-lite.show { opacity: 1; transform: translate(-50%, 0); }

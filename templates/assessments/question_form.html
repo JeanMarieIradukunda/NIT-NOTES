@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{% if question %}Edit question{% else %}Add question{% endif %}{% endblock %}
+{% block site_search %}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_list' %}">Assessments</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_detail' exam.pk %}">{{ exam.title }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{% if question %}Edit question{% else %}Add question{% endif %}</li>
+    </ol></nav>
+    <h1>{% if question %}Edit question{% else %}Add question{% endif %}</h1>
+    <p class="lead">The answer key is stored on the server and is never sent to candidates' browsers.</p>
+  </div>
+  <div class="row"><div class="col-lg-8">
+    <form method="post" class="panel panel-body" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+      {% include "assessments/_field.html" with f=form.section %}
+      {% include "assessments/_field.html" with f=form.text %}
+      <div class="row"><div class="col-sm-6">{% include "assessments/_field.html" with f=form.weight %}</div><div class="col-sm-6">{% include "assessments/_field.html" with f=form.order %}</div></div>
+
+      <div class="type-fields" data-for="mcq" hidden>{% include "assessments/_field.html" with f=form.mcq_options %}{% include "assessments/_field.html" with f=form.mcq_correct %}</div>
+      <div class="type-fields" data-for="fill" hidden>{% include "assessments/_field.html" with f=form.fill_accepted %}<div class="form-check mb-3">{{ form.fill_case }}<label class="form-check-label" for="{{ form.fill_case.id_for_label }}">{{ form.fill_case.label }}</label></div></div>
+      <div class="type-fields" data-for="match" hidden>{% include "assessments/_field.html" with f=form.match_pairs %}{% include "assessments/_field.html" with f=form.match_extra %}</div>
+      <div class="type-fields" data-for="open" hidden>{% include "assessments/_field.html" with f=form.open_guide %}</div>
+
+      <button class="btn btn-primary" type="submit"><i class="bi bi-check2 me-1"></i>Save question</button>
+      <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_detail' exam.pk %}">Cancel</a>
+    </form>
+  </div></div>
+  <div class="pb-4"></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  var sel = document.getElementById("{{ form.section.id_for_label }}");
+  function sync() {
+    document.querySelectorAll(".type-fields").forEach(function (b) { b.hidden = b.dataset.for !== sel.value; });
+  }
+  sel.addEventListener("change", sync); sync();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "assessments/shell.html" %}
+{% block title %}{{ exam.title }}{% endblock %}
+{% block content %}
+<div class="panel panel-body assess-card">
+  <h1 class="fs-3 mb-1">{{ exam.title }}</h1>
+  <p class="text-muted-2 mb-3">{{ exam.duration_minutes }} minutes · {{ exam.total_marks|floatformat:"-2" }} marks{% if exam.exam_date %} · {{ exam.exam_date|date:"l j F Y" }}{% endif %}</p>
+
+  {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+  <div id="storage-block" class="alert alert-warning d-none" role="alert"></div>
+
+  <form method="post" id="entry-form" autocomplete="off">
+    {% csrf_token %}
+    <input type="hidden" name="device_hint" id="device_hint">
+    <input type="hidden" name="local_opens" id="local_opens">
+    <input type="hidden" name="local_epoch" id="local_epoch">
+    <div class="mb-3">
+      <label class="form-label" for="name">Full name</label>
+      <input class="form-control" id="name" name="name" value="{{ name }}" required maxlength="150">
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="reg_no">Candidate number</label>
+      <input class="form-control" id="reg_no" name="reg_no" value="{{ reg_no }}" required maxlength="60">
+    </div>
+    <div class="mb-4">
+      <label class="form-label" for="password">Exam password</label>
+      <input class="form-control" type="password" id="password" name="password" required autocomplete="off">
+      <div class="form-text">Your trainer gives you this on the day.</div>
+    </div>
+    <button class="btn btn-primary btn-lg w-100" type="submit">Enter assessment</button>
+  </form>
+
+  <hr class="my-4">
+  <h2 class="fs-6">Before you enter</h2>
+  <ul class="small text-muted-2 ps-3 mb-0">
+    <li>You may open this assessment <strong>{{ exam.max_opens }} time{{ exam.max_opens|pluralize }}</strong> on one computer. A refresh, a closed tab or a reopen counts as an open. Only one tab can be open at a time.</li>
+    <li>The exam runs in full screen. Leaving full screen, switching tab or window, or trying to copy, paste, print or use blocked shortcuts is recorded and deducts marks{% if exam.max_violations %}; at {{ exam.max_violations }} counted violations the exam is submitted automatically{% endif %}.</li>
+    <li>This is a browser-based check. It can detect and record these events, but it cannot lock your computer or control other programs.</li>
+  </ul>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  var examId = "{{ exam.public_id|escapejs }}";
+  var form = document.getElementById("entry-form");
+  function read(key) { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { return null; } }
+  var device = null;
+  try { device = localStorage.getItem("nit-device"); } catch (e) {}
+  form.addEventListener("submit", function () {
+    var reg = (document.getElementById("reg_no").value || "").replace(/\s+/g, "").toUpperCase();
+    var rec = read("nit-open:" + examId + ":" + reg) || {};
+    document.getElementById("device_hint").value = device || "";
+    document.getElementById("local_opens").value = rec.opens || 0;
+    document.getElementById("local_epoch").value = (rec.epoch === undefined || rec.epoch === null) ? "" : rec.epoch;
+  });
+  try {
+    var last = read("nit-last-candidate:" + examId);
+    if (last && !document.getElementById("name").value) {
+      document.getElementById("name").value = last.name || "";
+      document.getElementById("reg_no").value = last.reg || "";
+    }
+  } catch (e) {}
+})();
+</script>
+{% endblock %}

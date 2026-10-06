@@ -11,6 +11,7 @@ urlpatterns = [
     # Administrator accounts via /accounts/trainers/.
     path("accounts/", include("accounts.urls")),
     path("ai/", include("ai_tools.urls")),
+    path("", include("assessments.urls")),
     path("", include("core.urls")),
 ]
 

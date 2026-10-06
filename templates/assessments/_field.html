@@ -1,0 +1,6 @@
+<div class="mb-3">
+  <label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>
+  {{ f }}
+  {% for e in f.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+  {% if f.help_text %}<div class="form-text">{{ f.help_text }}</div>{% endif %}
+</div>

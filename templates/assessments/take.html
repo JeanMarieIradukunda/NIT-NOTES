@@ -1,0 +1,82 @@
+{% extends "assessments/shell.html" %}
+{% load static %}
+{% block title %}{{ exam.title }}{% endblock %}
+{% block body_class %}assess-exam{% endblock %}
+{% block body %}
+{# Everything the page needs arrives as data. There is no answer key and no password in it. #}
+{{ config|json_script:"exam-config" }}
+
+<div id="gate" class="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+  <div class="panel panel-body gate-card">
+    <h1 id="gate-title" class="fs-4 mb-1">{{ exam.title }}</h1>
+    <p class="text-muted-2 mb-3">{{ attempt.candidate_name }} · {{ attempt.reg_no_display|default:attempt.reg_no }}</p>
+    <ul class="small ps-3 mb-3">
+      <li id="gate-time"></li>
+      <li id="gate-opens"></li>
+      <li>The exam opens in <strong>full screen</strong>. Leaving full screen, switching tab or window, or losing focus pauses the exam behind a screen and deducts marks. <strong>The clock keeps running while paused.</strong></li>
+      <li>Copy, cut, paste, right-click, printing, developer tools and refresh shortcuts are blocked, and attempts are recorded.</li>
+      <li id="gate-limit"></li>
+    </ul>
+    <details class="small mb-3"><summary>Marks deducted per violation</summary>
+      <ul id="gate-penalties" class="ps-3 mt-2 mb-0"></ul>
+    </details>
+    <div class="alert alert-secondary small" role="note">
+      This runs in your browser. It can detect and record when you leave the exam or try blocked actions,
+      but it cannot lock your computer, other programs or other devices, and detection varies by browser.
+      Please keep all other programs and devices away.
+    </div>
+    <div id="gate-error" class="alert alert-danger small d-none" role="alert"></div>
+    <button id="btn-start" type="button" class="btn btn-primary btn-lg w-100"></button>
+  </div>
+</div>
+
+<div id="pause" class="pause d-none" role="alertdialog" aria-modal="true" aria-labelledby="pause-title" aria-describedby="pause-text">
+  <div class="panel panel-body gate-card text-center">
+    <span class="icon-chip icon-chip--amber mx-auto mb-3"><i class="bi bi-pause-circle"></i></span>
+    <h2 id="pause-title" class="fs-4">Exam paused</h2>
+    <p id="pause-text" class="mb-2"></p>
+    <p class="small text-muted-2">The clock is still running. This was recorded{% if exam.max_violations %}; the exam is submitted automatically at {{ exam.max_violations }} counted violations{% endif %}.</p>
+    <button id="btn-resume" type="button" class="btn btn-primary btn-lg">Return to full screen</button>
+  </div>
+</div>
+
+<div id="locked" class="pause d-none" role="alertdialog" aria-modal="true">
+  <div class="panel panel-body gate-card text-center">
+    <span class="icon-chip icon-chip--amber mx-auto mb-3"><i class="bi bi-slash-circle"></i></span>
+    <h2 class="fs-4" id="locked-title">This page is no longer active</h2>
+    <p id="locked-text" class="mb-0"></p>
+  </div>
+</div>
+
+<div id="exam-root" class="exam-root" hidden>
+  <header class="hud" role="status" aria-label="Exam status">
+    <div class="hud-title text-truncate">{{ exam.title }}</div>
+    <div class="hud-items">
+      <div class="hud-item"><span class="hud-label">Time left</span><span id="hud-timer" class="hud-val" aria-live="off">--:--</span></div>
+      <div class="hud-item"><span class="hud-label">Answered</span><span id="hud-answered" class="hud-val">0/0</span></div>
+      <div class="hud-item"><span class="hud-label">Violations</span><span id="hud-violations" class="hud-val">0</span></div>
+      <div class="hud-item"><span class="hud-label">Penalty</span><span id="hud-penalty" class="hud-val">−0</span></div>
+      <div class="hud-item hud-save"><span id="hud-save" class="small text-muted-2">Not saved yet</span></div>
+    </div>
+  </header>
+  <main id="questions" class="questions"></main>
+  <footer class="submit-bar">
+    <span class="small text-muted-2">Answers save automatically.</span>
+    <button id="btn-submit" type="button" class="btn btn-primary">Submit assessment</button>
+  </footer>
+</div>
+
+<div id="confirm" class="pause d-none" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div class="panel panel-body gate-card text-center">
+    <h2 id="confirm-title" class="fs-4">Submit now?</h2>
+    <p id="confirm-text" class="mb-3"></p>
+    <div class="d-flex gap-2 justify-content-center">
+      <button id="btn-confirm-no" type="button" class="btn btn-outline-secondary">Keep working</button>
+      <button id="btn-confirm-yes" type="button" class="btn btn-primary">Submit</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{% static 'js/assessment-exam.js' %}" defer></script>
+{% endblock %}

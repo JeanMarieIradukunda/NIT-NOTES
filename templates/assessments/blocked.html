@@ -1,0 +1,10 @@
+{% extends "assessments/shell.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="panel panel-body assess-card text-center">
+  <span class="icon-chip icon-chip--amber mx-auto mb-3"><i class="bi bi-slash-circle"></i></span>
+  <h1 class="fs-4">{{ title }}</h1>
+  <p class="text-muted-2">{{ message }}</p>
+  <p class="small text-muted-2 mb-0">If you think this is a mistake, tell your trainer. They can reset your access.</p>
+</div>
+{% endblock %}
