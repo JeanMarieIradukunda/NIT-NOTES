@@ -20,7 +20,7 @@ class ExamForm(forms.ModelForm):
         model = Exam
         fields = ["title", "module", "instructions", "exam_date", "is_open", "duration_minutes",
                   "max_opens", "max_devices", "max_violations", "marks_mcq", "marks_fill",
-                  "marks_open", "marks_match", "show_results"]
+                  "marks_open", "marks_match", "show_results", "show_answers"]
         widgets = {
             "instructions": forms.Textarea(attrs={"rows": 3}),
             "exam_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),

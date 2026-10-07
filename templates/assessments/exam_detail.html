@@ -18,6 +18,9 @@
         <form method="post" action="{% url 'assessments:exam_toggle_open' exam.pk %}">{% csrf_token %}
           <button class="btn {% if exam.is_open %}btn-outline-secondary{% else %}btn-primary{% endif %}" type="submit"><i class="bi bi-{% if exam.is_open %}lock{% else %}unlock{% endif %} me-1"></i>{% if exam.is_open %}Close{% else %}Open to candidates{% endif %}</button>
         </form>
+        <form method="post" action="{% url 'assessments:exam_toggle_answers' exam.pk %}">{% csrf_token %}
+          <button class="btn {% if exam.show_answers %}btn-warning{% else %}btn-outline-secondary{% endif %}" type="submit" title="Let candidates who have submitted review the correct answers"><i class="bi bi-{% if exam.show_answers %}eye{% else %}eye-slash{% endif %} me-1"></i>Answers: {% if exam.show_answers %}shown to candidates{% else %}hidden{% endif %}</button>
+        </form>
         <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_results' exam.pk %}"><i class="bi bi-table me-1"></i>Results ({{ n_attempts }})</a>
         <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_edit' exam.pk %}"><i class="bi bi-sliders me-1"></i>Settings</a>
       </div>

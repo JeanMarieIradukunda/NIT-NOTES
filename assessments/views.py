@@ -17,7 +17,7 @@ from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
-from .marking import (SECTION_ORDER, is_answered, public_questions, question_max_marks)
+from .marking import (SECTION_ORDER, is_answered, public_questions, question_max_marks, review_questions)
 from .models import (ALL_VIOLATION_LABELS, SECTION_LABELS, Attempt, DeviceOpen, Exam,
                      normalise_reg_no)
 from . import services
@@ -220,6 +220,21 @@ def result(request, access_key):
         "open_pending": exam.questions.filter(section="open").exists() and not attempt.marking_complete,
     }
     return render(request, "assessments/result.html", ctx)
+
+
+@never_cache
+def answer_review(request, access_key):
+    """Question-by-question answers, only after submission and only if the trainer has enabled it."""
+    attempt = _result_attempt_or_404(request, access_key)
+    exam = attempt.exam
+    if not exam.show_answers:
+        return render(request, "assessments/blocked.html", {
+            "title": "Answers not released yet",
+            "message": "Your trainer has not released the answers for this assessment. Check again later."}, status=403)
+    rows = review_questions(exam, attempt)
+    return render(request, "assessments/answer_review.html", {
+        "attempt": attempt, "exam": exam, "rows": rows, "show_marks": exam.show_results,
+        "counts": {k: sum(1 for r in rows if r["status"] == k) for k in ("correct", "partial", "wrong", "blank")}})
 
 
 @never_cache

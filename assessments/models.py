@@ -129,6 +129,10 @@ class Exam(models.Model):
     show_results = models.BooleanField(
         default=True, help_text="Show the candidate their score on the result screen after submitting.")
 
+    show_answers = models.BooleanField(
+        default=False, help_text="Let candidates who have submitted review the correct answer to each question. "
+                                 "Switch this on once every candidate has finished.")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -55,3 +55,13 @@
   padding: .6rem 1rem; border-radius: var(--r-md); background: var(--c-surface-3); color: var(--c-text); border: 1px solid var(--c-warning-line);
   opacity: 0; pointer-events: none; transition: opacity .15s, transform .15s; font-size: .9rem; }
 .toast-lite.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---- Answer review ---- */
+.review-wrap { max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.review-q { border-left: 4px solid var(--c-border); }
+.review-correct, .review-marked { border-left-color: var(--c-success); }
+.review-partial, .review-pending { border-left-color: var(--c-warning); }
+.review-wrong { border-left-color: var(--c-danger); }
+.review-opt { display: flex; align-items: center; gap: .6rem; padding: .45rem .65rem; border-radius: var(--r-sm); color: var(--c-text); }
+.review-opt.is-correct { background: var(--c-success-soft); color: var(--c-success); }
+.review-opt.is-wrong { background: var(--c-danger-soft); color: var(--c-danger); }

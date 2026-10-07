@@ -1,0 +1,62 @@
+{% extends "assessments/shell.html" %}
+{% block title %}Answers · {{ exam.title }}{% endblock %}
+{% block content %}
+<div class="review-wrap">
+  <div class="panel panel-body mb-3">
+    <h1 class="fs-4 mb-1">Answer review</h1>
+    <p class="text-muted-2 mb-2">{{ exam.title }} · {{ attempt.candidate_name }} · {{ attempt.reg_no_display|default:attempt.reg_no }}</p>
+    <div class="d-flex flex-wrap gap-2 small">
+      <span class="pill pill--success">{{ counts.correct }} correct</span>
+      <span class="pill pill--warning">{{ counts.partial }} partly correct</span>
+      <span class="pill pill--danger">{{ counts.wrong }} incorrect</span>
+      <span class="pill pill--muted">{{ counts.blank }} not answered</span>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm mt-3" href="{% url 'assessments:result' attempt.access_key %}"><i class="bi bi-arrow-left me-1"></i>Back to my result</a>
+  </div>
+
+  {% for r in rows %}
+  <article class="panel panel-body mb-3 review-q review-{{ r.status }}">
+    <div class="d-flex flex-wrap justify-content-between gap-2 mb-1">
+      <span class="small text-muted-2">{{ r.label }} · {{ r.max|floatformat:"-2" }} mark{{ r.max|pluralize }}</span>
+      <span class="small">
+        {% if r.status == "correct" %}<span class="pill pill--success">Correct</span>
+        {% elif r.status == "partial" %}<span class="pill pill--warning">Partly correct</span>
+        {% elif r.status == "wrong" %}<span class="pill pill--danger">Incorrect</span>
+        {% elif r.status == "marked" %}<span class="pill pill--success">Marked by your trainer</span>
+        {% elif r.status == "pending" %}<span class="pill pill--warning">Awaiting marking</span>
+        {% else %}<span class="pill pill--muted">Not answered</span>{% endif %}
+        {% if show_marks and r.earned is not None %}<strong class="ms-1">{{ r.earned|floatformat:"-2" }} / {{ r.max|floatformat:"-2" }}</strong>{% endif %}
+      </span>
+    </div>
+    <div class="fw-semibold mb-2" style="white-space:pre-wrap;overflow-wrap:anywhere"><span class="q-num">{{ r.n }}.</span>{{ r.text }}</div>
+
+    {% if r.section == "mcq" %}
+      {% for o in r.options %}
+      <div class="review-opt{% if o.correct %} is-correct{% elif o.chosen %} is-wrong{% endif %}">
+        <i class="bi {% if o.correct %}bi-check-circle-fill{% elif o.chosen %}bi-x-circle-fill{% else %}bi-circle{% endif %}" aria-hidden="true"></i>
+        <span>{{ o.text }}</span>
+        <span class="small text-muted-2 ms-auto">{% if o.correct and o.chosen %}Your answer · correct{% elif o.correct %}Correct answer{% elif o.chosen %}Your answer{% endif %}</span>
+      </div>
+      {% endfor %}
+    {% elif r.section == "fill" %}
+      <div class="small text-muted-2">Your answer</div>
+      <div class="answer-box mb-2">{% if r.given %}{{ r.given }}{% else %}<span class="text-muted-2">No answer</span>{% endif %}</div>
+      <div class="small text-muted-2">Accepted answer{{ r.accepted|length|pluralize }}</div>
+      <div class="answer-box">{{ r.accepted|join:" / " }}</div>
+    {% elif r.section == "match" %}
+      <div class="table-responsive"><table class="table grid-table align-middle mb-0">
+        <thead><tr><th scope="col">Item</th><th scope="col">Your match</th><th scope="col">Correct match</th></tr></thead>
+        <tbody>{% for p in r.pairs %}<tr><td>{{ p.left }}</td>
+          <td class="{% if p.ok %}text-success{% else %}text-danger{% endif %}">{% if p.given %}{{ p.given }}{% else %}<span class="text-muted-2">No answer</span>{% endif %}</td>
+          <td>{{ p.correct }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+    {% elif r.section == "open" %}
+      <div class="small text-muted-2">Your answer</div>
+      <div class="answer-box mb-2">{% if r.given %}{{ r.given }}{% else %}<span class="text-muted-2">No answer</span>{% endif %}</div>
+      {% if r.guide %}<div class="small text-muted-2">Model answer / marking guide</div><div class="answer-box">{{ r.guide }}</div>
+      {% else %}<div class="small text-muted-2">Your trainer marks this question; no model answer was provided.</div>{% endif %}
+    {% endif %}
+  </article>
+  {% endfor %}
+</div>
+{% endblock %}

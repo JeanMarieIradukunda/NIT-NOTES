@@ -435,3 +435,115 @@ class AuthoringTests(ExamTestBase):
         self.assertEqual(q.key.data["correct"], 1)
         bad = c.post(qurl, {"section": "match", "text": "m", "weight": 1, "order": 2, "match_pairs": "only one => pair"})
         self.assertEqual(bad.status_code, 200)                   # needs at least 2 pairs
+
+
+class ShowAnswersTests(ExamTestBase):
+    """Answers reach a candidate only after submitting AND only if the trainer enabled it."""
+
+    def submit_mixed(self):
+        _, cfg = self.open_page()
+        self.call(self.client_a, cfg, "start")
+        m = self.qs[("match", 1)]
+        answers = {
+            str(self.qs[("mcq", 1)].id): 1,                  # correct
+            str(self.qs[("mcq", 2)].id): 0,                  # wrong (correct is 1)
+            str(self.qs[("fill", 1)].id): "wrong thing",
+            str(m.id): {"0": right_id(m.id, 0), "1": right_id(m.id, 2)},   # 1 of 2 pairs right
+            str(self.qs[("open", 1)].id): "Hands out addresses.",
+        }
+        self.call(self.client_a, cfg, "submit", answers=answers)
+        return cfg
+
+    def review_url(self):
+        return reverse("assessments:answer_review", args=[self.attempt().access_key])
+
+    def test_hidden_by_default_and_nothing_leaks(self):
+        cfg = self.submit_mixed()
+        result = self.client_a.get(cfg["resultUrl"])
+        self.assertNotContains(result, "Review the answers")
+        r = self.client_a.get(self.review_url())
+        self.assertEqual(r.status_code, 403)
+        for secret in (SECRET_FILL, "Mentions leases", "Connects networks"):
+            self.assertNotIn(secret, r.content.decode())
+
+    def test_enabled_shows_correct_answers_per_question(self):
+        cfg = self.submit_mixed()
+        self.exam.show_answers = True
+        self.exam.save()
+        self.assertContains(self.client_a.get(cfg["resultUrl"]), "Review the answers")
+        r = self.client_a.get(self.review_url())
+        self.assertEqual(r.status_code, 200)
+        rows = r.context["rows"]
+        self.assertEqual([x["status"] for x in rows], ["correct", "wrong", "wrong", "pending", "partial"])
+        mcq2 = rows[1]
+        self.assertEqual([(o["chosen"], o["correct"]) for o in mcq2["options"]], [(True, False), (False, True), (False, False)])
+        self.assertEqual(rows[2]["accepted"], [SECRET_FILL, "alt answer"])
+        self.assertEqual([p["ok"] for p in rows[4]["pairs"]], [True, False])
+        self.assertEqual(rows[4]["pairs"][1]["correct"], "Connects hosts")
+        self.assertEqual(rows[3]["guide"], "Mentions leases and automatic addressing.")
+        self.assertEqual(rows[4]["earned"], Decimal("1.00"))
+        self.assertContains(r, SECRET_FILL)
+
+    def test_open_marks_appear_once_the_trainer_has_marked(self):
+        self.submit_mixed()
+        self.exam.show_answers = True
+        self.exam.save()
+        a = self.attempt()
+        oq = self.qs[("open", 1)]
+        Attempt.objects.filter(pk=a.pk).update(open_marks={str(oq.id): "3.5"})
+        rows = self.client_a.get(self.review_url()).context["rows"]
+        self.assertEqual((rows[3]["status"], rows[3]["earned"]), ("marked", Decimal("3.5")))
+
+    def test_marks_hidden_when_scores_are_not_released(self):
+        self.submit_mixed()
+        self.exam.show_answers = True
+        self.exam.show_results = False
+        self.exam.save()
+        r = self.client_a.get(self.review_url())
+        self.assertFalse(r.context["show_marks"])
+        self.assertNotContains(r, "/ 2")
+
+    def test_must_be_submitted_and_must_be_that_candidate(self):
+        self.exam.show_answers = True
+        self.exam.save()
+        _, cfg = self.open_page()                                  # still in progress
+        key = self.attempt().access_key
+        self.assertEqual(self.client_a.get(reverse("assessments:answer_review", args=[key])).status_code, 404)
+        self.call(self.client_a, cfg, "submit", answers={})
+        self.assertEqual(self.client_a.get(reverse("assessments:answer_review", args=[key])).status_code, 200)
+        self.assertEqual(Client().get(reverse("assessments:answer_review", args=[key])).status_code, 404)
+
+    def test_turning_it_off_hides_it_again_and_exam_page_still_has_no_key(self):
+        cfg = self.submit_mixed()
+        self.exam.show_answers = True
+        self.exam.save()
+        self.assertEqual(self.client_a.get(self.review_url()).status_code, 200)
+        self.exam.show_answers = False
+        self.exam.save()
+        self.assertEqual(self.client_a.get(self.review_url()).status_code, 403)
+        # a second candidate loading the live exam page never receives the key, whatever the setting
+        self.exam.show_answers = True
+        self.exam.save()
+        other = Client()
+        resp = other.post(reverse("assessments:entry", args=[self.exam.public_id]),
+                          {"name": "Bob", "reg_no": "NIT-777", "password": PASSWORD})
+        html = other.get(resp["Location"]).content.decode()
+        self.assertNotIn(SECRET_FILL, html)
+        self.assertNotIn("Mentions leases", html)
+
+    def test_trainer_toggle_and_in_progress_warning(self):
+        c = Client(); c.force_login(self.trainer)
+        self.open_page()                                           # one candidate still in progress
+        r = c.post(reverse("assessments:exam_toggle_answers", args=[self.exam.pk]), follow=True)
+        self.exam.refresh_from_db()
+        self.assertTrue(self.exam.show_answers)
+        self.assertContains(r, "still in progress")
+        c.post(reverse("assessments:exam_toggle_answers", args=[self.exam.pk]))
+        self.exam.refresh_from_db()
+        self.assertFalse(self.exam.show_answers)
+        other = User.objects.create_user("trainer9", password="pw12345!")
+        from django.contrib.auth.models import Group
+        other.groups.add(Group.objects.get(name="Trainer"))
+        oc = Client(); oc.force_login(other)
+        self.assertEqual(oc.post(reverse("assessments:exam_toggle_answers", args=[self.exam.pk])).status_code, 403)
+        self.assertEqual(Client().post(reverse("assessments:exam_toggle_answers", args=[self.exam.pk])).status_code, 302)

@@ -108,6 +108,25 @@ def exam_toggle_open(request, pk):
 
 @require_POST
 @trainer_required
+def exam_toggle_answers(request, pk):
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    exam.show_answers = not exam.show_answers
+    exam.save(update_fields=["show_answers", "updated_at"])
+    if exam.show_answers:
+        waiting = exam.attempts.filter(status=Attempt.IN_PROGRESS).count()
+        messages.success(request, "Answers are now visible to candidates who have submitted.")
+        if waiting:
+            messages.warning(request, f"{waiting} candidate{'s are' if waiting != 1 else ' is'} still in progress. "
+                                      "Anyone who finishes early could share the answers, so you may prefer to wait.")
+    else:
+        messages.success(request, "Answers are hidden from candidates again.")
+    return redirect("assessments:exam_detail", pk=exam.pk)
+
+
+@require_POST
+@trainer_required
 def exam_delete(request, pk):
     exam, denied = _exam_or_deny(request, pk)
     if denied:

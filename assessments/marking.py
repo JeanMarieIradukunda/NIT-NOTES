@@ -14,7 +14,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from django.utils.crypto import salted_hmac
 
-from .models import FILL, MATCH, MCQ, OBJECTIVE_SECTIONS, OPEN, SECTION_ORDER
+from .models import FILL, MATCH, MCQ, OBJECTIVE_SECTIONS, OPEN, SECTION_LABELS, SECTION_ORDER
 
 TWO = Decimal("0.01")
 MAX_OPEN_CHARS = 20000
@@ -178,3 +178,51 @@ def recompute_final(attempt):
 
 def has_open_questions(exam):
     return exam.questions.filter(section=OPEN).exists()
+
+
+def review_questions(exam, attempt):
+    """
+    Per-question review for a SUBMITTED attempt: the candidate's answer, the
+    correct answer and the marks. Only called when the trainer has enabled
+    show_answers for the exam; the answer key is read here and nowhere on the
+    candidate's exam page.
+    """
+    qs = sorted(exam.questions.select_related("key"), key=lambda q: (SECTION_ORDER.index(q.section), q.order, q.id))
+    maxima = question_max_marks(exam, qs)
+    rows = []
+    for n, q in enumerate(qs, start=1):
+        key = q.key.data if hasattr(q, "key") else {}
+        ans = clean_answer(q, (attempt.answers or {}).get(str(q.id)))
+        row = {"n": n, "section": q.section, "label": SECTION_LABELS[q.section], "text": q.text,
+               "max": maxima[q.id], "answered": ans is not None, "earned": None, "status": "blank"}
+        if q.section == MCQ:
+            row["options"] = [{"text": o, "chosen": ans == i, "correct": key.get("correct") == i}
+                              for i, o in enumerate(q.payload.get("options", []))]
+        elif q.section == FILL:
+            row["given"] = ans or ""
+            row["accepted"] = key.get("accepted", [])
+        elif q.section == MATCH:
+            right = {right_id(q.id, i): t for i, t in enumerate(q.payload.get("right", []))}
+            pairs = key.get("pairs", {})
+            row["pairs"] = []
+            for i, left in enumerate(q.payload.get("left", [])):
+                given = right.get((ans or {}).get(str(i)), "")
+                correct = q.payload["right"][pairs[str(i)]] if str(i) in pairs else ""
+                row["pairs"].append({"left": left, "given": given, "correct": correct, "ok": bool(given) and given == correct})
+        elif q.section == OPEN:
+            row["given"] = ans or ""
+            row["guide"] = key.get("guide", "")
+        if q.section in OBJECTIVE_SECTIONS:
+            earned = mark_question(q, key, (attempt.answers or {}).get(str(q.id)), maxima[q.id])
+            row["earned"] = earned
+            row["status"] = ("correct" if earned >= maxima[q.id] and earned > 0 else
+                             "partial" if earned > 0 else "wrong" if ans is not None else "blank")
+        else:
+            given = (attempt.open_marks or {}).get(str(q.id))
+            if given is not None:
+                row["earned"] = Decimal(str(given))
+                row["status"] = "marked"
+            else:
+                row["status"] = "pending" if ans is not None else "blank"
+        rows.append(row)
+    return rows
