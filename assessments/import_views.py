@@ -13,11 +13,12 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.db import transaction
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
-from . import importer
+from . import importer, template_docx
 from .models import (FILL, MATCH, MCQ, OPEN, SECTION_LABELS, SECTION_ORDER, AnswerKey, ImportDraft,
                      Question)
 from .permissions import trainer_required
@@ -174,3 +175,18 @@ def import_preview(request, pk, draft_id):
         "n_ok": sum(1 for r in rows if r["ok"]), "has_attempts": has_attempts,
         "title": data.get("title", ""), "intro": data.get("intro", ""),
         "intro_usable": bool(data.get("intro")) and not exam.instructions.strip()})
+
+
+TEMPLATE_FILES = {"blank": "assessment-template-blank.docx", "example": "assessment-template-example.docx"}
+
+
+@trainer_required
+def import_template(request, kind):
+    """Download a Word template in the layout the importer reads (Word only, never HTML)."""
+    if kind not in TEMPLATE_FILES:
+        raise Http404
+    response = HttpResponse(
+        template_docx.build(kind),
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    response["Content-Disposition"] = f'attachment; filename="{TEMPLATE_FILES[kind]}"'
+    return response

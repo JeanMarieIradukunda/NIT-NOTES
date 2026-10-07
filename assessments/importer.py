@@ -23,6 +23,7 @@ Layouts it understands
 * Matching as a two-column table, or numbered items plus lettered choices with
   a key such as "1-C, 2-A".
 * Marks written as "(2 marks)" or "[2]" at the end of a question.
+* Lines starting with "//" are notes to the trainer and are ignored.
 """
 
 import io
@@ -456,8 +457,8 @@ class _Parser:
 
     def feed(self, ln):
         text = ln.text.strip()
-        if not text:
-            return
+        if not text or text.startswith("//") or (text.startswith("[[") and text.endswith("]]")):
+            return                                     # blank lines and guidance notes
         if not self.in_key and KEY_RE.match(text) and not ANS_RE.match(text):
             self.close(); self.in_key = True; self.key_section = None
             return
@@ -470,7 +471,8 @@ class _Parser:
             self.tf = kind == "tf"
             m = HEADER_MARKS_RE.search(text)
             if m:
-                self.header_marks[self.section] = float(m.group(1))
+                # True/False and multiple choice are both the MCQ section, so their marks add up.
+                self.header_marks[self.section] = self.header_marks.get(self.section, 0) + float(m.group(1))
             self.started = True
             return
         m = ANS_RE.match(text)

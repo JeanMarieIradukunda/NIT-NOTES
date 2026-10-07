@@ -14,6 +14,15 @@
   </div>
   <div class="row g-4">
     <div class="col-lg-5">
+      <div class="panel panel-body mb-4">
+        <h2 class="fs-6">Start from a template</h2>
+        <p class="small text-muted-2">Word templates already in the layout the system reads: sections for multiple choice, true/false, fill in the blanks, matching and open questions, each with its answers.</p>
+        <div class="d-grid gap-2">
+          <a class="btn btn-outline-secondary" href="{% url 'assessments:import_template' 'blank' %}"><i class="bi bi-file-earmark-word me-1"></i>Blank template (.docx)</a>
+          <a class="btn btn-outline-secondary" href="{% url 'assessments:import_template' 'example' %}"><i class="bi bi-file-earmark-word me-1"></i>Filled example (.docx)</a>
+        </div>
+        <div class="form-text mt-2">Fill it in, save it as .docx, then upload it below.</div>
+      </div>
       <form method="post" enctype="multipart/form-data" class="panel panel-body" novalidate>
         {% csrf_token %}
         {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
@@ -53,6 +62,7 @@ Marking guide: Leases and automatic addressing.</pre>
           <li>Typed numbers, Word or HTML automatic numbering and bullets all work. Matching can also be a two-column table.</li>
           <li>Answers can sit under each question, in a bold or underlined correct option, or in an “Answer Key” list or table at the end (<code>1. B</code>, <code>1-B 2-C</code>).</li>
           <li>Marks written as “(2 marks)” set each question’s weight and can fill in the section marks.</li>
+          <li>Lines starting with <code>//</code> are notes and are ignored, so they can stay in your file.</li>
           <li>Pictures are not imported. Old .doc files must be saved as .docx first.</li>
           <li>Anything the reader is unsure about is flagged on the next screen, where you can fix missing answers before importing.</li>
         </ul>

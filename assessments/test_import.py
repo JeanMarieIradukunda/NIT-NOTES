@@ -281,3 +281,55 @@ class ImportFlowTests(TestCase):
         oc = Client(); oc.force_login(other)
         self.assertEqual(oc.get(reverse("assessments:import_upload", args=[self.exam.pk])).status_code, 403)
         self.assertEqual(Client().get(reverse("assessments:import_upload", args=[self.exam.pk])).status_code, 302)
+
+
+@override_settings(STORAGES=PLAIN_STATIC)
+class TemplateTests(TestCase):
+    def setUp(self):
+        self.trainer = User.objects.create_user("tt", password="pw12345!")
+        self.trainer.groups.add(Group.objects.get_or_create(name="Trainer")[0])
+        self.c = Client(); self.c.force_login(self.trainer)
+
+    def test_guidance_notes_are_ignored(self):
+        def build(doc):
+            para(doc, "// a note"); doc.add_heading("Section A: Multiple choice", level=1)
+            para(doc, "// another note"); para(doc, "1. Real question?"); para(doc, "A. x\nB. y"); para(doc, "Answer: A")
+        d = importer.parse_upload("a.docx", docx_bytes(build))
+        self.assertEqual(len(d["questions"]), 1)
+        self.assertNotIn("note", d["intro"])
+
+    def test_example_template_imports_fully_and_correctly(self):
+        from . import template_docx
+        d = importer.parse_upload("t.docx", template_docx.build("example"))
+        qs = d["questions"]
+        self.assertEqual([q["section"] for q in qs], ["mcq", "mcq", "mcq", "mcq", "fill", "fill", "match", "open", "open"])
+        self.assertTrue(all(q["warnings"] == [] for q in qs), [q["warnings"] for q in qs])
+        self.assertEqual([q["correct"] for q in qs[:4]], [1, 1, 0, 0])                 # B, B, True, True
+        self.assertEqual(qs[4]["accepted"], ["DNS", "domain name system"])
+        self.assertEqual(qs[6]["pairs"], {"0": 0, "1": 1, "2": 2})
+        self.assertEqual(len(qs[6]["right"]), 4)
+        self.assertIn("DORA", qs[7]["guide"])
+        self.assertEqual(d["title"], "Networking Fundamentals Test")
+        self.assertEqual(d["intro"], "Answer all questions. Time allowed: 1 hour.")
+        self.assertEqual([d["header_marks"][k] for k in ("mcq", "fill", "match", "open")], [6.0, 4.0, 3.0, 10.0])
+
+    def test_blank_template_is_readable_and_every_question_is_ready(self):
+        from . import template_docx
+        d = importer.parse_upload("t.docx", template_docx.build("blank"))
+        self.assertEqual(len(d["questions"]), 9)
+        self.assertTrue(all(q["warnings"] == [] for q in d["questions"]))
+        self.assertEqual(d["title"], "Assessment title")
+
+    def test_download_views(self):
+        for kind, name in (("blank", "assessment-template-blank.docx"), ("example", "assessment-template-example.docx")):
+            r = self.c.get(reverse("assessments:import_template", args=[kind]))
+            self.assertEqual(r.status_code, 200)
+            self.assertIn(name, r["Content-Disposition"])
+            self.assertTrue(r["Content-Type"].endswith("wordprocessingml.document"))
+            self.assertEqual(r.content[:2], b"PK")
+        self.assertEqual(self.c.get(reverse("assessments:import_template", args=["html"])).status_code, 404)
+        self.assertEqual(Client().get(reverse("assessments:import_template", args=["blank"])).status_code, 302)
+        exam = Exam.objects.create(title="E", created_by=self.trainer)
+        page = self.c.get(reverse("assessments:import_upload", args=[exam.pk]))
+        self.assertContains(page, "Blank template (.docx)")
+        self.assertNotContains(page, ".html</a>")
