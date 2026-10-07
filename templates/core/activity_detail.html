@@ -12,7 +12,7 @@
     <a class="btn btn-sm btn-outline-secondary" href="{% url 'core:activity_edit' activity.pk %}"><i class="bi bi-pencil me-1"></i>Edit</a>
     {% endif %}
     <a class="btn btn-sm btn-outline-secondary" href="{% url 'core:activity_file' activity.pk %}{% if activity.is_html %}?view=1{% endif %}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>Open in new tab</a>
-    <a class="btn btn-sm btn-primary" href="{% url 'core:activity_file' activity.pk %}?download=1"><i class="bi bi-download me-1"></i>Download {{ activity.get_document_type_display }}</a>
+    {% if activity.is_pdf %}<a class="btn btn-sm btn-primary" href="{% url 'core:activity_file' activity.pk %}?download=1"><i class="bi bi-download me-1"></i>Download {{ activity.get_document_type_display }}</a>{% endif %}
   </div>
 </div>
 

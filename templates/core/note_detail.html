@@ -18,7 +18,7 @@
     {% endif %}
     {% if note.is_html %}<button class="btn btn-sm btn-outline-secondary" type="button" data-print><i class="bi bi-printer me-1"></i>Print</button>{% endif %}
     {% if note.is_pdf %}<a class="btn btn-sm btn-outline-secondary" href="{{ note.get_file_url }}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>Open in new tab</a>{% endif %}
-    <a class="btn btn-sm btn-primary" href="{{ note.get_download_url }}"><i class="bi bi-download me-1"></i>Download {{ note.get_file_type_display }}</a>
+    {% if note.is_pdf %}<a class="btn btn-sm btn-primary" href="{{ note.get_download_url }}"><i class="bi bi-download me-1"></i>Download {{ note.get_file_type_display }}</a>{% endif %}
   </div>
 </div>
 
