@@ -71,7 +71,7 @@
             <div class="container-xxl">
                 <ul class="app-menu" id="navMain">
                     <li class="nav-item">
-                        <a class="nav-link {% if rm.url_name == 'dashboard' %}active{% endif %}" {% if rm.url_name=='dashboard' %}aria-current="page" {% endif %} href="{% url 'core:dashboard' %}"><i class="bi bi-speedometer2" aria-hidden="true"></i>Dashboard</a>
+                        <a class="nav-link {% if rm.url_name == 'dashboard' %}active{% endif %}" {% if rm.url_name == 'dashboard' %}aria-current="page" {% endif %} href="{% url 'core:dashboard' %}"><i class="bi bi-speedometer2" aria-hidden="true"></i>Dashboard</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if rm.url_name == 'browse' or rm.url_name == 'module_detail' %}active{% endif %}" href="{% url 'core:browse' %}"><i class="bi bi-compass" aria-hidden="true"></i>Browse</a>

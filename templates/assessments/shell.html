@@ -1,24 +1,28 @@
-{% load static %}<!DOCTYPE html>
+{% load static %}
+<!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
+
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>{% block title %}Assessment{% endblock %} · {{ BRAND.institution }}</title>
-<link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
-<link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
-<link rel="stylesheet" href="{% static 'css/platform.css' %}">
-<link rel="stylesheet" href="{% static 'css/assessment.css' %}">
-{% block extra_css %}{% endblock %}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>{% block title %}Assessment{% endblock %} · {{ BRAND.institution }}</title>
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/platform.css' %}">
+    <link rel="stylesheet" href="{% static 'css/assessment.css' %}"> {% block extra_css %}{% endblock %}
 </head>
+
 <body class="{% block body_class %}assess-shell{% endblock %}">
-{% block body %}
-<header class="assess-top">
-  <img class="brand-logo" src="{% static 'img/school.jpg' %}" alt="" width="40" height="40">
-  <div><strong>{{ BRAND.institution|upper }}</strong><div class="small text-muted-2">{{ BRAND.institution }}</div></div>
-</header>
-<main id="main" class="assess-main">{% block content %}{% endblock %}</main>
-{% endblock %}
-{% block extra_js %}{% endblock %}
+    {% block body %}
+    <header class="assess-top">
+        <img class="brand-logo" src="{% static 'img/school.png' %}" alt="" width="40" height="40">
+        <div><strong>{{ BRAND.institution|upper }}</strong>
+            <div class="small text-muted-2">{{ BRAND.institution }}</div>
+        </div>
+    </header>
+    <main id="main" class="assess-main">{% block content %}{% endblock %}</main>
+    {% endblock %} {% block extra_js %}{% endblock %}
 </body>
+
 </html>
