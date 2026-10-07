@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Review import · {{ exam.title }}{% endblock %}
+{% block site_search %}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_list' %}">Assessments</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_detail' exam.pk %}">{{ exam.title }}</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:import_upload' exam.pk %}">Import</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Review</li>
+    </ol></nav>
+    <h1>Review {{ rows|length }} question{{ rows|length|pluralize }}</h1>
+    <p class="lead">From <strong>{{ draft.filename }}</strong>. Nothing is saved until you press Import. Fix any missing answers, untick what you don’t want.</p>
+  </div>
+
+  {% for w in warnings %}<div class="alert alert-warning py-2">{{ w }}</div>{% endfor %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% for r in rows %}
+    <div class="panel panel-body mb-3{% if not r.ok %} border-warning{% endif %}">
+      <div class="d-flex flex-wrap gap-2 align-items-start">
+        <div class="form-check mt-1">
+          <input class="form-check-input" type="checkbox" name="inc_{{ r.i }}" value="1" id="inc_{{ r.i }}" {% if r.ok %}checked{% endif %}>
+          <label class="form-check-label" for="inc_{{ r.i }}"><span class="visually-hidden">Import question {{ forloop.counter }}</span></label>
+        </div>
+        <div class="flex-grow-1" style="min-width:0;overflow-wrap:anywhere">
+          <div class="small text-muted-2 mb-1">{{ forloop.counter }} · <span class="pill pill--muted">{{ r.label }}</span>{% if r.q.marks %} · {{ r.q.marks }} mark{{ r.q.marks|pluralize }}{% endif %}{% if r.q.key_source %} · answer from {{ r.q.key_source }}{% endif %}</div>
+          <div class="fw-semibold" style="white-space:pre-wrap">{{ r.q.text }}</div>
+
+          {% if r.q.section == "mcq" %}
+          <div class="mt-2">
+            {% for o in r.q.options %}
+            <div class="form-check"><input class="form-check-input" type="radio" name="correct_{{ r.i }}" id="c_{{ r.i }}_{{ forloop.counter0 }}" value="{{ forloop.counter0 }}" {% if r.q.correct == forloop.counter0 %}checked{% endif %}>
+              <label class="form-check-label" for="c_{{ r.i }}_{{ forloop.counter0 }}">{{ o }}</label></div>
+            {% endfor %}
+          </div>
+          {% elif r.q.section == "fill" %}
+          <div class="mt-2"><label class="form-label small" for="a_{{ r.i }}">Accepted answers (separate with /)</label>
+            <input class="form-control" id="a_{{ r.i }}" name="accepted_{{ r.i }}" value="{{ r.accepted_text }}"></div>
+          {% elif r.q.section == "match" %}
+          {% if r.match_pairs %}<ul class="small mt-2 mb-0 ps-3">{% for a, b in r.match_pairs %}<li>{{ a }} → {{ b }}</li>{% endfor %}</ul>{% endif %}
+          {% elif r.q.guide %}
+          <div class="small text-muted-2 mt-2"><strong>Marking guide:</strong> {{ r.q.guide }}</div>
+          {% endif %}
+
+          {% for w in r.q.warnings %}<div class="small text-warning mt-2"><i class="bi bi-exclamation-triangle me-1"></i>{{ w }}</div>{% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="panel panel-body mb-4">
+      <h2 class="fs-6">How to import</h2>
+      <div class="form-check mb-2"><input class="form-check-input" type="radio" name="mode" id="m_app" value="append" checked><label class="form-check-label" for="m_app">Add to the questions already in this assessment</label></div>
+      <div class="form-check mb-3"><input class="form-check-input" type="radio" name="mode" id="m_rep" value="replace" {% if has_attempts %}disabled{% endif %}><label class="form-check-label" for="m_rep">Replace all existing questions{% if has_attempts %} <span class="text-muted-2">(unavailable: candidates have already attempted this assessment)</span>{% endif %}</label></div>
+      {% if suggestion %}
+      <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="apply_marks" id="apply_marks" value="1" checked>
+        <label class="form-check-label" for="apply_marks">Use the marks in the document: {% for label, v in suggestion %}{{ label }} {{ v|floatformat:"-2" }}{% if not forloop.last %}, {% endif %}{% endfor %}</label>
+        <div class="form-text">Applied when the assessment has no questions yet, or when replacing. Otherwise set section marks in Settings.</div></div>
+      {% endif %}
+      {% if intro_usable %}
+      <div class="form-check"><input class="form-check-input" type="checkbox" name="use_intro" id="use_intro" value="1" checked>
+        <label class="form-check-label" for="use_intro">Use the introduction text as the exam instructions</label>
+        <div class="form-text" style="white-space:pre-wrap">{{ intro|truncatechars:300 }}</div></div>
+      {% endif %}
+    </div>
+
+    <div class="mb-5">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-check2 me-1"></i>Import selected questions</button>
+      <a class="btn btn-outline-secondary" href="{% url 'assessments:import_upload' exam.pk %}">Start over</a>
+      <span class="small text-muted-2 ms-2">{{ n_ok }} of {{ rows|length }} ready</span>
+    </div>
+  </form>
+</div>
+{% endblock %}

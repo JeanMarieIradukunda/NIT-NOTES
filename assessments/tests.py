@@ -349,9 +349,11 @@ class MarkingAndTrainerTests(ExamTestBase):
         self.assertContains(r, "Provisional")
         sheet = self.client_a.get(reverse("assessments:answer_sheet", args=[self.attempt().access_key]))
         self.assertEqual(sheet.status_code, 200)
-        self.assertIn("attachment", sheet["Content-Disposition"])
-        body = sheet.content if sheet["Content-Type"] == "application/pdf" else sheet.content.decode()
-        if isinstance(body, str):
+        if sheet["Content-Type"] == "application/pdf":
+            self.assertIn(".pdf", sheet["Content-Disposition"])
+        else:                                                   # no PDF engine: shown on screen, never an HTML download
+            self.assertFalse(sheet.has_header("Content-Disposition"))
+            body = sheet.content.decode()
             self.assertIn("Hands out IP addresses", body)
             self.assertNotIn("Mentions leases", body)           # marking guide never in candidate output
         stranger = Client()

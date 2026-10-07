@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import api, staff_views, views
+from . import api, import_views, staff_views, views
 
 app_name = "assessments"
 
@@ -27,6 +27,8 @@ urlpatterns = [
     path("assessments/<int:pk>/questions/new/", staff_views.question_create, name="question_create"),
     path("assessments/<int:pk>/questions/<int:qid>/edit/", staff_views.question_edit, name="question_edit"),
     path("assessments/<int:pk>/questions/<int:qid>/delete/", staff_views.question_delete, name="question_delete"),
+    path("assessments/<int:pk>/import/", import_views.import_upload, name="import_upload"),
+    path("assessments/<int:pk>/import/<int:draft_id>/", import_views.import_preview, name="import_preview"),
     path("assessments/<int:pk>/results/", staff_views.exam_results, name="exam_results"),
     path("assessments/<int:pk>/results/<int:aid>/", staff_views.attempt_detail, name="attempt_detail"),
     path("assessments/<int:pk>/results/<int:aid>/mark/", staff_views.attempt_mark, name="attempt_mark"),

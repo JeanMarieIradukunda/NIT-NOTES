@@ -237,10 +237,15 @@ def answer_sheet(request, access_key):
     try:
         from weasyprint import HTML
         pdf = HTML(string=html, base_url=request.build_absolute_uri("/")).write_pdf()
-        response = HttpResponse(pdf, content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="{filename}.pdf"'
     except Exception:
-        # PDF libraries missing on this server: fall back to a self-contained HTML file.
-        response = HttpResponse(html, content_type="text/html; charset=utf-8")
-        response["Content-Disposition"] = f'attachment; filename="{filename}.html"'
+        # No PDF engine on this server: show the sheet on screen (to print or save as PDF
+        # from the browser). It is never offered as an HTML file download.
+        return render(request, "assessments/answer_sheet.html", {
+            "attempt": attempt, "exam": exam, "rows": _sheet_rows(attempt),
+            "violations": attempt.violations.all(), "generated": timezone.now(), "show_score": exam.show_results,
+            "open_pending": exam.questions.filter(section="open").exists() and not attempt.marking_complete,
+            "brand": {"institution": "Padri Vjeko Centre TSS", "department": "Department of Information Technology"},
+            "on_screen": True})
+    response = HttpResponse(pdf, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}.pdf"'
     return response

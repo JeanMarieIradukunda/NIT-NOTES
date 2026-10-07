@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Import questions · {{ exam.title }}{% endblock %}
+{% block site_search %}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_list' %}">Assessments</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_detail' exam.pk %}">{{ exam.title }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Import questions</li>
+    </ol></nav>
+    <h1>Import questions from a file</h1>
+    <p class="lead">Upload your assessment as a Word (.docx) or HTML file. The system reads the questions and answers and rebuilds them in the candidate exam format. You review everything before it is saved.</p>
+  </div>
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <form method="post" enctype="multipart/form-data" class="panel panel-body" novalidate>
+        {% csrf_token %}
+        {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+        <label class="form-label" for="file">Assessment file</label>
+        <input class="form-control mb-2" type="file" id="file" name="file" accept=".docx,.html,.htm" required>
+        <div class="form-text mb-3">.docx or .html, up to {{ max_mb }} MB. The file is read once and is not kept.</div>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-magic me-1"></i>Read and preview</button>
+        <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_detail' exam.pk %}">Cancel</a>
+      </form>
+    </div>
+    <div class="col-lg-7">
+      <div class="panel panel-body">
+        <h2 class="fs-6">Layout the reader understands</h2>
+        <pre class="answer-box small mb-3" style="white-space:pre-wrap">Section A: Multiple choice (10 marks)
+1. Which layer routes packets?
+A. Physical
+B. Network
+C. Session
+Answer: B
+
+Section B: Fill in the blanks (4 marks)
+2. The ____ protocol resolves names.
+Answer: DNS / domain name system
+
+Section C: Matching (4 marks)
+3. Match Column A with Column B.
+1. Router
+2. Switch
+A. Connects hosts
+B. Connects networks
+Answer: 1-B, 2-A
+
+Section D: Open questions (10 marks)
+4. Explain DHCP. (5 marks)
+Marking guide: Leases and automatic addressing.</pre>
+        <ul class="small text-muted-2 ps-3 mb-0">
+          <li>Typed numbers, Word or HTML automatic numbering and bullets all work. Matching can also be a two-column table.</li>
+          <li>Answers can sit under each question, in a bold or underlined correct option, or in an “Answer Key” list or table at the end (<code>1. B</code>, <code>1-B 2-C</code>).</li>
+          <li>Marks written as “(2 marks)” set each question’s weight and can fill in the section marks.</li>
+          <li>Pictures are not imported. Old .doc files must be saved as .docx first.</li>
+          <li>Anything the reader is unsure about is flagged on the next screen, where you can fix missing answers before importing.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="pb-5"></div>
+</div>
+{% endblock %}

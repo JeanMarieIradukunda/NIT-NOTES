@@ -5,6 +5,9 @@ Django>=5.2.8,<6.2
 beautifulsoup4>=4.12
 lxml>=5.0
 
+# Reads Word (.docx) assessments in assessments/importer.py (pure Python).
+python-docx>=1.1
+
 # Postgres driver — used in production via DATABASE_URL, e.g. Neon (SQLite
 # has no working deployment target on Vercel's read-only, ephemeral
 # filesystem). dj-database-url turns that one DATABASE_URL string into

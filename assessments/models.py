@@ -310,3 +310,12 @@ class PasswordFailure(models.Model):
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name="+")
     ip = models.CharField(max_length=64, db_index=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+
+class ImportDraft(models.Model):
+    """A parsed upload waiting for the trainer to review it. The uploaded file itself is never stored."""
+    exam = models.ForeignKey(Exam, related_name="import_drafts", on_delete=models.CASCADE)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    filename = models.CharField(max_length=200)
+    data = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now)

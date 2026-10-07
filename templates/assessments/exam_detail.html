@@ -38,7 +38,10 @@
 
   <div class="d-flex justify-content-between align-items-center mb-2">
     <h2 class="fs-5 mb-0">Questions</h2>
-    <a class="btn btn-primary btn-sm" href="{% url 'assessments:question_create' exam.pk %}"><i class="bi bi-plus-lg me-1"></i>Add question</a>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:import_upload' exam.pk %}"><i class="bi bi-file-earmark-arrow-up me-1"></i>Import from Word / HTML</a>
+      <a class="btn btn-primary btn-sm" href="{% url 'assessments:question_create' exam.pk %}"><i class="bi bi-plus-lg me-1"></i>Add question</a>
+    </div>
   </div>
   {% for g in groups %}
   <div class="panel list-panel mb-3">
