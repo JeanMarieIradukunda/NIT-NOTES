@@ -420,7 +420,7 @@ class AuthoringTests(ExamTestBase):
         c = Client(); c.force_login(self.trainer)
         r = c.post(reverse("assessments:exam_create"), {
             "title": "New one", "duration_minutes": 30, "max_opens": 2, "max_devices": 1, "max_violations": 3,
-            "marks_mcq": "5", "marks_fill": "0", "marks_open": "0", "marks_match": "0",
+            "marks_mcq": "5", "marks_fill": "0", "marks_open": "0", "marks_match": "0", "multi_scoring": "partial",
             **{f"pen_{k}": v for k, v in {"fullscreen_exit": 2, "tab_switch": 2, "window_blur": 2, "extra_display": 2,
                                            "clipboard": 1, "shortcut": 2, "context_menu": 0}.items()}})
         self.assertEqual(r.status_code, 302, r.content[:500])
@@ -432,7 +432,7 @@ class AuthoringTests(ExamTestBase):
                                        "mcq_options": "a\nb\nc", "mcq_correct": 2}).status_code, 302)
         q = exam.questions.get()
         self.assertEqual(q.payload["options"], ["a", "b", "c"])
-        self.assertEqual(q.key.data["correct"], 1)
+        self.assertEqual(q.key.data["correct"], [1])
         bad = c.post(qurl, {"section": "match", "text": "m", "weight": 1, "order": 2, "match_pairs": "only one => pair"})
         self.assertEqual(bad.status_code, 200)                   # needs at least 2 pairs
 

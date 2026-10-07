@@ -133,6 +133,25 @@ class Exam(models.Model):
         default=False, help_text="Let candidates who have submitted review the correct answer to each question. "
                                  "Switch this on once every candidate has finished.")
 
+    # Delivery
+    shuffle_questions = models.BooleanField(
+        default=False, help_text="Each candidate sees the questions in a different order inside each section.")
+    shuffle_options = models.BooleanField(
+        default=False, help_text="Each candidate sees multiple-choice options in a different order. A question "
+                                 "with “all of the above” or “none of the above” is kept in order.")
+    MULTI_PARTIAL, MULTI_ALL = "partial", "all"
+    MULTI_CHOICES = [(MULTI_PARTIAL, "Partial marks (right ticks minus wrong ticks)"), (MULTI_ALL, "All or nothing")]
+    multi_scoring = models.CharField(
+        max_length=8, choices=MULTI_CHOICES, default=MULTI_PARTIAL,
+        help_text="How “select all that apply” questions are marked.")
+
+    # Entry window (candidates who have not started must enter inside it)
+    opens_at = models.DateTimeField(null=True, blank=True, help_text="Candidates cannot enter before this time.")
+    closes_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Late-entry cutoff: nobody can start after this time. Candidates already in progress can still "
+                  "reopen after a crash until their own time runs out.")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -244,6 +263,9 @@ class Attempt(models.Model):
     # Bumped by a trainer reset so stale localStorage counters stop applying.
     reset_epoch = models.PositiveIntegerField(default=0)
 
+    # Per-candidate question/option order, fixed at first open so later edits can't reshuffle a paper.
+    layout = models.JSONField(default=dict, blank=True)
+
     violation_count = models.PositiveIntegerField(default=0)
     penalty_total = models.DecimalField(max_digits=7, decimal_places=2, default=Decimal("0"))
 
@@ -323,3 +345,18 @@ class ImportDraft(models.Model):
     filename = models.CharField(max_length=200)
     data = models.JSONField(default=dict)
     created_at = models.DateTimeField(default=timezone.now)
+
+
+class RosterEntry(models.Model):
+    """One line of an exam's class list. When an exam has any, only listed candidates can enter."""
+    exam = models.ForeignKey(Exam, related_name="roster", on_delete=models.CASCADE)
+    reg_no = models.CharField(max_length=60)               # normalised
+    reg_no_display = models.CharField(max_length=60, blank=True)
+    name = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        ordering = ["name", "reg_no"]
+        constraints = [models.UniqueConstraint(fields=["exam", "reg_no"], name="one_roster_row_per_candidate")]
+
+    def __str__(self):
+        return f"{self.name} ({self.reg_no_display or self.reg_no})"

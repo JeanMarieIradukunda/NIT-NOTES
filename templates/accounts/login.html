@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Sign in{% endblock %}
 {% block content %}
 <div class="container-xxl">
   <div class="auth-wrap">
     <div class="panel panel-body auth-card">
-      <span class="brand-mark" aria-hidden="true">NIT</span>
+      <img class="brand-logo brand-logo--lg" src="{% static 'img/school.jpg' %}" alt="Padri Vjeko Centre TSS" width="64" height="64">
       <h1 class="fs-3 mb-1">Sign in</h1>
       <p class="text-muted-2 mb-4">For trainers and administrators.</p>
       {% if form.errors %}<div class="alert alert-danger" role="alert">Your username and password didn't match. Please try again.</div>{% endif %}

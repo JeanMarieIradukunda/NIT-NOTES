@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import api, import_views, staff_views, views
+from . import api, import_views, roster_views, staff_views, views
 
 app_name = "assessments"
 
@@ -33,6 +33,10 @@ urlpatterns = [
     path("assessments/<int:pk>/import/", import_views.import_upload, name="import_upload"),
     path("assessments/<int:pk>/import/<int:draft_id>/", import_views.import_preview, name="import_preview"),
     path("assessments/<int:pk>/results/", staff_views.exam_results, name="exam_results"),
+    path("assessments/<int:pk>/analysis/", staff_views.exam_analysis, name="exam_analysis"),
+    path("assessments/<int:pk>/roster/", roster_views.roster_page, name="roster"),
+    path("assessments/<int:pk>/roster/<int:rid>/delete/", roster_views.roster_delete, name="roster_delete"),
+    path("assessments/<int:pk>/roster/clear/", roster_views.roster_clear, name="roster_clear"),
     path("assessments/<int:pk>/results/<int:aid>/", staff_views.attempt_detail, name="attempt_detail"),
     path("assessments/<int:pk>/results/<int:aid>/mark/", staff_views.attempt_mark, name="attempt_mark"),
     path("assessments/<int:pk>/results/<int:aid>/reset/", staff_views.attempt_reset, name="attempt_reset"),

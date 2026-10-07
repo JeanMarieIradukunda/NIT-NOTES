@@ -15,7 +15,7 @@ from django.utils import timezone
 
 from .marking import has_open_questions, mark_objective, q2, recompute_final
 from .models import (VIOLATION_TYPES, Attempt, DeviceOpen, Exam, PasswordFailure,
-                     Violation, normalise_reg_no)
+                     RosterEntry, Violation, normalise_reg_no)
 
 TAB_STALE_SECONDS = 30          # a tab whose heartbeat is older than this no longer holds the lock
 HEARTBEAT_GAP_SECONDS = 60      # a longer silence is logged (log-only) for the trainer
@@ -89,13 +89,29 @@ def sweep_expired(exam):
 # Opening (entry)
 # --------------------------------------------------------------------------- #
 
-def _check_exam_available(exam):
+def _when(dt):
+    return timezone.localtime(dt).strftime("%A %d %B %Y at %H:%M")
+
+
+def _check_exam_available(exam, started=False):
+    """
+    `started`: this candidate already started the clock. The late-entry cutoff
+    stops new starts only, so someone whose computer crashed can still come back
+    (until their own time runs out).
+    """
     if not exam.is_open:
         raise Blocked("This assessment is not open right now. Ask your trainer when it starts.",
                       title="Assessment not open")
     if exam.exam_date and timezone.localdate() != exam.exam_date:
         raise Blocked(f"This assessment is scheduled for {exam.exam_date:%A %d %B %Y}.",
                       title="Not today")
+    now = timezone.now()
+    if exam.opens_at and now < exam.opens_at:
+        raise Blocked(f"This assessment opens on {_when(exam.opens_at)}. Come back then.",
+                      title="Not open yet")
+    if exam.closes_at and now > exam.closes_at and not started:
+        raise Blocked(f"Entry closed on {_when(exam.closes_at)}. Candidates who have not started can no longer "
+                      "begin. Speak to your trainer.", title="Entry has closed")
 
 
 def open_exam(exam, *, name, reg_no, device_id, user_agent="", ip=None,
@@ -106,8 +122,22 @@ def open_exam(exam, *, name, reg_no, device_id, user_agent="", ip=None,
     Returns (attempt, tab_token). Raises Blocked otherwise. The password has
     already been verified by the caller. A refused open never consumes one.
     """
-    _check_exam_available(exam)
     reg = normalise_reg_no(reg_no)
+    existing = Attempt.objects.filter(exam=exam, reg_no=reg).first()
+    _check_exam_available(exam, started=bool(existing and existing.end_at))
+
+    # Class list: once an exam has one, only listed candidates can enter, and the listed
+    # name and number are used (so typos cannot create a second attempt).
+    entry = None
+    if exam.roster.exists():
+        entry = exam.roster.filter(reg_no=reg).first()
+        if entry is None:
+            raise Blocked("Your candidate number is not on the class list for this assessment. Check the number "
+                          "you typed, or ask your trainer to add you.", title="Not on the class list")
+        name = entry.name or name
+        reg_no = entry.reg_no_display or reg_no
+    if not (name or "").strip():
+        raise Blocked("Enter your full name.", status=400, title="Name needed")
 
     with transaction.atomic():
         attempt, _ = Attempt.objects.select_for_update().get_or_create(

@@ -74,10 +74,17 @@ def _suggest_marks(questions, header_marks, included):
     return out
 
 
+def _correct_list(q):
+    c = q.get("correct")
+    if c is None or isinstance(c, bool):
+        return []
+    return [c] if isinstance(c, int) else [i for i in c if isinstance(i, int)]
+
+
 def _importable(q):
     s = q["section"]
     if s == MCQ:
-        return q.get("correct") is not None
+        return bool(_correct_list(q))
     if s == FILL:
         return bool(q.get("accepted"))
     if s == MATCH:
@@ -103,9 +110,10 @@ def import_preview(request, pk, draft_id):
             if request.POST.get(f"inc_{i}") != "1":
                 continue
             if q["section"] == MCQ:
-                c = request.POST.get(f"correct_{i}")
-                if c is not None and c.isdigit() and int(c) < len(q["options"]):
-                    q["correct"] = int(c)
+                ticked = sorted({int(c) for c in request.POST.getlist(f"correct_{i}")
+                                 if c.isdigit() and int(c) < len(q["options"])})
+                q["correct"] = ticked or _correct_list(q)
+                q["multi"] = request.POST.get(f"multi_{i}") == "1" and len(q["correct"]) > 1
             elif q["section"] == FILL:
                 raw = request.POST.get(f"accepted_{i}", "")
                 typed = [p.strip() for p in raw.replace("\n", "/").split("/") if p.strip()]
@@ -132,7 +140,9 @@ def import_preview(request, pk, draft_id):
                 weight = max(1, int(round(q["marks"]))) if q.get("marks") and apply else 1
                 payload, key = {}, {}
                 if q["section"] == MCQ:
-                    payload, key = {"options": q["options"]}, {"correct": q["correct"]}
+                    correct = sorted(set(_correct_list(q)))
+                    payload = {"options": q["options"], **({"multi": True} if q.get("multi") and len(correct) > 1 else {})}
+                    key = {"correct": correct}
                 elif q["section"] == FILL:
                     key = {"accepted": q["accepted"], "case_sensitive": False}
                 elif q["section"] == OPEN:
@@ -165,6 +175,7 @@ def import_preview(request, pk, draft_id):
     rows = []
     for i, q in enumerate(questions):
         rows.append({"i": i, "q": q, "label": SECTION_LABELS[q["section"]], "ok": _importable(q),
+                     "correct_list": _correct_list(q),
                      "match_pairs": [(q["left"][int(a)], q["right"][b]) for a, b in
                                      sorted(q["pairs"].items(), key=lambda kv: int(kv[0]))] if q["section"] == MATCH else [],
                      "accepted_text": " / ".join(q.get("accepted", []))})

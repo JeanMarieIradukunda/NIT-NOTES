@@ -65,3 +65,16 @@
 .review-opt { display: flex; align-items: center; gap: .6rem; padding: .45rem .65rem; border-radius: var(--r-sm); color: var(--c-text); }
 .review-opt.is-correct { background: var(--c-success-soft); color: var(--c-success); }
 .review-opt.is-wrong { background: var(--c-danger-soft); color: var(--c-danger); }
+
+/* ---- Item analysis ---- */
+.dist { display: flex; align-items: flex-end; gap: .4rem; height: 150px; padding-top: 1.2rem; }
+.dist-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; min-width: 0; }
+.dist-bar { width: 100%; min-height: 2px; background: var(--c-brand); border-radius: 3px 3px 0 0; }
+.dist-count { font-size: .75rem; color: var(--c-muted); }
+.dist-label { font-size: .68rem; color: var(--c-muted); margin-top: .25rem; white-space: nowrap; }
+.opt-row { display: grid; grid-template-columns: minmax(8rem, 2fr) minmax(6rem, 3fr) 6.5rem; gap: .75rem; align-items: center; padding: .2rem 0; font-size: .9rem; }
+.opt-text { overflow-wrap: anywhere; color: var(--c-text); }
+.opt-bar { height: .55rem; background: var(--c-surface-2); border-radius: 4px; overflow: hidden; }
+.opt-bar span { display: block; height: 100%; background: var(--c-muted); }
+.opt-bar span.ok { background: var(--c-success); }
+.opt-n { text-align: right; color: var(--c-muted); font-variant-numeric: tabular-nums; }

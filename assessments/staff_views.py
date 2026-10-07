@@ -18,9 +18,9 @@ from django.views.decorators.http import require_POST
 
 from accounts.roles import is_admin
 
-from . import services
+from . import analysis, services
 from .forms import ExamForm, QuestionForm
-from .marking import mark_objective, q2, question_max_marks, recompute_final
+from .marking import mark_objective, ordered_questions, q2, question_max_marks, recompute_final
 from .models import (ALL_VIOLATION_LABELS, SECTION_LABELS, SECTION_ORDER, Attempt, Exam, Question)
 from .permissions import can_manage_exam, deny, trainer_required
 from .views import _sheet_rows
@@ -91,7 +91,7 @@ def exam_detail(request, pk):
     return render(request, "assessments/exam_detail.html", {
         "exam": exam, "groups": groups, "warnings": warnings,
         "entry_url": request.build_absolute_uri(reverse("assessments:entry", args=[exam.public_id])),
-        "penalties": exam.penalty_table(), "n_attempts": exam.attempts.count()})
+        "penalties": exam.penalty_table(), "n_attempts": exam.attempts.count(), "n_roster": exam.roster.count()})
 
 
 @require_POST
@@ -217,8 +217,7 @@ def attempt_detail(request, pk, aid):
         return denied
     attempt = get_object_or_404(Attempt.objects.select_related("exam"), pk=aid, exam=exam)
     attempt = services.expire_if_due(attempt)
-    questions = sorted(exam.questions.select_related("key"),
-                       key=lambda q: (SECTION_ORDER.index(q.section), q.order, q.id))
+    questions = ordered_questions(exam, attempt)           # same order and numbering the candidate saw
     maxima = question_max_marks(exam, questions)
     _total, per_q, _sec = mark_objective(exam, attempt.answers)
     sheet = {r["n"]: r for r in _sheet_rows(attempt)}
@@ -302,3 +301,25 @@ def attempt_force_submit(request, pk, aid):
         services.finalize(attempt, "teacher")
     messages.success(request, "Attempt submitted with the answers saved so far.")
     return redirect("assessments:attempt_detail", pk=exam.pk, aid=aid)
+
+
+@trainer_required
+def exam_analysis(request, pk):
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    services.sweep_expired(exam)
+    summary, items = analysis.analyse(exam)
+    if request.GET.get("format") == "csv":
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="item-analysis-{exam.public_id}.csv"'
+        w = csv.writer(response)
+        w.writerow(["No.", "Section", "Question", "Max marks", "Answered", "Fully correct", "% fully correct",
+                    "Average mark", "Discrimination", "Flags"])
+        for it in items:
+            w.writerow([it["n"], it["label"], it["text"][:200], it["max"], it["answered"], it["full"],
+                        "" if it["pct_correct"] is None else it["pct_correct"],
+                        "" if it["avg"] is None else it["avg"], "" if it["disc"] is None else it["disc"],
+                        " | ".join(f[1] for f in it["flags"])])
+        return response
+    return render(request, "assessments/analysis.html", {"exam": exam, "summary": summary, "items": items})

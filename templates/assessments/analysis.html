@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Item analysis · {{ exam.title }}{% endblock %}
+{% block site_search %}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_list' %}">Assessments</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_detail' exam.pk %}">{{ exam.title }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Item analysis</li>
+    </ol></nav>
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div><h1>Item analysis</h1><p class="lead">How each question performed across the {{ summary.n }} submitted attempt{{ summary.n|pluralize }}. Use it to spot questions that are too hard, too easy, mis-keyed or that don’t separate strong from weak candidates.</p></div>
+      <a class="btn btn-outline-secondary" href="?format=csv"><i class="bi bi-download me-1"></i>Export CSV</a>
+    </div>
+  </div>
+
+  {% if not summary.n %}
+  <div class="empty-state"><span class="icon-chip"><i class="bi bi-bar-chart"></i></span><h3>No submitted attempts yet</h3><p>The analysis appears once candidates have submitted.</p></div>
+  {% else %}
+  {% if not summary.judged %}<div class="alert alert-secondary py-2 small">With fewer than 5 submitted attempts the figures are shown but questions are not flagged, because small groups mislead.</div>{% endif %}
+  {% if summary.in_progress %}<div class="alert alert-warning py-2 small">{{ summary.in_progress }} candidate{{ summary.in_progress|pluralize }} still in progress are not counted yet.</div>{% endif %}
+  {% if summary.pending_open %}<div class="alert alert-warning py-2 small">{{ summary.pending_open }} attempt{{ summary.pending_open|pluralize }} still have open questions to mark, so scores and open-question averages are provisional.</div>{% endif %}
+
+  <div class="stat-grid mb-4" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+    <div class="panel stat"><div><div class="num">{{ summary.mean|floatformat:"-1" }}</div><div class="label">Mean / {{ summary.total|floatformat:"-2" }}</div></div></div>
+    <div class="panel stat"><div><div class="num">{{ summary.median|floatformat:"-1" }}</div><div class="label">Median</div></div></div>
+    <div class="panel stat"><div><div class="num">{{ summary.high|floatformat:"-1" }}</div><div class="label">Highest</div></div></div>
+    <div class="panel stat"><div><div class="num">{{ summary.low|floatformat:"-1" }}</div><div class="label">Lowest</div></div></div>
+  </div>
+
+  {% if summary.bins %}
+  <div class="panel panel-body mb-4">
+    <h2 class="fs-6">Score distribution</h2>
+    <div class="dist" role="img" aria-label="Number of candidates in each score band">
+      {% for b in summary.bins %}<div class="dist-col"><div class="dist-count">{{ b.count }}</div><div class="dist-bar" style="height:{{ b.height }}%"></div><div class="dist-label">{{ b.label }}</div></div>{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% for it in items %}
+  <article class="panel panel-body mb-3">
+    <div class="d-flex flex-wrap justify-content-between gap-2">
+      <span class="small text-muted-2">{{ it.n }} · {{ it.label }}{% if it.multi %} (select all){% endif %} · {{ it.max|floatformat:"-2" }} marks</span>
+      <span class="small">
+        {% if it.pct_correct != None %}<strong>{{ it.pct_correct }}%</strong> fully correct{% endif %}
+        {% if it.avg != None %}<span class="text-muted-2"> · average {{ it.avg|floatformat:"-2" }} / {{ it.max|floatformat:"-2" }}</span>{% endif %}
+        {% if it.disc != None %}<span class="text-muted-2"> · discrimination {{ it.disc }}</span>{% endif %}
+      </span>
+    </div>
+    <div class="fw-semibold my-2" style="white-space:pre-wrap;overflow-wrap:anywhere">{{ it.text|truncatechars:240 }}</div>
+    {% for kind, msg in it.flags %}<div class="small mb-1 {% if kind == 'danger' %}text-danger{% elif kind == 'warning' %}text-warning{% else %}text-muted-2{% endif %}"><i class="bi bi-flag me-1"></i>{{ msg }}</div>{% endfor %}
+
+    {% if it.section == "mcq" %}
+      {% for o in it.options %}
+      <div class="opt-row"><span class="opt-text">{% if o.correct %}<i class="bi bi-check-circle-fill text-success me-1" aria-label="Correct answer"></i>{% endif %}{{ o.text }}</span>
+        <span class="opt-bar"><span style="width:{{ o.pct|default:0 }}%"{% if o.correct %} class="ok"{% endif %}></span></span>
+        <span class="opt-n">{{ o.count }} ({{ o.pct|default:0 }}%)</span></div>
+      {% endfor %}
+      {% if it.blank %}<div class="small text-muted-2 mt-1">{{ it.blank }} did not answer.</div>{% endif %}
+      {% if it.top_wrong %}<div class="small text-muted-2 mt-1">Most common wrong option: “{{ it.top_wrong|truncatechars:80 }}”.</div>{% endif %}
+    {% elif it.section == "fill" %}
+      {% if it.wrong_answers %}<div class="small text-muted-2 mb-1">Most common wrong answers</div>
+      <ul class="small mb-0 ps-3">{% for text, n in it.wrong_answers %}<li>“{{ text }}” × {{ n }}</li>{% endfor %}</ul>{% else %}<div class="small text-muted-2">No wrong answers recorded.</div>{% endif %}
+      {% if it.blank %}<div class="small text-muted-2 mt-1">{{ it.blank }} did not answer.</div>{% endif %}
+    {% elif it.section == "match" %}
+      {% for p in it.pairs %}<div class="opt-row"><span class="opt-text">{{ p.left }}</span><span class="opt-bar"><span class="ok" style="width:{{ p.pct|default:0 }}%"></span></span><span class="opt-n">{{ p.pct|default:0 }}% right</span></div>{% endfor %}
+    {% else %}
+      <div class="small text-muted-2">{{ it.marked }} marked{% if it.pending %}, {{ it.pending }} awaiting marking{% endif %}.</div>
+    {% endif %}
+  </article>
+  {% endfor %}
+  {% endif %}
+  <div class="pb-5"></div>
+</div>
+{% endblock %}

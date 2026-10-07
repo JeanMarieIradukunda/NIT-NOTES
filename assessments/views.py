@@ -17,7 +17,8 @@ from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
-from .marking import (SECTION_ORDER, is_answered, public_questions, question_max_marks, review_questions)
+from .marking import (SECTION_ORDER, is_answered, option_order, ordered_questions, persist_layout,
+                      public_questions, question_max_marks, review_questions)
 from .models import (ALL_VIOLATION_LABELS, SECTION_LABELS, Attempt, DeviceOpen, Exam,
                      normalise_reg_no)
 from . import services
@@ -73,7 +74,8 @@ def attempt_has_device(request, attempt, body_device=""):
 @require_http_methods(["GET", "POST"])
 def entry(request, public_id):
     exam = get_object_or_404(Exam, public_id=public_id.upper())
-    ctx = {"exam": exam, "penalties": [p for p in exam.penalty_table() if p[2] > 0]}
+    ctx = {"exam": exam, "penalties": [p for p in exam.penalty_table() if p[2] > 0],
+           "roster_active": exam.roster.exists()}
 
     if request.method == "GET":
         return render(request, "assessments/entry.html", ctx)
@@ -94,8 +96,9 @@ def entry(request, public_id):
         ctx["error"] = "That exam password is not correct."
         return render(request, "assessments/entry.html", ctx, status=403)
 
-    if not name or not normalise_reg_no(reg_no):
-        ctx["error"] = "Enter your full name and your candidate number."
+    if not normalise_reg_no(reg_no) or (not name and not ctx["roster_active"]):
+        ctx["error"] = ("Enter your candidate number." if ctx["roster_active"]
+                        else "Enter your full name and your candidate number.")
         return render(request, "assessments/entry.html", ctx, status=400)
 
     device_id = device_id_for(request)
@@ -136,6 +139,7 @@ def take(request, public_id):
             or not attempt_has_device(request, attempt, ticket.get("device", "")):
         return redirect("assessments:entry", public_id=exam.public_id)
 
+    persist_layout(exam, attempt)
     device = attempt.devices.get(device_id=ticket["device"])
     now = timezone.now()
     config = {
@@ -178,15 +182,17 @@ def _result_attempt_or_404(request, access_key):
 
 def _sheet_rows(attempt):
     exam = attempt.exam
-    qs = sorted(exam.questions.all(), key=lambda q: (SECTION_ORDER.index(q.section), q.order, q.id))
+    qs = ordered_questions(exam, attempt)                 # the order this candidate saw
     maxima = question_max_marks(exam, qs)
     rows, n = [], 0
     for q in qs:
         n += 1
         raw = (attempt.answers or {}).get(str(q.id))
         text = ""
-        if q.section == "mcq" and isinstance(raw, int) and 0 <= raw < len(q.payload.get("options", [])):
-            text = q.payload["options"][raw]
+        if q.section == "mcq":
+            opts = q.payload.get("options", [])
+            picked = raw if isinstance(raw, list) else ([raw] if isinstance(raw, int) and not isinstance(raw, bool) else [])
+            text = "; ".join(opts[i] for i in option_order(exam, attempt, q) if i in picked and 0 <= i < len(opts))
         elif q.section in ("fill", "open") and isinstance(raw, str):
             text = raw
         elif q.section == "match" and isinstance(raw, dict):

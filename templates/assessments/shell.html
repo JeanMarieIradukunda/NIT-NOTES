@@ -14,8 +14,8 @@
 <body class="{% block body_class %}assess-shell{% endblock %}">
 {% block body %}
 <header class="assess-top">
-  <span class="brand-mark" aria-hidden="true">NIT</span>
-  <div><strong>{{ BRAND.platform }}</strong><div class="small text-muted-2">{{ BRAND.institution }}</div></div>
+  <img class="brand-logo" src="{% static 'img/school.jpg' %}" alt="" width="40" height="40">
+  <div><strong>{{ BRAND.institution|upper }}</strong><div class="small text-muted-2">{{ BRAND.institution }}</div></div>
 </header>
 <main id="main" class="assess-main">{% block content %}{% endblock %}</main>
 {% endblock %}

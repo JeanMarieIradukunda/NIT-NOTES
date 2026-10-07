@@ -20,7 +20,8 @@
       {% include "assessments/_field.html" with f=form.text %}
       <div class="row"><div class="col-sm-6">{% include "assessments/_field.html" with f=form.weight %}</div><div class="col-sm-6">{% include "assessments/_field.html" with f=form.order %}</div></div>
 
-      <div class="type-fields" data-for="mcq" hidden>{% include "assessments/_field.html" with f=form.mcq_options %}{% include "assessments/_field.html" with f=form.mcq_correct %}</div>
+      <div class="type-fields" data-for="mcq" hidden>{% include "assessments/_field.html" with f=form.mcq_options %}{% include "assessments/_field.html" with f=form.mcq_correct %}
+        <div class="form-check mb-3">{{ form.mcq_multi }}<label class="form-check-label" for="{{ form.mcq_multi.id_for_label }}">{{ form.mcq_multi.label }}</label>{% for e in form.mcq_multi.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}<div class="form-text">{{ form.mcq_multi.help_text }}</div></div></div>
       <div class="type-fields" data-for="fill" hidden>{% include "assessments/_field.html" with f=form.fill_accepted %}<div class="form-check mb-3">{{ form.fill_case }}<label class="form-check-label" for="{{ form.fill_case.id_for_label }}">{{ form.fill_case.label }}</label></div></div>
       <div class="type-fields" data-for="match" hidden>{% include "assessments/_field.html" with f=form.match_pairs %}{% include "assessments/_field.html" with f=form.match_extra %}</div>
       <div class="type-fields" data-for="open" hidden>{% include "assessments/_field.html" with f=form.open_guide %}</div>

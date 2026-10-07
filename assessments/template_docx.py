@@ -22,6 +22,7 @@ NOTES = [
     "// How to use this template: replace the text, keep the layout. Lines starting with // are notes and are ignored when you upload.",
     "// Number each question (1. 2. 3.). Put options on lines starting A. B. C. D. and the correct one on an Answer: line.",
     "// Write the marks at the end of a question, for example (2 marks). Delete any section you don't need.",
+    "// More than one correct option? Write Answer: A, C . Candidates then tick all that apply (you can change that on the review screen).",
 ]
 
 

@@ -29,6 +29,7 @@
       </span>
     </div>
     <div class="fw-semibold mb-2" style="white-space:pre-wrap;overflow-wrap:anywhere"><span class="q-num">{{ r.n }}.</span>{{ r.text }}</div>
+    {% if r.section == "mcq" and r.multi %}<div class="small text-muted-2 mb-1">Select all that apply.</div>{% elif r.section == "mcq" and r.accept_any %}<div class="small text-muted-2 mb-1">More than one answer was accepted for this question.</div>{% endif %}
 
     {% if r.section == "mcq" %}
       {% for o in r.options %}

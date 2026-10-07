@@ -22,8 +22,8 @@
   <header class="app-topbar">
     <div class="container-xxl app-topbar-in">
       <a class="navbar-brand" href="{% url 'core:dashboard' %}">
-        <span class="brand-mark" aria-hidden="true">NIT</span>
-        <span class="brand-text"><strong>{{ BRAND.platform }}</strong></span>
+        <img class="brand-logo" src="{% static 'img/school.jpg' %}" alt="" width="40" height="40">
+        <span class="brand-text"><strong>{{ BRAND.institution|upper }}</strong></span>
       </a>
     <div class="d-flex align-items-center gap-2">
       {% if user.is_authenticated %}

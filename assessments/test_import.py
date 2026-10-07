@@ -68,10 +68,10 @@ class ParserTests(TestCase):
         self.assertEqual([q["section"] for q in qs], ["mcq", "mcq", "fill", "match", "open"])
         q1, q2, q3, q4, q5 = qs
         self.assertEqual(q1["options"], ["Physical", "Network", "Session"])
-        self.assertEqual((q1["correct"], q1["key_source"]), (1, "bold / underlined option"))
+        self.assertEqual((q1["correct"], q1["key_source"]), ([1], "bold / underlined option"))
         self.assertEqual(q1["text"], "Which layer routes packets?")
         self.assertEqual(q1["marks"], 2.0)
-        self.assertEqual((q2["options"], q2["correct"]), (["21", "80", "443"], 1))   # options in one paragraph
+        self.assertEqual((q2["options"], q2["correct"]), (["21", "80", "443"], [1]))   # options in one paragraph
         self.assertEqual(q3["text"], "The ____ protocol resolves names.")
         self.assertEqual(q3["accepted"], ["DNS", "domain name system"])
         self.assertEqual(q4["left"], ["Router", "Switch"])
@@ -95,7 +95,7 @@ class ParserTests(TestCase):
             t.rows[0].cells[0].text, t.rows[0].cells[1].text = "No", "Answer"
             t.rows[1].cells[0].text, t.rows[1].cells[1].text = "4", "100"
         qs = self.parse(docx_bytes(build))["questions"]
-        self.assertEqual([q.get("correct") for q in qs[:3]], [1, 0, 1])
+        self.assertEqual([q.get("correct") for q in qs[:3]], [[1], [0], [1]])
         self.assertEqual(qs[3]["accepted"], ["100"])
         self.assertEqual(qs[0]["key_source"], "answer key")
 
@@ -111,7 +111,7 @@ class ParserTests(TestCase):
             doc.add_heading("Section B: Fill in the blank", level=2)
             para(doc, "1. Paris")
         qs = self.parse(docx_bytes(build))["questions"]
-        self.assertEqual(qs[0]["correct"], 1)
+        self.assertEqual(qs[0]["correct"], [1])
         self.assertEqual(qs[1]["accepted"], ["Paris"])
 
     def test_word_automatic_numbering(self):
@@ -123,7 +123,7 @@ class ParserTests(TestCase):
                 para(doc, "Answer: A")
         qs = self.parse(docx_bytes(build))["questions"]
         self.assertEqual([q["text"] for q in qs], ["Alpha?", "Beta?"])
-        self.assertEqual([q["correct"] for q in qs], [0, 0])
+        self.assertEqual([q["correct"] for q in qs], [[0], [0]])
 
     def test_matching_table_with_aligned_rows_warns(self):
         def build(doc):
@@ -145,7 +145,7 @@ class ParserTests(TestCase):
             para(doc, "2. Fish are mammals.")
             para(doc, "Answer: F")
         qs = self.parse(docx_bytes(build))["questions"]
-        self.assertEqual([(q["options"], q["correct"]) for q in qs], [(["True", "False"], 0), (["True", "False"], 1)])
+        self.assertEqual([(q["options"], q["correct"]) for q in qs], [(["True", "False"], [0]), (["True", "False"], [1])])
 
     def test_no_section_headings_infers_types(self):
         def build(doc):
@@ -159,7 +159,7 @@ class ParserTests(TestCase):
         def build(doc):
             para(doc, "1. Pick one?"); para(doc, "A. x"); para(doc, "B. y")
         q = self.parse(docx_bytes(build))["questions"][0]
-        self.assertIsNone(q["correct"])
+        self.assertEqual(q["correct"], [])
         self.assertTrue(any("No correct answer" in w for w in q["warnings"]))
 
     def test_html_with_nested_lists_inputs_and_bold_answer(self):
@@ -176,8 +176,8 @@ class ParserTests(TestCase):
         d = self.parse(html, "q.html")
         qs = d["questions"]
         self.assertEqual([q["section"] for q in qs], ["mcq", "mcq", "fill", "match"])
-        self.assertEqual((qs[0]["options"], qs[0]["correct"]), (["Excel", "Firefox", "Word"], 1))
-        self.assertEqual(qs[1]["correct"], 1)
+        self.assertEqual((qs[0]["options"], qs[0]["correct"]), (["Excel", "Firefox", "Word"], [1]))
+        self.assertEqual(qs[1]["correct"], [1])
         self.assertEqual((qs[2]["text"], qs[2]["accepted"]), ("The capital of Rwanda is ____ .", ["Kigali"]))
         self.assertEqual(qs[3]["left"], ["HTML", "CSS"])
         self.assertNotIn("LEAK-ME", str(d))
@@ -231,7 +231,7 @@ class ImportFlowTests(TestCase):
         self.assertEqual(m.payload["left"], ["Router", "Switch"])
         self.assertEqual(m.payload["right"], ["Connects networks", "Connects hosts", "Extra choice"])
         self.assertEqual(m.key.data["pairs"], {"0": 0, "1": 1})
-        self.assertEqual(self.exam.questions.get(section="mcq", order=1).key.data["correct"], 1)
+        self.assertEqual(self.exam.questions.get(section="mcq", order=1).key.data["correct"], [1])
         self.assertFalse(ImportDraft.objects.filter(pk=draft.pk).exists())
 
     def test_missing_answers_can_be_filled_in_on_the_review_screen(self):
@@ -243,7 +243,7 @@ class ImportFlowTests(TestCase):
         self.assertEqual(Question.objects.count(), 0)
         self.c.post(r["Location"], {"inc_0": "1", "correct_0": "1", "inc_1": "1", "accepted_1": "green / Green"})
         self.assertEqual(Question.objects.count(), 2)
-        self.assertEqual(Question.objects.get(section="mcq").key.data["correct"], 1)
+        self.assertEqual(Question.objects.get(section="mcq").key.data["correct"], [1])
         self.assertEqual(Question.objects.get(section="fill").key.data["accepted"], ["green", "Green"])
 
     def test_replace_mode_and_its_block_once_candidates_have_attempted(self):
@@ -304,7 +304,7 @@ class TemplateTests(TestCase):
         qs = d["questions"]
         self.assertEqual([q["section"] for q in qs], ["mcq", "mcq", "mcq", "mcq", "fill", "fill", "match", "open", "open"])
         self.assertTrue(all(q["warnings"] == [] for q in qs), [q["warnings"] for q in qs])
-        self.assertEqual([q["correct"] for q in qs[:4]], [1, 1, 0, 0])                 # B, B, True, True
+        self.assertEqual([q["correct"] for q in qs[:4]], [[1], [1], [0], [0]])                 # B, B, True, True
         self.assertEqual(qs[4]["accepted"], ["DNS", "domain name system"])
         self.assertEqual(qs[6]["pairs"], {"0": 0, "1": 1, "2": 2})
         self.assertEqual(len(qs[6]["right"]), 4)

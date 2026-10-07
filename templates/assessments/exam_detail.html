@@ -21,7 +21,9 @@
         <form method="post" action="{% url 'assessments:exam_toggle_answers' exam.pk %}">{% csrf_token %}
           <button class="btn {% if exam.show_answers %}btn-warning{% else %}btn-outline-secondary{% endif %}" type="submit" title="Let candidates who have submitted review the correct answers"><i class="bi bi-{% if exam.show_answers %}eye{% else %}eye-slash{% endif %} me-1"></i>Answers: {% if exam.show_answers %}shown to candidates{% else %}hidden{% endif %}</button>
         </form>
+        <a class="btn btn-outline-secondary" href="{% url 'assessments:roster' exam.pk %}"><i class="bi bi-people me-1"></i>Class list{% if n_roster %} ({{ n_roster }}){% endif %}</a>
         <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_results' exam.pk %}"><i class="bi bi-table me-1"></i>Results ({{ n_attempts }})</a>
+        <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_analysis' exam.pk %}"><i class="bi bi-bar-chart me-1"></i>Item analysis</a>
         <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_edit' exam.pk %}"><i class="bi bi-sliders me-1"></i>Settings</a>
       </div>
     </div>
@@ -66,6 +68,12 @@
   {% endfor %}
 
   <div class="panel panel-body mb-4">
+    <h2 class="fs-6">Delivery</h2>
+    <ul class="small text-muted-2 ps-3 mb-3">
+      <li>Entry window: {% if exam.opens_at or exam.closes_at %}{% if exam.opens_at %}from {{ exam.opens_at|date:"j M Y H:i" }}{% endif %}{% if exam.closes_at %} until {{ exam.closes_at|date:"j M Y H:i" }} (late-entry cutoff){% endif %}{% else %}no time limit{% endif %}</li>
+      <li>Class list: {% if n_roster %}{{ n_roster }} candidate{{ n_roster|pluralize }}, only they can enter{% else %}none, anyone with the link and password can enter{% endif %}</li>
+      <li>Shuffling: questions {% if exam.shuffle_questions %}on{% else %}off{% endif %}, options {% if exam.shuffle_options %}on{% else %}off{% endif %}</li>
+    </ul>
     <h2 class="fs-6">Penalties in force</h2>
     <ul class="small text-muted-2 ps-3 mb-0">
       {% for key, label, marks, away in penalties %}<li>{{ label }}: {% if marks %}−{{ marks|floatformat:"-2" }}{% else %}recorded only{% endif %}{% if away %} <span class="text-muted-2">(once per away episode)</span>{% endif %}</li>{% endfor %}

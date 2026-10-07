@@ -203,10 +203,20 @@
       } else {
         text.appendChild(document.createTextNode(q.text)); card.appendChild(text);
         if (q.section === "mcq") {
-          q.options.forEach(function (opt, i) {
-            var lab = el("label", "q-opt"), r = el("input"); r.type = "radio"; r.name = "q" + q.id; r.value = i;
-            r.checked = saved === i;
-            r.addEventListener("change", function () { setAnswer(q.id, i); });
+          // The server shuffles per candidate: optionIdx[j] is the saved value for the j-th displayed option.
+          var idxs = q.optionIdx || q.options.map(function (_o, k) { return k; });
+          if (q.multi) card.appendChild(el("div", "small text-muted-2 mb-1", "Select all that apply."));
+          q.options.forEach(function (opt, j) {
+            var orig = idxs[j];
+            var lab = el("label", "q-opt"), r = el("input"); r.type = q.multi ? "checkbox" : "radio"; r.name = "q" + q.id; r.value = orig;
+            r.checked = q.multi ? (Array.isArray(saved) && saved.indexOf(orig) > -1) : saved === orig;
+            r.addEventListener("change", function () {
+              if (!q.multi) { setAnswer(q.id, orig); return; }
+              var picked = [];
+              card.querySelectorAll('input[type="checkbox"]').forEach(function (b) { if (b.checked) picked.push(parseInt(b.value, 10)); });
+              picked.sort(function (a, b) { return a - b; });
+              setAnswer(q.id, picked);
+            });
             lab.appendChild(r); lab.appendChild(el("span", "", opt)); card.appendChild(lab);
           });
         } else if (q.section === "open") {

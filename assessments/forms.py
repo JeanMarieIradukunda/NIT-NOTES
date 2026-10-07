@@ -1,3 +1,4 @@
+import re
 import secrets
 
 from django import forms
@@ -5,6 +6,7 @@ from django.core.validators import MinValueValidator
 
 from accounts.roles import note_modules_for
 
+from .marking import correct_set
 from .models import (FILL, MATCH, MCQ, OPEN, SECTION_CHOICES, VIOLATION_TYPES, AnswerKey,
                      Exam, Question)
 
@@ -20,8 +22,11 @@ class ExamForm(forms.ModelForm):
         model = Exam
         fields = ["title", "module", "instructions", "exam_date", "is_open", "duration_minutes",
                   "max_opens", "max_devices", "max_violations", "marks_mcq", "marks_fill",
-                  "marks_open", "marks_match", "show_results", "show_answers"]
+                  "marks_open", "marks_match", "show_results", "show_answers",
+                  "opens_at", "closes_at", "shuffle_questions", "shuffle_options", "multi_scoring"]
         widgets = {
+            "opens_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+            "closes_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
             "instructions": forms.Textarea(attrs={"rows": 3}),
             "exam_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
         }
@@ -32,6 +37,8 @@ class ExamForm(forms.ModelForm):
         if user is not None:
             self.fields["module"].queryset = note_modules_for(user)
         self.fields["module"].required = False
+        for f in ("opens_at", "closes_at"):
+            self.fields[f].input_formats = ["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S"]
         # One field per violation type, filled from / saved to Exam.penalties.
         current = (self.instance.penalties if self.instance.pk else None) or {}
         for key, spec in VIOLATION_TYPES.items():
@@ -59,6 +66,9 @@ class ExamForm(forms.ModelForm):
 
     def clean(self):
         data = super().clean()
+        o, c = data.get("opens_at"), data.get("closes_at")
+        if o and c and c <= o:
+            self.add_error("closes_at", "The late-entry cutoff must be after the opening time.")
         if not self.instance.pk and not (data.get("new_password") or "").strip():
             self.generated_password = secrets.token_urlsafe(6).replace("-", "x").replace("_", "y")
             data["new_password"] = self.generated_password
@@ -86,9 +96,15 @@ class QuestionForm(forms.Form):
     mcq_options = forms.CharField(
         label="Options", required=False, widget=forms.Textarea(attrs={"rows": 4, "class": "form-control"}),
         help_text="One option per line (2 to 8).")
-    mcq_correct = forms.IntegerField(
-        label="Correct option number", required=False, min_value=1,
-        widget=forms.NumberInput(attrs={"class": "form-control"}), help_text="1 = first line above.")
+    mcq_correct = forms.CharField(
+        label="Correct option number(s)", required=False,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+        help_text="1 = first line above. Several numbers separated by commas, for example 1, 3.")
+    mcq_multi = forms.BooleanField(
+        label="Select all that apply", required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        help_text="Ticked: candidates tick every correct option and are marked as the assessment settings say. "
+                  "Unticked with several numbers above: candidates pick one, and any of those answers is accepted.")
 
     fill_accepted = forms.CharField(
         label="Accepted answers", required=False, widget=forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
@@ -119,11 +135,21 @@ class QuestionForm(forms.Form):
             opts = self._lines(d.get("mcq_options"))
             if not 2 <= len(opts) <= 8:
                 self.add_error("mcq_options", "Enter between 2 and 8 options, one per line.")
-            correct = d.get("mcq_correct")
-            if correct is None or not (1 <= correct <= max(len(opts), 1)):
-                self.add_error("mcq_correct", "Choose which option number is correct.")
-            d["_payload"] = {"options": opts}
-            d["_key"] = {"correct": (correct or 1) - 1}
+            nums = []
+            for part in re.split(r"[,\s;/&]+|\band\b", d.get("mcq_correct") or ""):
+                if part.strip():
+                    if not part.strip().isdigit() or not 1 <= int(part) <= max(len(opts), 1):
+                        nums = []
+                        break
+                    nums.append(int(part) - 1)
+            nums = sorted(set(nums))
+            if not nums:
+                self.add_error("mcq_correct", f"Enter the correct option number(s), from 1 to {max(len(opts), 1)}.")
+            multi = bool(d.get("mcq_multi"))
+            if multi and len(nums) < 2:
+                self.add_error("mcq_multi", "“Select all that apply” needs at least two correct options.")
+            d["_payload"] = {"options": opts, **({"multi": True} if multi else {})}
+            d["_key"] = {"correct": nums}
         elif s == FILL:
             acc = self._lines(d.get("fill_accepted"))
             if not acc:
@@ -170,7 +196,8 @@ class QuestionForm(forms.Form):
         init = {"section": q.section, "text": q.text, "weight": q.weight, "order": q.order}
         if q.section == MCQ:
             init["mcq_options"] = "\n".join(q.payload.get("options", []))
-            init["mcq_correct"] = key.get("correct", 0) + 1
+            init["mcq_correct"] = ", ".join(str(i + 1) for i in sorted(correct_set(key)))
+            init["mcq_multi"] = bool(q.payload.get("multi"))
         elif q.section == FILL:
             init["fill_accepted"] = "\n".join(key.get("accepted", []))
             init["fill_case"] = key.get("case_sensitive", False)

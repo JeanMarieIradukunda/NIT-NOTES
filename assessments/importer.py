@@ -16,7 +16,7 @@ Layouts it understands
   the blanks", "True or False", "Matching", "Open / structured questions".
 * Questions numbered "1.", "1)", "Q1." (typed, or Word/HTML automatic numbering).
 * Options "A." / "a)" / "(a)" on separate lines, in one line, or bullets.
-* Answers, any of: a line "Answer: B" under the question, a bold/underlined
+* Answers, any of: a line "Answer: B" (or "Answer: A, C" when several options are correct) under the question, a bold/underlined
   correct option, or an "Answer Key" / "Marking guide" block at the end
   ("1. B", "1-B 2-C", or a two-column table).
 * Blanks written as ____, ...., … or ( ).
@@ -702,7 +702,7 @@ class _Parser:
         if not text and not (q.left or q.right):
             return None
         d = {"number": q.number, "section": kind, "text": text, "marks": marks, "warnings": [],
-             "key_source": "", "options": [], "correct": None, "accepted": [], "guide": "",
+             "key_source": "", "options": [], "correct": [], "multi": False, "accepted": [], "guide": "",
              "left": [], "right": [], "pairs": {}}
         raw = "\n".join(q.ans).strip() if q.ans else None
         source = "answer line" if raw else ""
@@ -719,15 +719,19 @@ class _Parser:
                 kind = "open"
             else:
                 idx = self.resolve_mcq(raw, opts) if raw else None
-                if idx is not None:
+                if idx:
                     d["correct"], d["key_source"] = idx, source
                 else:
                     flagged = [i for i, o in enumerate(opts) if o[2]]
-                    if len(flagged) == 1 and len(opts) > 1:
-                        d["correct"], d["key_source"] = flagged[0], "bold / underlined option"
+                    if 1 <= len(flagged) < len(opts):
+                        d["correct"], d["key_source"] = flagged, "bold / underlined option"
                     elif raw:
                         d["warnings"].append(f"Could not tell which option “{raw[:40]}” refers to.")
-                if d["correct"] is None:
+                if len(d["correct"]) > 1:
+                    d["multi"] = True            # several correct options: default to "select all that apply"
+                    d["warnings"].append("More than one correct option. Imported as “select all that apply”; "
+                                         "untick that below if any one of them should be accepted instead.")
+                if not d["correct"]:
                     d["warnings"].append("No correct answer found. Choose it below.")
         if kind == "fill":
             if raw:
@@ -745,19 +749,24 @@ class _Parser:
         return d
 
     def resolve_mcq(self, raw, opts):
+        """Returns the list of correct option indexes, or None if the answer can't be understood."""
         r = raw.strip()
         if re.fullmatch(r"(?:t|true)", r, re.I) and [o[1].casefold() for o in opts[:2]] == ["true", "false"]:
-            return 0
+            return [0]
         if re.fullmatch(r"(?:f|false)", r, re.I) and [o[1].casefold() for o in opts[:2]] == ["true", "false"]:
-            return 1
+            return [1]
+        tokens = [t for t in re.split(r"\s*(?:,|;|/|&|\+|\band\b)\s*", r, flags=re.I) if t]
+        if len(tokens) >= 2 and all(re.fullmatch(r"\(?[A-Ha-h]\)?", t) for t in tokens):
+            idx = sorted({ord(t.strip("()").upper()) - 65 for t in tokens})
+            return idx if all(0 <= i < len(opts) for i in idx) else None
         m = re.fullmatch(r"\(?([A-Ha-h])\)?", r) or re.match(r"^\(?([A-Ha-h])(?:\)|[.:\-–—])\s+(.+)$", r)
         if m:
             i = ord(m.group(1).upper()) - 65
             if 0 <= i < len(opts):
-                return i
+                return [i]
         for i, o in enumerate(opts):
             if _norm_text(o[1]) == _norm_text(r):
-                return i
+                return [i]
         return None
 
     def build_match(self, q, d, raw, source):
