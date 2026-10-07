@@ -29,15 +29,16 @@
                     {% if user.is_authenticated %}
                     <div class="dropdown">
                         <button class="user-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-          <span class="avatar" aria-hidden="true">{{ user.first_name|default:user.username|slice:":1"|upper }}</span>
-          <span class="d-none d-xl-inline">{{ user.first_name|default:user.username }}</span>
-          <i class="bi bi-chevron-down small text-muted-2" aria-hidden="true"></i>
-        </button>
+                            <span class="avatar" aria-hidden="true">{{ user.first_name|default:user.username|slice:":1"|upper }}</span>
+                            <span class="d-none d-xl-inline">{{ user.first_name|default:user.username }}</span>
+                            <i class="bi bi-chevron-down small text-muted-2" aria-hidden="true"></i>
+                        </button>
                         <ul class="dropdown-menu dropdown-menu-end" style="min-width:230px">
                             <li class="px-3 pt-2 pb-2">
                                 <div class="fw-semibold text-body-emphasis">{{ user.get_full_name|default:user.username }}</div>
                                 <div class="d-flex align-items-center gap-2 mt-1">
-                                    {% if request.is_trainer %}<span class="role-badge">{% if request.is_admin_role %}Administrator{% else %}Trainer{% endif %}</span>{% endif %}
+                                    {% if request.is_trainer %}
+                                    <span class="role-badge">{% if request.is_admin_role %}Administrator{% else %}Trainer{% endif %}</span> {% endif %}
                                     <span class="small text-muted-2">@{{ user.username }}</span>
                                 </div>
                             </li>
@@ -69,18 +70,30 @@
         <nav class="app-menubar" aria-label="Main">
             <div class="container-xxl">
                 <ul class="app-menu" id="navMain">
-                    <li class="nav-item"><a class="nav-link {% if rm.url_name == 'dashboard' %}active{% endif %}" {% if rm.url_name=='dashboard' %}aria-current="page" {% endif %} href="{% url 'core:dashboard' %}"><i class="bi bi-speedometer2" aria-hidden="true"></i>Dashboard</a></li>
-                    <li class="nav-item"><a class="nav-link {% if rm.url_name == 'browse' or rm.url_name == 'module_detail' %}active{% endif %}" href="{% url 'core:browse' %}"><i class="bi bi-compass" aria-hidden="true"></i>Browse</a></li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if rm.url_name == 'dashboard' %}active{% endif %}" {% if rm.url_name=='dashboard' %}aria-current="page" {% endif %} href="{% url 'core:dashboard' %}"><i class="bi bi-speedometer2" aria-hidden="true"></i>Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if rm.url_name == 'browse' or rm.url_name == 'module_detail' %}active{% endif %}" href="{% url 'core:browse' %}"><i class="bi bi-compass" aria-hidden="true"></i>Browse</a>
+                    </li>
                     {% if request.is_trainer %}
-                    <li class="nav-item"><a class="nav-link {% if rm.url_name == 'notes_manage' or rm.url_name == 'note_create' or rm.url_name == 'note_edit' or rm.url_name == 'note_delete' %}active{% endif %}" href="{% url 'core:notes_manage' %}"><i class="bi bi-journal-text" aria-hidden="true"></i>{% if request.is_admin_role %}All notes{% else %}My notes{% endif %}</a></li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if rm.url_name == 'notes_manage' or rm.url_name == 'note_create' or rm.url_name == 'note_edit' or rm.url_name == 'note_delete' %}active{% endif %}" href="{% url 'core:notes_manage' %}"><i class="bi bi-journal-text" aria-hidden="true"></i>{% if request.is_admin_role %}All notes{% else %}My notes{% endif %}</a>
+                    </li>
                     <li class="nav-item">
                         <a class="nav-link {% if rm.url_name == 'activities_manage' or rm.url_name == 'activity_create' or rm.url_name == 'activity_edit' or rm.url_name == 'activity_delete' %}active{% endif %}" href="{% url 'core:activities_manage' %}"><i class="bi bi-clipboard2-check" aria-hidden="true"></i>{% if request.is_admin_role %}All activities{% else %}My activities{% endif %}</a>
                     </li>
-                    <li class="nav-item"><a class="nav-link {% if rm.app_name == 'assessments' %}active{% endif %}" href="{% url 'assessments:exam_list' %}"><i class="bi bi-shield-check" aria-hidden="true"></i>{% if request.is_admin_role %}All assessments{% else %}My assessments{% endif %}</a></li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if rm.app_name == 'assessments' %}active{% endif %}" href="{% url 'assessments:exam_list' %}"><i class="bi bi-shield-check" aria-hidden="true"></i>{% if request.is_admin_role %}All assessments{% else %}My assessments{% endif %}</a>
+                    </li>
                     {% endif %} {% if request.is_admin_role %}
-                    <li class="nav-item"><a class="nav-link {% if rm.url_name == 'curriculum' or rm.url_name == 'trade_create' or rm.url_name == 'trade_edit' or rm.url_name == 'trade_delete' or rm.url_name == 'module_create' or rm.url_name == 'module_edit' or rm.url_name == 'module_delete' %}active{% endif %}"
-                            href="{% url 'core:curriculum' %}"><i class="bi bi-diagram-3" aria-hidden="true"></i>Curriculum</a></li>
-                    <li class="nav-item"><a class="nav-link {% if rm.app_name == 'accounts' and rm.url_name != 'profile' and rm.url_name != 'login' and rm.url_name != 'password_change' %}active{% endif %}" href="{% url 'accounts:manage_trainers' %}"><i class="bi bi-people" aria-hidden="true"></i>Trainers</a></li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if rm.url_name == 'curriculum' or rm.url_name == 'trade_create' or rm.url_name == 'trade_edit' or rm.url_name == 'trade_delete' or rm.url_name == 'module_create' or rm.url_name == 'module_edit' or rm.url_name == 'module_delete' %}active{% endif %}"
+                            href="{% url 'core:curriculum' %}"><i class="bi bi-diagram-3" aria-hidden="true"></i>Curriculum</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if rm.app_name == 'accounts' and rm.url_name != 'profile' and rm.url_name != 'login' and rm.url_name != 'password_change' %}active{% endif %}" href="{% url 'accounts:manage_trainers' %}"><i class="bi bi-people" aria-hidden="true"></i>Trainers</a>
+                    </li>
                     {% endif %}
                 </ul>
             </div>
