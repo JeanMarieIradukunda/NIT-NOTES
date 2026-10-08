@@ -26,7 +26,7 @@ from .staff_views import _exam_or_deny
 
 
 def _draft_or_404(request, exam, draft_id):
-    return get_object_or_404(ImportDraft, pk=draft_id, exam=exam)
+    return ImportDraft.objects.filter(pk=draft_id, exam=exam).first()
 
 
 @trainer_required
@@ -99,6 +99,10 @@ def import_preview(request, pk, draft_id):
     if denied:
         return denied
     draft = _draft_or_404(request, exam, draft_id)
+    if draft is None:
+        messages.info(request, "That import has already been completed or was replaced. "
+                               "Upload the file again if you still need to import it.")
+        return redirect("assessments:import_upload", pk=exam.pk)
     data = draft.data
     questions = data["questions"]
     has_attempts = exam.attempts.exists()
