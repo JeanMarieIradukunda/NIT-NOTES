@@ -50,6 +50,36 @@
   </div>
 </section>
 
+{# ------------------------------------------- open / new assessments ----- #}
+{% if open_assessments %}
+<div class="nd-wrap nd-main nd-main--assess">
+  <section class="nd-assess" aria-labelledby="assess-title">
+    <div class="nd-heading">
+      <h2 id="assess-title"><span class="nd-pulse" aria-hidden="true"></span>{% if new_assessment_count %}New assessment{{ new_assessment_count|pluralize }}{% else %}Open for you now{% endif %}</h2>
+      <p>Your trainer has opened {% if open_assessments|length == 1 %}an assessment{% else %}assessments{% endif %}. Keep your candidate number and the exam password ready.</p>
+    </div>
+    <div class="nd-assess-grid">
+      {% for e in open_assessments %}
+      <a class="nd-assess-card{% if e.is_new %} is-new{% endif %}" href="{% url 'assessments:entry' e.public_id %}">
+        <span class="nd-assess-top">
+          {% if e.is_new %}<span class="nd-badge-new">New</span>{% endif %}
+          {% if e.module %}<span class="nd-code">{{ e.module.code }}</span>{% endif %}
+        </span>
+        <h3>{{ e.title }}</h3>
+        {% if e.module %}<span class="nd-spot-meta">{{ e.module.name }}</span>{% endif %}
+        <span class="nd-assess-meta">
+          <span><i class="bi bi-clock" aria-hidden="true"></i>{{ e.duration_minutes }} min</span>
+          <span><i class="bi bi-award" aria-hidden="true"></i>{{ e.total_marks|floatformat:"-2" }} marks</span>
+          {% if e.when_label %}<span><i class="bi bi-calendar-event" aria-hidden="true"></i>{{ e.when_label }}</span>{% endif %}
+        </span>
+        <span class="nd-spot-foot"><span class="nd-spot-date">Created {{ e.created_at|date:"j M Y" }}</span><span class="nd-cta">Open assessment <i class="bi bi-arrow-up-right" aria-hidden="true"></i></span></span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endif %}
+
 <div class="nd-wrap nd-main">
 
   {# ------------------------------------------- trainer / admin workspace --- #}

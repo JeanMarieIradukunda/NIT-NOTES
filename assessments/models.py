@@ -132,6 +132,10 @@ class Exam(models.Model):
     show_answers = models.BooleanField(
         default=False, help_text="Let candidates who have submitted review the correct answer to each question. "
                                  "Switch this on once every candidate has finished.")
+    show_on_dashboard = models.BooleanField(
+        default=True, help_text="While the assessment is open, show it as a highlighted link on the student "
+                                "dashboard. Candidates still need the exam password to enter. Untick to share "
+                                "the link privately instead.")
 
     # Delivery
     shuffle_questions = models.BooleanField(

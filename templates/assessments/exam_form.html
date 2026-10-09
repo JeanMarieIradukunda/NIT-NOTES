@@ -19,7 +19,7 @@
       <div class="col-lg-7">
         <div class="panel panel-body mb-4">
           <h2 class="fs-6 mb-3">Assessment</h2>
-          {% for f in form %}{% if f.name == "title" or f.name == "module" or f.name == "instructions" or f.name == "exam_date" or f.name == "opens_at" or f.name == "closes_at" or f.name == "new_password" or f.name == "is_open" or f.name == "show_results" or f.name == "show_answers" %}
+          {% for f in form %}{% if f.name == "title" or f.name == "module" or f.name == "instructions" or f.name == "exam_date" or f.name == "opens_at" or f.name == "closes_at" or f.name == "new_password" or f.name == "is_open" or f.name == "show_results" or f.name == "show_answers" or f.name == "show_on_dashboard" %}
           <div class="mb-3{% if f.field.widget.input_type == 'checkbox' %} form-check{% endif %}">
             {% if f.field.widget.input_type == 'checkbox' %}{{ f }}<label class="form-check-label" for="{{ f.id_for_label }}">{{ f.label }}</label>
             {% else %}<label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{% endif %}

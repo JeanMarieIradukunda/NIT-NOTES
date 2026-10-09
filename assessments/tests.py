@@ -709,3 +709,82 @@ class EvidenceTests(ExamTestBase):
         self.assertEqual(len(submitted), len(names))                         # the unsubmitted one is left out
         doc = evidence.bundle_document(self.exam, submitted, skipped=1)
         self.assertEqual(len(doc.pages), 1 + len(names))                     # register + one page per candidate
+
+
+class DashboardAssessmentTests(ExamTestBase):
+    """Open assessments appear as highlighted links on the student dashboard."""
+
+    def dash(self, client=None):
+        return (client or Client()).get(reverse("core:dashboard"))
+
+    def entry_url(self):
+        return reverse("assessments:entry", args=[self.exam.public_id])
+
+    def test_new_open_assessment_is_highlighted_and_links_to_its_entry_page(self):
+        r = self.dash()
+        self.assertContains(r, "New assessment")
+        self.assertContains(r, "Networking test")
+        self.assertContains(r, f'href="{self.entry_url()}"')
+        self.assertContains(r, "nd-badge-new")
+        self.assertContains(r, "60 min")
+
+    def test_password_and_answer_key_never_appear_on_the_dashboard(self):
+        html = self.dash().content.decode()
+        for secret in (PASSWORD, self.exam.password_hash, SECRET_FILL, "Mentions leases"):
+            self.assertNotIn(secret, html)
+
+    def test_closed_exam_is_not_listed(self):
+        self.exam.is_open = False
+        self.exam.save()
+        self.assertNotContains(self.dash(), self.entry_url())
+
+    def test_trainer_can_opt_an_exam_out(self):
+        self.exam.show_on_dashboard = False
+        self.exam.save()
+        r = self.dash()
+        self.assertNotContains(r, self.entry_url())
+        self.assertNotContains(r, "nd-assess-card")
+
+    def test_past_date_and_past_cutoff_are_not_listed(self):
+        self.exam.exam_date = timezone.localdate() - timedelta(days=1)
+        self.exam.save()
+        self.assertNotContains(self.dash(), self.entry_url())
+        self.exam.exam_date = None
+        self.exam.closes_at = timezone.now() - timedelta(minutes=5)
+        self.exam.save()
+        self.assertNotContains(self.dash(), self.entry_url())
+
+    def test_todays_exam_says_today_and_future_exam_is_still_listed(self):
+        self.exam.exam_date = timezone.localdate()
+        self.exam.save()
+        self.assertContains(self.dash(), "Today")
+        self.exam.exam_date = timezone.localdate() + timedelta(days=3)
+        self.exam.save()
+        self.assertContains(self.dash(), self.entry_url())
+
+    def test_older_exam_loses_the_new_badge_but_stays_listed(self):
+        Exam.objects.filter(pk=self.exam.pk).update(created_at=timezone.now() - timedelta(days=30))
+        r = self.dash()
+        self.assertContains(r, self.entry_url())
+        self.assertNotContains(r, "nd-badge-new")
+        self.assertContains(r, "Open for you now")
+
+    def test_at_most_three_newest_are_shown(self):
+        for i in range(4):
+            e, _ = make_exam(self.trainer, title=f"Extra paper {i}")
+        html = self.dash().content.decode()
+        self.assertEqual(html.count('class="nd-assess-card'), 3)
+
+    def test_dashboard_survives_a_missing_migration(self):
+        from unittest import mock
+        from django.db import DatabaseError
+        with self.assertLogs("assessments.dashboard", "WARNING"), \
+                mock.patch("assessments.dashboard.Exam.objects") as objects:
+            objects.filter.side_effect = DatabaseError("no such column")
+            self.assertEqual(self.dash().status_code, 200)
+
+    def test_exam_form_offers_the_dashboard_switch(self):
+        c = Client()
+        c.login(username="trainer1", password="pw12345!")
+        r = c.get(reverse("assessments:exam_edit", args=[self.exam.pk]))
+        self.assertContains(r, 'name="show_on_dashboard"')

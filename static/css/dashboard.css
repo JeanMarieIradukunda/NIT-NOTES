@@ -208,3 +208,36 @@ a.nd-row:hover .nd-row-title { color: var(--nd-lamp); }
 .nd-duo { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.75rem 1.5rem; }
 @media (min-width: 992px) { .nd-duo--two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 .nd-sub { font-family: var(--font-display); font-size: .95rem; font-weight: 700; color: var(--nd-text); margin: 0 0 .6rem; letter-spacing: -.01em; }
+
+
+/* ------------------------------------------- new / open assessment highlight --- */
+.nd-main--assess { padding-bottom: 0; }
+.nd-assess { margin: 1.4rem 0 .6rem; }
+.nd-assess .nd-heading h2 { display: flex; align-items: center; gap: .55rem; }
+.nd-pulse { width: .6rem; height: .6rem; border-radius: 50%; background: var(--nd-lamp); box-shadow: 0 0 0 3px var(--c-brand-soft); flex: none; }
+.nd-assess-grid { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.nd-assess-card {
+  position: relative; display: flex; flex-direction: column; gap: .55rem;
+  padding: 1.1rem 1.2rem; border-radius: 16px; color: inherit; text-decoration: none;
+  background: linear-gradient(180deg, var(--c-brand-soft), var(--nd-panel) 75%);
+  border: 1px solid var(--c-brand-line); box-shadow: var(--shadow-2);
+  transition: border-color .15s, transform .15s;
+}
+.nd-assess-card.is-new { border-color: var(--nd-lamp); box-shadow: var(--shadow-2), 0 0 26px -8px var(--nd-lamp); }
+.nd-assess-card:hover { border-color: var(--nd-lamp); transform: translateY(-2px); color: inherit; }
+.nd-assess-card:hover .nd-cta { background: var(--nd-solid-2); gap: .6rem; }
+.nd-assess-card:focus-visible { outline: 0; box-shadow: var(--ring); }
+.nd-assess-card h3 { font-family: var(--nd-serif); font-weight: 700; font-size: 1.1rem; line-height: 1.3; letter-spacing: -.015em; margin: 0; color: var(--nd-text); }
+.nd-assess-top { display: flex; align-items: center; gap: .5rem; min-height: 1.4rem; }
+.nd-badge-new {
+  display: inline-flex; align-items: center; height: 1.35rem; padding-inline: .55rem; border-radius: 999px;
+  background: var(--nd-solid); color: var(--nd-lamp-ink); font-family: var(--font-display);
+  font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+}
+.nd-assess-meta { display: flex; flex-wrap: wrap; gap: .35rem 1rem; color: var(--nd-text-2); font-size: .8rem; }
+.nd-assess-meta span { display: inline-flex; align-items: center; gap: .35rem; }
+.nd-assess-meta i { color: var(--nd-lamp); }
+@media (prefers-reduced-motion: no-preference) {
+  .nd-pulse, .nd-assess-card.is-new .nd-badge-new { animation: nd-pulse 2s ease-in-out infinite; }
+  @keyframes nd-pulse { 0%, 100% { box-shadow: 0 0 0 3px var(--c-brand-soft); } 50% { box-shadow: 0 0 0 7px transparent; } }
+}

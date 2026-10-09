@@ -94,7 +94,13 @@ def dashboard(request):
                          "published": mine.filter(is_published=True).count(),
                          "drafts": mine.filter(is_published=False).count()}
 
+    # Open assessments get a highlighted link (newest first; "New" if created this week).
+    from assessments.dashboard import dashboard_assessments
+    open_assessments = dashboard_assessments()
+
     return render(request, "core/dashboard.html", {
+        "open_assessments": open_assessments,
+        "new_assessment_count": sum(1 for e in open_assessments if e.is_new),
         "trades": trades, "stats": stats, "latest_notes": latest_notes,
         "latest_activities": latest_activities,
         "my_notes": my_notes, "my_activities": my_activities,

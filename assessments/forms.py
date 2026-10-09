@@ -22,7 +22,7 @@ class ExamForm(forms.ModelForm):
         model = Exam
         fields = ["title", "module", "instructions", "exam_date", "is_open", "duration_minutes",
                   "max_opens", "max_devices", "max_violations", "marks_mcq", "marks_fill",
-                  "marks_open", "marks_match", "show_results", "show_answers",
+                  "marks_open", "marks_match", "show_results", "show_answers", "show_on_dashboard",
                   "opens_at", "closes_at", "shuffle_questions", "shuffle_options", "multi_scoring"]
         widgets = {
             "opens_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
