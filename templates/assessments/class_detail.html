@@ -37,7 +37,8 @@
           <thead><tr><th scope="col">Candidate</th><th scope="col">Number</th><th scope="col"></th></tr></thead>
           <tbody>{% for m in members %}<tr>
             <td>{{ m.name|default:"—" }}</td><td class="mono">{{ m.reg_no_display|default:m.reg_no }}</td>
-            <td class="text-end"><form method="post" action="{% url 'assessments:class_member_delete' group.pk m.pk %}">{% csrf_token %}<button class="btn btn-outline-secondary btn-sm" type="submit" aria-label="Remove {{ m.name }}">Remove</button></form></td>
+            <td class="text-end text-nowrap"><a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:class_member_edit' group.pk m.pk %}" aria-label="Edit {{ m.name }}"><i class="bi bi-pencil me-1"></i>Edit</a>
+              <form method="post" action="{% url 'assessments:class_member_delete' group.pk m.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-outline-secondary btn-sm" type="submit" aria-label="Remove {{ m.name }}">Remove</button></form></td>
           </tr>{% endfor %}</tbody>
         </table>
       </div></div>

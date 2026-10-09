@@ -16,7 +16,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from accounts.roles import is_admin
 
 from . import roster as roster_lib
-from .models import ClassGroup, ClassMember
+from .models import ClassGroup, ClassMember, normalise_reg_no
 from .permissions import deny, trainer_required
 
 
@@ -118,6 +118,39 @@ def class_detail(request, cid):
         return redirect("assessments:class_detail", cid=group.pk)
     members = list(group.members.all())
     return render(request, "assessments/class_detail.html", {"group": group, "members": members, "total": len(members)})
+
+
+@trainer_required
+@require_http_methods(["GET", "POST"])
+def class_member_edit(request, cid, mid):
+    """Fix a candidate's name or number inside a saved class."""
+    group, denied = _class_or_deny(request, cid)
+    if denied:
+        return denied
+    member = get_object_or_404(ClassMember, pk=mid, group=group)
+    name, number = member.name, member.reg_no_display or member.reg_no
+    if request.method == "POST":
+        name = " ".join((request.POST.get("name") or "").split())
+        number = (request.POST.get("reg_no") or "").strip()
+        reg = normalise_reg_no(number)
+        error = ""
+        if not reg:
+            error = "Enter the candidate number."
+        elif len(number) > 60 or len(name) > 150:
+            error = "The number (max 60 characters) or the name (max 150) is too long."
+        elif group.members.exclude(pk=member.pk).filter(reg_no=reg).exists():
+            error = f"Another candidate in this class already has the number {number}."
+        if not error:
+            member.name, member.reg_no, member.reg_no_display = name, reg, number
+            member.save(update_fields=["name", "reg_no", "reg_no_display"])
+            messages.success(request, "Candidate updated. Assessments that already used this class keep the "
+                                      "details they were given; apply the class to them again to refresh.")
+            return redirect("assessments:class_detail", cid=group.pk)
+        messages.error(request, error)
+        return render(request, "assessments/class_member_edit.html",
+                      {"group": group, "member": member, "name": name, "number": number}, status=400)
+    return render(request, "assessments/class_member_edit.html",
+                  {"group": group, "member": member, "name": name, "number": number})
 
 
 @require_POST

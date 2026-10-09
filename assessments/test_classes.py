@@ -150,3 +150,98 @@ class RetakeTests(ExamTestBase):
         self.assertEqual(r.status_code, 403)
         self.assertTrue(self.attempt().is_submitted)
         self.assertEqual(self.staff.get(reverse("assessments:attempt_retake", args=[self.exam.pk, self.attempt().pk])).status_code, 405)
+
+
+class ClassEditAndBulkRetakeTests(ExamTestBase):
+    def setUp(self):
+        super().setUp()
+        self.staff = Client()
+        self.staff.login(username="trainer1", password="pw12345!")
+
+    def test_edit_member_name_and_number(self):
+        self.staff.post(reverse("assessments:class_list"), {"name": "Edit me", "paste": LIST})
+        group = ClassGroup.objects.get()
+        m = group.members.get(reg_no="NIT-001")
+        url = reverse("assessments:class_member_edit", args=[group.pk, m.pk])
+        self.assertContains(self.staff.get(url), "Alice Mutesi")
+        r = self.staff.post(url, {"name": "  Alice   Mutesi-Kamau ", "reg_no": " nit 101 "})
+        self.assertRedirects(r, reverse("assessments:class_detail", args=[group.pk]))
+        m.refresh_from_db()
+        self.assertEqual((m.name, m.reg_no, m.reg_no_display), ("Alice Mutesi-Kamau", "NIT101", "nit 101"))
+
+    def test_edit_rejects_blank_and_duplicate_numbers(self):
+        self.staff.post(reverse("assessments:class_list"), {"name": "Dup", "paste": LIST})
+        group = ClassGroup.objects.get()
+        m = group.members.get(reg_no="NIT-001")
+        url = reverse("assessments:class_member_edit", args=[group.pk, m.pk])
+        self.assertEqual(self.staff.post(url, {"name": "X", "reg_no": ""}).status_code, 400)
+        r = self.staff.post(url, {"name": "X", "reg_no": "nit-002"})
+        self.assertEqual(r.status_code, 400)
+        self.assertContains(r, "already has the number", status_code=400)
+        m.refresh_from_db()
+        self.assertEqual(m.reg_no, "NIT-001")
+
+    def test_edit_is_owner_only(self):
+        self.staff.post(reverse("assessments:class_list"), {"name": "Mine", "paste": LIST})
+        group = ClassGroup.objects.get()
+        m = group.members.first()
+        other = User.objects.create_user("trainer2", password="pw12345!")
+        other.groups.add(Group.objects.get(name="Trainer"))
+        c2 = Client(); c2.login(username="trainer2", password="pw12345!")
+        url = reverse("assessments:class_member_edit", args=[group.pk, m.pk])
+        self.assertEqual(c2.get(url).status_code, 403)
+        self.assertEqual(c2.post(url, {"name": "Hacked", "reg_no": "H-1"}).status_code, 403)
+        m.refresh_from_db()
+        self.assertNotEqual(m.name, "Hacked")
+        self.assertEqual(self.staff.get(reverse("assessments:class_detail", args=[group.pk])).status_code, 200)
+
+    def _two_candidates(self):
+        """Alice submits; Bob starts but stays in progress; Carol only opens the entry page."""
+        out = {}
+        for reg, name in (("nit-001", "Alice"), ("nit-002", "Bob")):
+            c = Client()
+            page, cfg = self.open_page(c, name=name, reg_no=reg)
+            self.call(c, cfg, "start")
+            out[reg] = (c, cfg)
+        self.call(*out["nit-001"], "submit")
+        c3 = Client()
+        self.open_page(c3, name="Carol", reg_no="nit-003")
+        return out
+
+    def test_whole_class_retake_submitted_only(self):
+        self._two_candidates()
+        r = self.staff.post(reverse("assessments:exam_retake_all", args=[self.exam.pk]), {"scope": "submitted"})
+        self.assertRedirects(r, reverse("assessments:exam_results", args=[self.exam.pk]))
+        by = {a.reg_no: a for a in Attempt.objects.filter(exam=self.exam)}
+        self.assertEqual(len(by["NIT-001"].previous_attempts), 1)
+        self.assertIsNone(by["NIT-001"].end_at)
+        self.assertEqual(by["NIT-002"].previous_attempts, [])           # still in progress: untouched
+        self.assertIsNotNone(by["NIT-002"].end_at)
+        self.assertEqual(by["NIT-003"].previous_attempts, [])
+
+    def test_whole_class_retake_everyone_skips_those_who_never_started(self):
+        self._two_candidates()
+        self.staff.post(reverse("assessments:exam_retake_all", args=[self.exam.pk]), {"scope": "everyone"})
+        by = {a.reg_no: a for a in Attempt.objects.filter(exam=self.exam)}
+        self.assertEqual(len(by["NIT-001"].previous_attempts), 1)
+        self.assertEqual(len(by["NIT-002"].previous_attempts), 1)
+        self.assertIsNone(by["NIT-002"].end_at)
+        self.assertEqual(by["NIT-003"].previous_attempts, [])           # never started: nothing to reset
+        self.assertEqual(self.enter(name="Alice", reg_no="nit-001").status_code, 302)   # can re-enter
+
+    def test_whole_class_retake_page_button_permissions_and_empty(self):
+        self.assertNotContains(self.staff.get(reverse("assessments:exam_results", args=[self.exam.pk])), "whole class")
+        self._two_candidates()
+        self.assertContains(self.staff.get(reverse("assessments:exam_results", args=[self.exam.pk])), "Another chance for the whole class")
+        other = User.objects.create_user("trainer2", password="pw12345!")
+        other.groups.add(Group.objects.get(name="Trainer"))
+        c2 = Client(); c2.login(username="trainer2", password="pw12345!")
+        url = reverse("assessments:exam_retake_all", args=[self.exam.pk])
+        self.assertEqual(c2.post(url, {"scope": "everyone"}).status_code, 403)
+        self.assertEqual(self.staff.get(url).status_code, 405)
+        self.assertTrue(all(a.previous_attempts == [] for a in Attempt.objects.filter(exam=self.exam)))
+        # nobody submitted in a fresh exam -> friendly message, no error
+        from .tests import make_exam
+        exam2, _ = make_exam(self.trainer)
+        r = self.staff.post(reverse("assessments:exam_retake_all", args=[exam2.pk]), {"scope": "submitted"}, follow=True)
+        self.assertContains(r, "nobody has submitted yet")

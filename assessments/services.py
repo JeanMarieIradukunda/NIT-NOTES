@@ -11,6 +11,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from .marking import has_open_questions, mark_objective, q2, recompute_final
@@ -310,4 +311,21 @@ def grant_retake(attempt):
         attempt.marking_complete, attempt.trainer_comment, attempt.final_score = False, "", None
         attempt.save()
     return attempt
+
+
+def grant_class_retake(exam, only_submitted=True):
+    """
+    Give every candidate of an exam another chance. Candidates who never started (they only
+    opened the entry page) have nothing to reset and are skipped. Returns the number reset.
+    """
+    qs = exam.attempts.all()
+    if only_submitted:
+        qs = qs.filter(status=Attempt.SUBMITTED)
+    else:
+        qs = qs.filter(Q(status=Attempt.SUBMITTED) | Q(end_at__isnull=False))
+    count = 0
+    for attempt in qs:
+        grant_retake(attempt)
+        count += 1
+    return count
 

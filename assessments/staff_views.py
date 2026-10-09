@@ -325,6 +325,29 @@ def attempt_retake(request, pk, aid):
 
 @require_POST
 @trainer_required
+def exam_retake_all(request, pk):
+    """Give the whole class another chance in one click."""
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    only_submitted = request.POST.get("scope") != "everyone"
+    count = services.grant_class_retake(exam, only_submitted=only_submitted)
+    if not count:
+        messages.info(request, "No one to reset: "
+                      + ("nobody has submitted yet." if only_submitted else "nobody has started yet."))
+        return redirect("assessments:exam_results", pk=exam.pk)
+    messages.success(request, f"{count} candidate{'s' if count != 1 else ''} can now take the assessment again "
+                              "from the start. Their earlier results are kept in each candidate's history.")
+    if not exam.is_open:
+        messages.warning(request, "The assessment is closed. Open it so the class can enter.")
+    elif exam.closes_at and timezone.now() > exam.closes_at:
+        messages.warning(request, "The entry cutoff has passed, so candidates cannot start. "
+                                  "Change the cutoff in the assessment settings.")
+    return redirect("assessments:exam_results", pk=exam.pk)
+
+
+@require_POST
+@trainer_required
 def attempt_force_submit(request, pk, aid):
     exam, denied = _exam_or_deny(request, pk)
     if denied:

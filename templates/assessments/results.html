@@ -12,7 +12,8 @@
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
       <div><h1>Results</h1><p class="lead">{{ attempts|length }} candidate{{ attempts|length|pluralize }}. Marked out of {{ exam.total_marks|floatformat:"-2" }}. Final = objective + marked open questions − penalty, never below 0.</p></div>
       <div class="d-flex gap-2"><a class="btn btn-outline-secondary" href="{% url 'assessments:exam_analysis' exam.pk %}"><i class="bi bi-bar-chart me-1"></i>Item analysis</a>
-      <a class="btn btn-outline-secondary" href="?format=csv"><i class="bi bi-download me-1"></i>Export CSV</a></div>
+      <a class="btn btn-outline-secondary" href="?format=csv"><i class="bi bi-download me-1"></i>Export CSV</a>
+      {% if attempts %}<button class="btn btn-outline-warning" type="button" data-bs-toggle="modal" data-bs-target="#retakeAllModal"><i class="bi bi-arrow-repeat me-1"></i>Another chance for the whole class</button>{% endif %}</div>
     </div>
   </div>
   {% if not attempts %}
@@ -40,4 +41,18 @@
   </div></div>
   {% endif %}
 </div>
+{% if attempts %}
+<div class="modal fade" id="retakeAllModal" tabindex="-1" aria-labelledby="retakeAllTitle" aria-hidden="true">
+  <div class="modal-dialog"><form method="post" action="{% url 'assessments:exam_retake_all' exam.pk %}" class="modal-content">
+    {% csrf_token %}
+    <div class="modal-header"><h2 class="modal-title fs-5" id="retakeAllTitle">Another chance for the whole class</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body">
+      <p class="small">Each candidate starts again from scratch: new paper, full time, fresh opens, no violations. Their current result is kept in their history. They must enter again with the exam password.</p>
+      <div class="form-check"><input class="form-check-input" type="radio" name="scope" id="scope_sub" value="submitted" checked><label class="form-check-label" for="scope_sub">Only candidates who have submitted</label></div>
+      <div class="form-check"><input class="form-check-input" type="radio" name="scope" id="scope_all" value="everyone"><label class="form-check-label" for="scope_all">Everyone who has started, <strong>including those still in progress</strong> (their unsaved work is lost)</label></div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-warning"><i class="bi bi-arrow-repeat me-1"></i>Give another chance</button></div>
+  </form></div>
+</div>
+{% endif %}
 {% endblock %}

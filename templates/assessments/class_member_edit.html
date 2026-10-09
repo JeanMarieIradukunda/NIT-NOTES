@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Edit candidate · {{ group.name }}{% endblock %}
+{% block site_search %}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_list' %}">Assessments</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:class_list' %}">Classes</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:class_detail' group.pk %}">{{ group.name }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Edit candidate</li>
+    </ol></nav>
+    <h1>Edit candidate</h1>
+    <p class="lead">Correct the name or candidate number in <strong>{{ group.name }}</strong>.</p>
+  </div>
+  <div class="row"><div class="col-lg-5">
+    <form method="post" class="panel panel-body" novalidate>
+      {% csrf_token %}
+      <label class="form-label small" for="member_name">Full name</label>
+      <input class="form-control mb-3" type="text" id="member_name" name="name" maxlength="150" value="{{ name }}">
+      <label class="form-label small" for="member_reg">Candidate number</label>
+      <input class="form-control mb-3 mono" type="text" id="member_reg" name="reg_no" maxlength="60" value="{{ number }}" required>
+      <div class="form-text mb-3">Students type this number to enter the assessment, so check it carefully.</div>
+      <button class="btn btn-primary" type="submit"><i class="bi bi-check-lg me-1"></i>Save changes</button>
+      <a class="btn btn-link" href="{% url 'assessments:class_detail' group.pk %}">Cancel</a>
+    </form>
+  </div></div>
+</div>
+{% endblock %}
