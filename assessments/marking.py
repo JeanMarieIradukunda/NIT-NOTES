@@ -17,6 +17,8 @@ from django.utils.crypto import salted_hmac
 from .models import FILL, MATCH, MCQ, OBJECTIVE_SECTIONS, OPEN, SECTION_LABELS, SECTION_ORDER
 
 TWO = Decimal("0.01")
+# Auto-marked sections where a trainer may overrule the automatic mark (e.g. accept a spelling variant).
+OVERRIDABLE_SECTIONS = (MCQ, FILL)
 MAX_OPEN_CHARS = 20000
 MAX_FILL_CHARS = 500
 
@@ -256,9 +258,10 @@ def mark_question(question, key_data, answer, max_marks, scoring="partial"):
     return Decimal("0")
 
 
-def mark_objective(exam, answers):
+def mark_objective(exam, answers, overrides=None):
     """
     Marks MCQ, fill and matching against the server-side key.
+    `overrides` ({question id: mark}) replaces the automatic mark of MCQ / fill questions.
     Returns (total, {question id: marks}, {section: marks}).
     """
     questions = list(exam.questions.select_related("key"))
@@ -270,6 +273,9 @@ def mark_objective(exam, answers):
         key = getattr(q, "key", None)
         earned = mark_question(q, key.data if key else {}, (answers or {}).get(str(q.id)), maxima[q.id],
                                exam.multi_scoring)
+        ov = (overrides or {}).get(str(q.id))
+        if ov is not None and q.section in OVERRIDABLE_SECTIONS:
+            earned = min(q2(ov), maxima[q.id])
         per_q[q.id] = earned
         per_section[q.section] += earned
     total = sum(per_section.values(), Decimal("0"))
@@ -301,7 +307,8 @@ def review_questions(exam, attempt):
         key = q.key.data if hasattr(q, "key") else {}
         ans = clean_answer(q, (attempt.answers or {}).get(str(q.id)))
         row = {"n": n, "section": q.section, "label": SECTION_LABELS[q.section], "text": q.text,
-               "max": maxima[q.id], "answered": ans is not None, "earned": None, "status": "blank"}
+               "max": maxima[q.id], "answered": ans is not None, "earned": None, "status": "blank",
+               "comment": (attempt.question_comments or {}).get(str(q.id), ""), "adjusted": False}
         if q.section == MCQ:
             chosen = set(ans) if isinstance(ans, list) else ({ans} if ans is not None else set())
             correct = correct_set(key)
@@ -326,6 +333,9 @@ def review_questions(exam, attempt):
             row["guide"] = key.get("guide", "")
         if q.section in OBJECTIVE_SECTIONS:
             earned = mark_question(q, key, (attempt.answers or {}).get(str(q.id)), maxima[q.id], exam.multi_scoring)
+            ov = (attempt.mark_overrides or {}).get(str(q.id))
+            if ov is not None and q.section in OVERRIDABLE_SECTIONS:
+                earned, row["adjusted"] = min(q2(ov), maxima[q.id]), True
             row["earned"] = earned
             row["status"] = ("correct" if earned >= maxima[q.id] and earned > 0 else
                              "partial" if earned > 0 else "wrong" if ans is not None else "blank")

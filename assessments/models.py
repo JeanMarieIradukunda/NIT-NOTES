@@ -274,6 +274,11 @@ class Attempt(models.Model):
     objective_score = models.DecimalField(max_digits=7, decimal_places=2, default=Decimal("0"))
     section_scores = models.JSONField(default=dict, blank=True)     # {section: score}
     open_marks = models.JSONField(default=dict, blank=True)         # {question id: mark}
+    # Trainer adjustments to auto-marked MCQ / fill-in questions: {question id: mark}. Only stored when
+    # different from the automatic mark; clearing the box in the marking screen returns to automatic.
+    mark_overrides = models.JSONField(default=dict, blank=True)
+    # Trainer comment per question: {question id: text}. Shown to the candidate in the answer review.
+    question_comments = models.JSONField(default=dict, blank=True)
     marking_complete = models.BooleanField(default=False)
     trainer_comment = models.TextField(blank=True)
     final_score = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)

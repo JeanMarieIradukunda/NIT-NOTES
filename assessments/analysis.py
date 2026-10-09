@@ -11,7 +11,7 @@ import statistics
 from collections import Counter
 from decimal import Decimal
 
-from .marking import (_canonical, clean_answer, correct_set, is_multi, mark_question, ordered_questions,
+from .marking import (OVERRIDABLE_SECTIONS, _canonical, clean_answer, correct_set, is_multi, mark_question, ordered_questions,
                       question_max_marks, right_id)
 from .models import FILL, MATCH, MCQ, OBJECTIVE_SECTIONS, OPEN, SECTION_LABELS, Attempt
 
@@ -51,6 +51,9 @@ def analyse(exam):
                 it["answered"] += 1
             if q.section in OBJECTIVE_SECTIONS:
                 e = mark_question(q, key, raw, mx, exam.multi_scoring)
+                ov = (a.mark_overrides or {}).get(str(q.id))
+                if ov is not None and q.section in OVERRIDABLE_SECTIONS:
+                    e = min(Decimal(str(ov)), mx)               # the trainer's adjusted mark counts
                 earned_all.append(e)
                 if mx and e >= mx:
                     it["full"] += 1

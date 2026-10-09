@@ -25,6 +25,7 @@
         {% elif r.status == "marked" %}<span class="pill pill--success">Marked by your trainer</span>
         {% elif r.status == "pending" %}<span class="pill pill--warning">Awaiting marking</span>
         {% else %}<span class="pill pill--muted">Not answered</span>{% endif %}
+        {% if r.adjusted %}<span class="pill pill--muted">Adjusted by your trainer</span>{% endif %}
         {% if show_marks and r.earned is not None %}<strong class="ms-1">{{ r.earned|floatformat:"-2" }} / {{ r.max|floatformat:"-2" }}</strong>{% endif %}
       </span>
     </div>
@@ -57,6 +58,7 @@
       {% if r.guide %}<div class="small text-muted-2">Model answer / marking guide</div><div class="answer-box">{{ r.guide }}</div>
       {% else %}<div class="small text-muted-2">Your trainer marks this question; no model answer was provided.</div>{% endif %}
     {% endif %}
+    {% if r.comment %}<div class="mt-3 p-2 rounded" style="background:var(--c-surface-2);border:1px solid var(--c-border)"><div class="small text-muted-2 mb-1"><i class="bi bi-chat-left-text me-1" aria-hidden="true"></i>Trainer's comment</div><div style="white-space:pre-wrap;overflow-wrap:anywhere">{{ r.comment }}</div></div>{% endif %}
   </article>
   {% endfor %}
 </div>

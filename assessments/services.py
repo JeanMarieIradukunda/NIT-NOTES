@@ -308,6 +308,7 @@ def grant_retake(attempt):
         attempt.access_key = secrets.token_urlsafe(24)
         attempt.violation_count, attempt.penalty_total = 0, Decimal("0")
         attempt.objective_score, attempt.section_scores, attempt.open_marks = Decimal("0"), {}, {}
+        attempt.mark_overrides, attempt.question_comments = {}, {}
         attempt.marking_complete, attempt.trainer_comment, attempt.final_score = False, "", None
         attempt.save()
     return attempt

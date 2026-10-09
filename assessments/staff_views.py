@@ -22,7 +22,8 @@ from accounts.roles import is_admin
 
 from . import analysis, services
 from .forms import ExamForm, QuestionForm
-from .marking import mark_objective, ordered_questions, q2, question_max_marks, recompute_final
+from .marking import (OVERRIDABLE_SECTIONS, mark_objective, ordered_questions, q2, question_max_marks,
+                      recompute_final)
 from .models import (ALL_VIOLATION_LABELS, SECTION_LABELS, SECTION_ORDER, Attempt, Exam, Question)
 from .permissions import can_manage_exam, deny, trainer_required
 from .views import _sheet_rows
@@ -236,8 +237,12 @@ def attempt_detail(request, pk, aid):
     rows = []
     for n, q in enumerate(questions, start=1):
         r = sheet[n]
+        override = (attempt.mark_overrides or {}).get(str(q.id))
         rows.append({"q": q, "n": n, "answer": r["answer"], "answered": r["answered"],
                      "max": maxima[q.id], "auto": per_q.get(q.id),
+                     "override": override, "overridable": q.section in OVERRIDABLE_SECTIONS,
+                     "effective": Decimal(override) if override is not None else per_q.get(q.id),
+                     "comment": (attempt.question_comments or {}).get(str(q.id), ""),
                      "given": (attempt.open_marks or {}).get(str(q.id)),
                      "guide": (q.key.data.get("guide") if q.section == "open" and hasattr(q, "key") else "")})
     return render(request, "assessments/attempt_detail.html", {
@@ -268,14 +273,42 @@ def attempt_mark(request, pk, aid):
         except InvalidOperation:
             bad.append(q.id)
             continue
-        if value < 0 or value > maxima[q.id]:
+        if not value.is_finite() or value < 0 or value > maxima[q.id]:
             bad.append(q.id)
             continue
         marks[str(q.id)] = str(q2(value))
+    # Adjusted marks for auto-marked multiple-choice / fill-in questions. A blank box means "use the
+    # automatic mark", and a value equal to the automatic mark is not stored as an adjustment.
+    _t, auto_q, _s = mark_objective(exam, attempt.answers)
+    overrides = {}
+    for q in exam.questions.filter(section__in=OVERRIDABLE_SECTIONS):
+        raw = (request.POST.get(f"omark_{q.id}") or "").strip()
+        if raw == "":
+            continue
+        try:
+            value = Decimal(raw)
+        except InvalidOperation:
+            bad.append(q.id)
+            continue
+        if not value.is_finite() or value < 0 or value > maxima[q.id]:
+            bad.append(q.id)
+            continue
+        value = q2(value)
+        if value != auto_q.get(q.id):
+            overrides[str(q.id)] = str(value)
+    comments = {}
+    for q in exam.questions.all():
+        text = (request.POST.get(f"comment_{q.id}") or "").strip()[:1000]
+        if text:
+            comments[str(q.id)] = text
     if bad:
         messages.error(request, "Some marks were not saved: each must be a number from 0 up to that question's maximum.")
         return redirect("assessments:attempt_detail", pk=exam.pk, aid=attempt.pk)
     open_ids = [str(i) for i in exam.questions.filter(section="open").values_list("id", flat=True)]
+    total, _per_q, per_section = mark_objective(exam, attempt.answers, overrides)
+    attempt.mark_overrides, attempt.question_comments = overrides, comments
+    attempt.objective_score = total
+    attempt.section_scores = {k: str(v) for k, v in per_section.items()}
     attempt.open_marks = marks
     attempt.trainer_comment = (request.POST.get("trainer_comment") or "")[:2000]
     attempt.marking_complete = all(i in marks for i in open_ids)
