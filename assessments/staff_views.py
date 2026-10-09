@@ -20,13 +20,13 @@ from django.views.decorators.http import require_POST
 
 from accounts.roles import is_admin
 
-from . import analysis, services
+from . import analysis, evidence, services
 from .forms import ExamForm, QuestionForm
 from .marking import (OVERRIDABLE_SECTIONS, mark_objective, ordered_questions, q2, question_max_marks,
                       recompute_final)
 from .models import (ALL_VIOLATION_LABELS, SECTION_LABELS, SECTION_ORDER, Attempt, Exam, Question)
 from .permissions import can_manage_exam, deny, trainer_required
-from .views import _sheet_rows
+from .views import _sheet_rows, evidence_response
 
 
 def _exam_or_deny(request, pk):
@@ -413,3 +413,43 @@ def exam_analysis(request, pk):
                         " | ".join(f[1] for f in it["flags"])])
         return response
     return render(request, "assessments/analysis.html", {"exam": exam, "summary": summary, "items": items})
+
+
+# --------------------------------------------------------------------------- #
+# Evidence downloads
+# --------------------------------------------------------------------------- #
+
+@trainer_required
+def attempt_evidence(request, pk, aid):
+    """One candidate's one-page evidence record (always with marks)."""
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    attempt = get_object_or_404(Attempt.objects.select_related("exam"), pk=aid, exam=exam)
+    attempt = services.expire_if_due(attempt)
+    if not attempt.is_submitted:
+        messages.error(request, "An evidence record can be downloaded once the candidate has submitted.")
+        return redirect("assessments:attempt_detail", pk=exam.pk, aid=attempt.pk)
+    return evidence_response(request, attempt, trainer=True)
+
+
+@trainer_required
+def exam_evidence(request, pk):
+    """Every submitted candidate in one PDF: a register page, then each marks sheet on its own page."""
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    services.sweep_expired(exam)
+    everyone = list(exam.attempts.select_related("exam").prefetch_related("devices", "violations"))
+    submitted = [a for a in everyone if a.is_submitted]
+    if not submitted:
+        messages.error(request, "No candidate has submitted yet, so there is no evidence to download.")
+        return redirect("assessments:exam_results", pk=exam.pk)
+    skipped = len(everyone) - len(submitted)
+    try:
+        pdf = evidence.bundle_pdf(exam, submitted, skipped)
+    except Exception:
+        return render(request, "assessments/evidence_bundle.html", evidence.bundle_html_context(exam, submitted, skipped))
+    response = HttpResponse(pdf, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="evidence-{exam.public_id}-all-candidates.pdf"'
+    return response

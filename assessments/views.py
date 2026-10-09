@@ -21,7 +21,7 @@ from .marking import (SECTION_ORDER, is_answered, option_order, ordered_question
                       public_questions, question_max_marks, review_questions)
 from .models import (ALL_VIOLATION_LABELS, SECTION_LABELS, Attempt, DeviceOpen, Exam,
                      normalise_reg_no)
-from . import services
+from . import evidence, services
 
 DEVICE_COOKIE = "nit_dev"
 TICKET_SESSION_KEY = "assessment_ticket"
@@ -271,30 +271,24 @@ def answer_review(request, access_key):
         "counts": {k: sum(1 for r in rows if r["status"] == k) for k in ("correct", "partial", "wrong", "blank")}})
 
 
-@never_cache
-def answer_sheet(request, access_key):
-    attempt = _result_attempt_or_404(request, access_key)
+def evidence_response(request, attempt, *, trainer):
+    """The one-page evidence record as a PDF download (or an on-screen page if no PDF engine exists)."""
     exam = attempt.exam
-    html = render_to_string("assessments/answer_sheet.html", {
-        "attempt": attempt, "exam": exam, "rows": _sheet_rows(attempt),
-        "violations": attempt.violations.all(), "labels": ALL_VIOLATION_LABELS,
-        "generated": timezone.now(), "show_score": exam.show_results,
-        "open_pending": exam.questions.filter(section="open").exists() and not attempt.marking_complete,
-        "brand": {"institution": "Padri Vjeko Centre TSS", "department": "Department of Information Technology"},
-    })
-    filename = f"answer-sheet-{exam.public_id}-{attempt.reg_no}"
+    ctx = evidence.build_context(attempt, trainer=trainer)
+    filename = f"evidence-{exam.public_id}-{evidence.safe_name(attempt.reg_no)}"
     try:
-        from weasyprint import HTML
-        pdf = HTML(string=html, base_url=request.build_absolute_uri("/")).write_pdf()
+        pdf = evidence.render_sheet(ctx).write_pdf()
     except Exception:
         # No PDF engine on this server: show the sheet on screen (to print or save as PDF
         # from the browser). It is never offered as an HTML file download.
-        return render(request, "assessments/answer_sheet.html", {
-            "attempt": attempt, "exam": exam, "rows": _sheet_rows(attempt),
-            "violations": attempt.violations.all(), "generated": timezone.now(), "show_score": exam.show_results,
-            "open_pending": exam.questions.filter(section="open").exists() and not attempt.marking_complete,
-            "brand": {"institution": "Padri Vjeko Centre TSS", "department": "Department of Information Technology"},
-            "on_screen": True})
+        return render(request, "assessments/answer_sheet.html",
+                      {**evidence.apply_density(ctx, evidence.DENSITIES[1]), "on_screen": True})
     response = HttpResponse(pdf, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{filename}.pdf"'
     return response
+
+
+@never_cache
+def answer_sheet(request, access_key):
+    attempt = _result_attempt_or_404(request, access_key)
+    return evidence_response(request, attempt, trainer=False)

@@ -1,0 +1,21 @@
+<table class="head"><tr>
+  <td class="logo">{% if logo %}<img src="{{ logo }}" alt="">{% endif %}</td>
+  <td class="org"><b>{{ brand.institution }}</b><br><span class="muted">{{ brand.department }}</span></td>
+  <td class="doc">ASSESSMENT EVIDENCE — CLASS REGISTER<small>Generated {{ generated|date:"j M Y, H:i" }}</small></td>
+</tr></table>
+<h1 style="font-size:16pt;margin:3mm 0 .5mm">{{ exam.title }}</h1>
+<div class="sub">Assessment code <b>{{ exam.public_id }}</b>{% if exam.module %} · Module: {{ exam.module }}{% endif %}{% if exam.exam_date %} · Exam date {{ exam.exam_date|date:"j M Y" }}{% endif %} · Duration {{ exam.duration_minutes }} min · Total {{ total|floatformat:"-2" }} marks</div>
+<table class="stats" style="margin-bottom:3mm"><tr>
+  <td><b>{{ rows|length }}</b>candidate{{ rows|length|pluralize }} in this pack</td>
+  <td><b>{{ average|default_if_none:"—" }}</b>average</td>
+  <td><b>{{ highest|default_if_none:"—" }}</b>highest</td>
+  <td><b>{{ lowest|default_if_none:"—" }}</b>lowest</td>
+</tr></table>
+<table class="reg">
+  <thead><tr><th>#</th><th>Candidate</th><th>Candidate no.</th><th>Submitted</th><th>How</th><th class="r">Violations</th><th class="r">Penalty</th><th class="r">Final / {{ total|floatformat:"-2" }}</th></tr></thead>
+  <tbody>
+  {% for r in rows %}<tr><td>{{ r.n }}</td><td>{{ r.name }}</td><td>{{ r.reg }}</td><td>{{ r.submitted|date:"j M, H:i" }}</td><td>{{ r.reason }}</td><td class="r">{{ r.violations }}</td><td class="r">{% if r.penalty %}−{{ r.penalty|floatformat:"-2" }}{% else %}0{% endif %}</td><td class="r"><b>{{ r.score|floatformat:"-2" }}</b>{% if r.pending %} <span class="muted">(provisional)</span>{% endif %}</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% if skipped %}<p class="muted" style="margin-top:3mm">{{ skipped }} candidate{{ skipped|pluralize }} {{ skipped|pluralize:"has,have" }} not submitted yet and {{ skipped|pluralize:"is,are" }} not included. Each following page is one candidate's evidence record.</p>
+{% else %}<p class="muted" style="margin-top:3mm">Each following page is one candidate's evidence record, in the order listed above.</p>{% endif %}

@@ -1,0 +1,43 @@
+<style>
+  @page { size: A4; margin: 9mm 10mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #111; margin: 0; line-height: 1.28; }
+  table { width: 100%; border-collapse: collapse; }
+  .sheet { font-size: 9pt; }
+  .sheet.d1 { font-size: 8.2pt; } .sheet.d2 { font-size: 7.3pt; } .sheet.d3 { font-size: 6.5pt; } .sheet.d4 { font-size: 5.7pt; }
+  .sheet + .sheet { page-break-before: always; }
+  .muted { color: #555; } .na { color: #888; font-style: italic; } .r { text-align: right; } .c { text-align: center; }
+  .head td { vertical-align: middle; padding: 0 0 1.6mm; border-bottom: 1.4pt solid #1b3a6b; }
+  .head img { height: 12mm; width: auto; display: block; }
+  .head .logo { width: 14mm; } .head .org { padding-left: 2.5mm; font-size: 1.05em; line-height: 1.25; }
+  .head .doc { text-align: right; font-size: .85em; color: #1b3a6b; font-weight: 700; letter-spacing: .04em; }
+  .head .doc small { display: block; font-weight: 400; color: #444; letter-spacing: 0; }
+  h1 { font-size: 1.65em; margin: 2.2mm 0 .4mm; color: #111; }
+  .sub { color: #444; font-size: .92em; margin-bottom: 2mm; }
+  .kv { margin-bottom: 1.8mm; } .kv th, .kv td { border: .5pt solid #b9bfc9; padding: .9mm 1.6mm; vertical-align: top; text-align: left; }
+  .kv th { background: #eef1f6; font-weight: 600; width: 15%; color: #29323f; } .kv td { width: 18.3%; }
+  .score { margin-bottom: 2mm; } .score th, .score td { border: .5pt solid #b9bfc9; padding: .9mm 1.6mm; text-align: center; }
+  .score th { background: #eef1f6; font-weight: 600; font-size: .92em; } .score td { font-size: 1.12em; font-weight: 600; }
+  .score .final { background: #1b3a6b; color: #fff; } .score th.final { background: #1b3a6b; color: #fff; }
+  .score .pen { color: #a1260f; }
+  h2 { font-size: 1em; margin: 2mm 0 .8mm; padding-bottom: .5mm; border-bottom: .6pt solid #1b3a6b; color: #1b3a6b; text-transform: uppercase; letter-spacing: .04em; }
+  .cols { table-layout: fixed; } .cols > tbody > tr > td { vertical-align: top; padding: 0; } .cols > tbody > tr > td + td { padding-left: 2mm; }
+  .ans th, .ans td { border: .5pt solid #c8ccd4; padding: .55mm 1.1mm; vertical-align: top; text-align: left; }
+  .ans th { background: #eef1f6; font-size: .92em; }
+  .ans .n { width: 5.5mm; text-align: center; } .ans .m { width: 11mm; text-align: center; white-space: nowrap; }
+  .ans .t { width: 9mm; color: #666; font-size: .88em; white-space: nowrap; } .ans .a { word-break: break-word; }
+  .ok { color: #17653a; font-weight: 600; } .part { color: #8a5a00; font-weight: 600; } .bad { color: #a1260f; font-weight: 600; }
+  .viol { font-size: .95em; margin: 0; padding-left: 4mm; } .viol li { margin: 0; }
+  .comment { border: .5pt solid #b9bfc9; padding: 1mm 1.6mm; margin-top: 1.4mm; background: #fafbfc; }
+  .sign { margin-top: 3mm; } .sign td { padding: 0 2mm 0 0; vertical-align: bottom; width: 33%; font-size: .9em; }
+  .sign .line { border-bottom: .6pt solid #333; height: 7mm; margin-bottom: .6mm; }
+  .foot { margin-top: 2mm; padding-top: 1mm; border-top: .5pt solid #b9bfc9; font-size: .82em; color: #444; }
+  .foot b { color: #111; font-family: "Courier New", Courier, monospace; letter-spacing: .03em; }
+  .toolbar { margin: 4mm 0; } .toolbar button { padding: 2mm 4mm; font-size: 11pt; cursor: pointer; }
+  @media print { .toolbar { display: none; } }
+  /* register page */
+  .reg { font-size: 9pt; } .reg th, .reg td { border: .5pt solid #b9bfc9; padding: 1.2mm 1.8mm; text-align: left; vertical-align: top; }
+  .reg th { background: #eef1f6; } .reg .r { text-align: right; } .reg tr { page-break-inside: avoid; } .reg thead { display: table-header-group; }
+  .stats { table-layout: fixed; } .stats td { border: .5pt solid #b9bfc9; padding: 1.4mm 2mm; text-align: center; } .stats b { display: block; font-size: 1.3em; }
+  .cover-break { page-break-after: always; }
+</style>

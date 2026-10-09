@@ -1,8 +1,10 @@
 import json
+import unittest
 from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.template.loader import render_to_string
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -590,3 +592,120 @@ class ReturningCandidateTests(ExamTestBase):
     def test_unsubmitted_candidate_still_enters_exam(self):
         r = self.enter()
         self.assertRedirects(r, reverse("assessments:take", args=[self.exam.public_id]), fetch_redirect_response=False)
+
+
+def _pdf_engine():
+    try:
+        from weasyprint import HTML
+        HTML(string="<p>x</p>").render()
+        return True
+    except Exception:
+        return False
+
+
+class EvidenceTests(ExamTestBase):
+    """One-page evidence record per candidate, and the trainer's class bundle."""
+
+    def setUp(self):
+        super().setUp()
+        self.staff = Client()
+        self.staff.login(username="trainer1", password="pw12345!")
+
+    def submit_candidate(self, name, reg_no):
+        c = Client()
+        r = self.enter(client=c, name=name, reg_no=reg_no)
+        page = c.get(r["Location"])
+        cfg = page.context["config"]
+        self.call(c, cfg, "start")
+        self.assertTrue(self.call(c, cfg, "submit").json()["submitted"])
+        return Attempt.objects.get(exam=self.exam, reg_no=reg_no.upper()), c
+
+    def test_context_has_every_detail_and_never_the_answer_key(self):
+        from . import evidence
+        a, _ = self.submit_candidate("Alice Mutesi", "nit-001")
+        ctx = evidence.apply_density(evidence.build_context(a, trainer=True), evidence.DENSITIES[0])
+        html = render_to_string("assessments/answer_sheet.html", ctx)
+        for needle in ("Alice Mutesi", "NIT-001", self.exam.public_id, "Networking test", "Integrity code",
+                       "Trainer's name and signature"):
+            self.assertIn(needle, html)
+        self.assertNotIn(SECRET_FILL, html)
+        self.assertNotIn("Mentions leases", html)
+
+    def test_integrity_code_changes_when_a_mark_changes(self):
+        from . import evidence
+        a, _ = self.submit_candidate("Alice Mutesi", "nit-001")
+        before = evidence.integrity_code(a)
+        self.assertEqual(before, evidence.integrity_code(Attempt.objects.get(pk=a.pk)))
+        a.open_marks = {"1": "3"}
+        self.assertNotEqual(before, evidence.integrity_code(a))
+
+    def test_candidate_copy_hides_marks_until_released_trainer_copy_always_has_them(self):
+        from . import evidence
+        self.exam.show_results = False
+        self.exam.save()
+        a, _ = self.submit_candidate("Alice Mutesi", "nit-001")
+        a = Attempt.objects.select_related("exam").get(pk=a.pk)
+        mine = evidence.build_context(a, trainer=False)["ev"]
+        self.assertFalse(mine["show_score"])
+        self.assertFalse(mine["show_marks"])
+        self.assertFalse(mine["trainer"])
+        self.assertTrue(all(r["earned"] is None for r in mine["rows"]))
+        theirs = evidence.build_context(a, trainer=True)["ev"]
+        self.assertTrue(theirs["show_score"] and theirs["show_marks"])
+        self.assertTrue(any(r["earned"] is not None for r in theirs["rows"]))
+
+    def test_trainer_downloads_need_a_trainer_and_a_submitted_candidate(self):
+        a, _ = self.submit_candidate("Alice Mutesi", "nit-001")
+        single = reverse("assessments:attempt_evidence", args=[self.exam.pk, a.pk])
+        bundle = reverse("assessments:exam_evidence", args=[self.exam.pk])
+        self.assertEqual(Client().get(single).status_code, 302)             # not signed in -> login
+        self.assertEqual(Client().get(bundle).status_code, 302)
+        other = User.objects.create_user("trainer2", password="pw12345!")
+        from django.contrib.auth.models import Group
+        other.groups.add(Group.objects.get(name="Trainer"))
+        oc = Client()
+        oc.login(username="trainer2", password="pw12345!")
+        self.assertEqual(oc.get(single).status_code, 403)                   # someone else's assessment
+        self.assertEqual(oc.get(bundle).status_code, 403)
+        self.assertEqual(self.staff.get(single).status_code, 200)
+        self.assertEqual(self.staff.get(bundle).status_code, 200)
+
+    def test_bundle_with_nobody_submitted_explains_instead_of_crashing(self):
+        self.enter()                                                        # entered but not submitted
+        r = self.staff.get(reverse("assessments:exam_evidence", args=[self.exam.pk]))
+        self.assertRedirects(r, reverse("assessments:exam_results", args=[self.exam.pk]), fetch_redirect_response=False)
+
+    def test_result_and_trainer_pages_show_the_download_buttons(self):
+        a, _ = self.submit_candidate("Alice Mutesi", "nit-001")
+        body = self.staff.get(reverse("assessments:exam_results", args=[self.exam.pk])).content.decode()
+        self.assertIn(reverse("assessments:exam_evidence", args=[self.exam.pk]), body)
+        self.assertIn(reverse("assessments:attempt_evidence", args=[self.exam.pk, a.pk]), body)
+        detail = self.staff.get(reverse("assessments:attempt_detail", args=[self.exam.pk, a.pk])).content.decode()
+        self.assertIn(reverse("assessments:attempt_evidence", args=[self.exam.pk, a.pk]), detail)
+
+    @unittest.skipUnless(_pdf_engine(), "needs the WeasyPrint PDF engine")
+    def test_every_sheet_is_one_page_even_for_a_long_exam_and_bundle_has_one_page_each(self):
+        from . import evidence
+        for i in range(2, 45):                                              # 49 questions in total
+            q = Question.objects.create(exam=self.exam, section="mcq", order=20 + i,
+                                        text=f"Extra question {i}: " + "words " * 30, payload={"options": ["a", "b", "c"]})
+            AnswerKey.objects.create(question=q, data={"correct": 1})
+        names = [("Alice Mutesi", "nit-001"), ("Bob Habimana", "nit-002"), ("Chantal Uwase", "nit-003")]
+        for n, r in names:
+            self.submit_candidate(n, r)
+        self.enter(client=Client(), name="Dan Late", reg_no="nit-004")      # entered, never submitted
+        a = Attempt.objects.get(reg_no="NIT-001")
+        a.answers = {str(q.id): "long answer " * 200 for q in self.exam.questions.filter(section="open")}
+        a.save()
+        a = Attempt.objects.select_related("exam").get(pk=a.pk)
+        self.assertEqual(len(evidence.render_sheet(evidence.build_context(a, trainer=True)).pages), 1)
+        self.assertEqual(len(evidence.render_sheet(evidence.build_context(a, trainer=False)).pages), 1)
+
+        r = self.staff.get(reverse("assessments:exam_evidence", args=[self.exam.pk]))
+        self.assertEqual(r["Content-Type"], "application/pdf")
+        self.assertIn("evidence-", r["Content-Disposition"])
+        self.assertTrue(r.content.startswith(b"%PDF"))
+        submitted = list(self.exam.attempts.select_related("exam").filter(status=Attempt.SUBMITTED))
+        self.assertEqual(len(submitted), len(names))                         # the unsubmitted one is left out
+        doc = evidence.bundle_document(self.exam, submitted, skipped=1)
+        self.assertEqual(len(doc.pages), 1 + len(names))                     # register + one page per candidate

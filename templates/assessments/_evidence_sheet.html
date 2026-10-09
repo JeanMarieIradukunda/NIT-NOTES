@@ -1,0 +1,60 @@
+<div class="sheet d{{ d.level }}">
+  <table class="head"><tr>
+    <td class="logo">{% if logo %}<img src="{{ logo }}" alt="">{% endif %}</td>
+    <td class="org"><b>{{ brand.institution }}</b><br><span class="muted">{{ brand.department }}</span></td>
+    <td class="doc">ASSESSMENT EVIDENCE RECORD<small>Ref. {{ ev.ref }}{% if ev.sheet_no %} · Sheet {{ ev.sheet_no }} of {{ ev.sheet_total }}{% endif %}</small></td>
+  </tr></table>
+
+  <h1>{{ exam.title }}</h1>
+  <div class="sub">Assessment code <b>{{ exam.public_id }}</b>{% if exam.module %} · Module: {{ exam.module }}{% endif %}{% if exam.exam_date %} · Exam date {{ exam.exam_date|date:"j M Y" }}{% endif %} · Duration {{ exam.duration_minutes }} min · Total {{ ev.total|floatformat:"-2" }} marks</div>
+
+  <table class="kv">
+    <tr><th>Candidate</th><td><b>{{ attempt.candidate_name }}</b></td><th>Candidate no.</th><td><b>{{ attempt.reg_no_display|default:attempt.reg_no }}</b></td><th>Status</th><td>Submitted · {{ attempt.get_submit_reason_display }}</td></tr>
+    <tr><th>Started</th><td>{{ attempt.started_at|date:"j M Y, H:i:s"|default:"—" }}</td><th>Submitted</th><td>{{ attempt.submitted_at|date:"j M Y, H:i:s"|default:"—" }}</td><th>Time used</th><td>{{ ev.time_used|default:"—" }} of {{ exam.duration_minutes }} min</td></tr>
+    <tr><th>Access</th><td>{{ ev.opens }} open{{ ev.opens|pluralize }} · {{ ev.n_devices }} device{{ ev.n_devices|pluralize }}</td><th>Browser</th><td>{{ ev.browser|default:"—" }}</td><th>IP address</th><td>{{ ev.ip|default:"—" }}</td></tr>
+  </table>
+
+  {% if ev.show_score %}
+  <table class="score">
+    <tr>{% for s in ev.sections %}<th>{{ s.label }}</th>{% endfor %}<th>Penalty ({{ attempt.violation_count }} violation{{ attempt.violation_count|pluralize }})</th><th class="final">Final result</th></tr>
+    <tr>{% for s in ev.sections %}<td>{{ s.score|default:"0"|floatformat:"-2" }} / {{ s.max|floatformat:"-2" }}{% if s.label == "Open questions" and ev.open_pending %}<br><span class="muted" style="font-size:.7em;font-weight:400">pending</span>{% endif %}</td>{% endfor %}<td class="pen">−{{ attempt.penalty_total|floatformat:"-2" }}</td><td class="final">{{ attempt.final_score|floatformat:"-2" }} / {{ ev.total|floatformat:"-2" }}{% if ev.percent is not None %} · {{ ev.percent }}%{% endif %}{% if ev.open_pending %}<br><span style="font-size:.7em;font-weight:400">provisional</span>{% endif %}</td></tr>
+  </table>
+  {% endif %}
+
+  <h2>Answers as submitted</h2>
+  <table class="cols"><tr>
+    {% for col in ev.columns %}
+    <td><table class="ans">
+      <tr><th class="n">#</th><th class="t">Type</th><th>Question</th><th>Candidate's answer</th><th class="m">{% if ev.show_marks %}Marks{% else %}Max{% endif %}</th></tr>
+      {% for r in col %}<tr>
+        <td class="n">{{ r.n }}</td>
+        <td class="t">{{ r.code }}</td>
+        <td>{{ r.question }}</td>
+        <td class="a{% if not r.answered %} na{% endif %}">{% if r.answered %}{{ r.answer }}{% else %}No answer{% endif %}</td>
+        <td class="m">{% if ev.show_marks %}{% if r.earned is not None %}<span class="{% if r.status == 'correct' or r.status == 'marked' and r.earned >= r.max %}ok{% elif r.status == 'partial' or r.status == 'marked' and r.earned > 0 %}part{% else %}bad{% endif %}">{{ r.earned|floatformat:"-2" }}</span>{% else %}<span class="muted">–</span>{% endif %}/{{ r.max|floatformat:"-2" }}{% else %}{{ r.max|floatformat:"-2" }}{% endif %}</td>
+      </tr>{% endfor %}
+    </table></td>
+    {% endfor %}
+  </tr></table>
+
+  <h2>Conduct record</h2>
+  {% if ev.violations %}
+  <ul class="viol">
+    {% for v in ev.violations_shown %}<li>{{ v.time|date:"H:i:s" }} · {{ v.label }} · −{{ v.marks|floatformat:"-2" }}{% if v.detail %} <span class="muted">({{ v.detail }})</span>{% endif %}</li>{% endfor %}
+    {% if ev.violations_more %}<li class="muted">…and {{ ev.violations_more }} more counted violation{{ ev.violations_more|pluralize }}.</li>{% endif %}
+  </ul>
+  {% else %}<div>No violations were counted during this assessment.</div>{% endif %}
+  {% if ev.uncounted %}<div class="muted">{{ ev.uncounted }} further event{{ ev.uncounted|pluralize }} logged without a penalty.</div>{% endif %}
+  {% if ev.earlier_chances %}<div class="muted">This is not the first chance: {{ ev.earlier_chances }} earlier attempt{{ ev.earlier_chances|pluralize }} were cleared by the trainer.</div>{% endif %}
+  {% if ev.comment %}<div class="comment"><b>Trainer comment:</b> {{ ev.comment }}</div>{% endif %}
+
+  {% if ev.trainer %}
+  <table class="sign"><tr>
+    <td><div class="line"></div>Trainer's name and signature</td>
+    <td><div class="line"></div>Date</td>
+    <td><div class="line"></div>Official stamp</td>
+  </tr></table>
+  {% endif %}
+
+  <div class="foot">Integrity code <b>{{ ev.integrity }}</b> · Generated {{ ev.generated|date:"j M Y, H:i" }} · Answers are as saved at submission{% if ev.clipped %}; long text is shortened here, the full answer is stored in the system{% endif %}. This record does not include the answer key.</div>
+</div>

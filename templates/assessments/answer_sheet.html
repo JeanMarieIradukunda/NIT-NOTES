@@ -1,39 +1,11 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
-<title>Answer sheet · {{ exam.title }}</title>
-<style>
-  @page { size: A4; margin: 18mm 16mm; @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 9pt; color: #555; } }
-  body { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 10.5pt; color: #111; line-height: 1.45; }
-  h1 { font-size: 17pt; margin: 0 0 2mm; } h2 { font-size: 12pt; margin: 7mm 0 2mm; border-bottom: 1px solid #999; padding-bottom: 1mm; }
-  .meta { color: #444; font-size: 9.5pt; } table { width: 100%; border-collapse: collapse; }
-  td, th { border: 1px solid #bbb; padding: 2mm 2.5mm; vertical-align: top; text-align: left; }
-  th { background: #eee; } .q { width: 55%; } .na { color: #888; font-style: italic; } .ans { white-space: pre-wrap; }
-  .toolbar { margin-bottom: 6mm; } .toolbar button { padding: 2mm 4mm; font-size: 10.5pt; cursor: pointer; }
-  @media print { .toolbar { display: none; } }
-  .note { font-size: 9pt; color: #555; margin-top: 8mm; }
-</style></head>
+<title>Evidence record · {{ exam.title }} · {{ attempt.candidate_name }}</title>
+<meta name="author" content="{{ brand.institution }}">
+<meta name="subject" content="Assessment evidence record {{ ev.ref }}">
+{% include "assessments/_evidence_css.html" %}
+</head>
 <body>
 {% if on_screen %}<div class="toolbar"><button type="button" onclick="window.print()">Print or save as PDF</button></div>{% endif %}
-<div class="meta">{{ brand.institution }} · {{ brand.department }}</div>
-<h1>{{ exam.title }} — answer sheet</h1>
-<table>
-  <tr><th>Candidate</th><td>{{ attempt.candidate_name }}</td><th>Candidate no.</th><td>{{ attempt.reg_no_display|default:attempt.reg_no }}</td></tr>
-  <tr><th>Started</th><td>{{ attempt.started_at|date:"j M Y H:i" }}</td><th>Submitted</th><td>{{ attempt.submitted_at|date:"j M Y H:i" }} ({{ attempt.get_submit_reason_display }})</td></tr>
-  {% if show_score %}<tr><th>Score</th><td>{{ attempt.final_score|floatformat:"-2" }} / {{ exam.total_marks|floatformat:"-2" }}{% if open_pending %} (provisional){% endif %}</td><th>Penalty</th><td>−{{ attempt.penalty_total|floatformat:"-2" }} ({{ attempt.violation_count }} violation{{ attempt.violation_count|pluralize }})</td></tr>{% endif %}
-</table>
-
-<h2>Your answers</h2>
-<table>
-  <tr><th>#</th><th class="q">Question</th><th>Your answer</th></tr>
-  {% for r in rows %}<tr><td>{{ r.n }}</td><td>{{ r.question }}<div class="meta">{{ r.section }} · {{ r.max|floatformat:"-2" }} marks</div></td><td class="ans{% if not r.answered %} na{% endif %}">{% if r.answered %}{{ r.answer }}{% else %}No answer{% endif %}</td></tr>{% endfor %}
-</table>
-
-{% if violations %}
-<h2>Violation log</h2>
-<table>
-  <tr><th>Time</th><th>Event</th><th>Marks deducted</th><th>Note</th></tr>
-  {% for v in violations %}<tr><td>{{ v.occurred_at|date:"H:i:s" }}</td><td>{{ v.label }}</td><td>{{ v.marks_deducted|floatformat:"-2" }}</td><td>{{ v.detail }}</td></tr>{% endfor %}
-</table>
-{% endif %}
-<p class="note">Generated {{ generated|date:"j M Y H:i" }}. Answers are as saved at submission. This sheet does not include the answer key.</p>
+{% include "assessments/_evidence_sheet.html" %}
 </body></html>

@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Evidence pack · {{ exam.title }}</title>
+{% include "assessments/_evidence_css.html" %}
+</head><body>
+<div class="toolbar"><button type="button" onclick="window.print()">Print or save as PDF</button>
+<span class="muted"> No PDF engine is installed on this server, so use your browser's print dialog. Each candidate starts on a new page.</span></div>
+<div class="cover-break">{% with cover as c %}{% include "assessments/_evidence_register.html" with exam=c.exam brand=c.brand logo=c.logo rows=c.rows skipped=c.skipped generated=c.generated total=c.total average=c.average highest=c.highest lowest=c.lowest %}{% endwith %}</div>
+{% for s in sheets %}{% include "assessments/_evidence_sheet.html" with attempt=s.attempt exam=s.exam ev=s.ev brand=s.brand logo=s.logo d=s.d %}{% endfor %}
+</body></html>

@@ -314,7 +314,13 @@ class MultiAnswerFlowTests(ExamTestBase):
         self.assertEqual((row["multi"], row["status"]), (True, "wrong"))
         self.assertEqual([(o["chosen"], o["correct"]) for o in row["options"]],
                          [(True, True), (True, False), (False, True), (False, False)])
-        self.assertContains(self.client_a.get(reverse("assessments:answer_sheet", args=[a.access_key])), "2; 4")
+        sheet = self.client_a.get(reverse("assessments:answer_sheet", args=[a.access_key]))
+        if sheet["Content-Type"] == "application/pdf":          # PDF engine present: check the data it prints
+            from . import evidence
+            rows = evidence.build_context(a, trainer=False)["ev"]["rows"]
+            self.assertTrue(any(r["answer"] == "2; 4" for r in rows))
+        else:                                                   # no PDF engine: shown on screen as HTML
+            self.assertContains(sheet, "2; 4")
 
     def test_all_or_nothing_setting(self):
         self.exam.multi_scoring = "all"

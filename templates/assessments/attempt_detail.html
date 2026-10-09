@@ -10,7 +10,10 @@
       <li class="breadcrumb-item"><a href="{% url 'assessments:exam_results' exam.pk %}">Results</a></li>
       <li class="breadcrumb-item active" aria-current="page">{{ attempt.candidate_name }}</li>
     </ol></nav>
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
     <h1>{{ attempt.candidate_name }} <span class="code-badge ms-2">{{ attempt.reg_no_display|default:attempt.reg_no }}</span></h1>
+    {% if attempt.is_submitted %}<a class="btn btn-outline-primary" href="{% url 'assessments:attempt_evidence' exam.pk attempt.pk %}"><i class="bi bi-file-earmark-pdf me-1"></i>Evidence sheet (PDF)</a>{% endif %}
+    </div>
     <p class="lead">{% if attempt.is_submitted %}Submitted {{ attempt.submitted_at|date:"j M Y H:i" }} · {{ attempt.get_submit_reason_display }}{% elif attempt.end_at %}In progress, ends {{ attempt.end_at|date:"H:i" }}{% else %}Has not started the clock yet{% endif %}</p>
   </div>
 
