@@ -66,6 +66,20 @@ def attempt_has_device(request, attempt, body_device=""):
     return bool(ids) and attempt.devices.filter(device_id__in=ids).exists()
 
 
+def _same_name(a, b):
+    norm = lambda v: " ".join((v or "").lower().split())
+    return bool(norm(a)) and norm(a) == norm(b)
+
+
+def _submitted_attempt_for(exam, reg_no):
+    """The candidate's submitted attempt (auto-submitting it first if their time is up), else None."""
+    attempt = Attempt.objects.select_related("exam").filter(exam=exam, reg_no=normalise_reg_no(reg_no)).first()
+    if attempt is None:
+        return None
+    attempt = services.expire_if_due(attempt)
+    return attempt if attempt.is_submitted else None
+
+
 # --------------------------------------------------------------------------- #
 # Entry
 # --------------------------------------------------------------------------- #
@@ -102,6 +116,20 @@ def entry(request, public_id):
         return render(request, "assessments/entry.html", ctx, status=400)
 
     device_id = device_id_for(request)
+
+    # Already submitted? Then this link shows their result instead of a dead end.
+    # The exam password and candidate number have both been verified above. Without a
+    # class list, the name must also match, so a shared password plus a guessed number
+    # cannot expose someone else's marks. Viewing a result never needs the exam to be open.
+    previous = _submitted_attempt_for(exam, reg_no)
+    if previous is not None:
+        if ctx["roster_active"] or _same_name(name, previous.candidate_name):
+            _remember_result(request, previous)
+            return set_device_cookie(redirect("assessments:result", access_key=previous.access_key), device_id)
+        ctx["error"] = ("This assessment was already submitted for that candidate number. "
+                        "Type your full name exactly as you did when you took it to see your result.")
+        return render(request, "assessments/entry.html", ctx, status=403)
+
     try:
         attempt, tab_token = services.open_exam(
             exam, name=name, reg_no=reg_no, device_id=device_id,

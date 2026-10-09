@@ -106,7 +106,8 @@ class RetakeTests(ExamTestBase):
     def test_submitted_candidate_is_blocked_then_gets_another_chance(self):
         cfg = self.submit_first_attempt()
         old_key = self.attempt().access_key
-        self.assertEqual(self.enter().status_code, 403)                       # already submitted
+        r = self.enter()                                                      # already submitted -> result page
+        self.assertRedirects(r, reverse("assessments:result", args=[old_key]), fetch_redirect_response=False)
         a = self.attempt()
         r = self.staff.post(reverse("assessments:attempt_retake", args=[self.exam.pk, a.pk]))
         self.assertEqual(r.status_code, 302)

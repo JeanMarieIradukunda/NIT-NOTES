@@ -547,3 +547,46 @@ class ShowAnswersTests(ExamTestBase):
         oc = Client(); oc.force_login(other)
         self.assertEqual(oc.post(reverse("assessments:exam_toggle_answers", args=[self.exam.pk])).status_code, 403)
         self.assertEqual(Client().post(reverse("assessments:exam_toggle_answers", args=[self.exam.pk])).status_code, 302)
+
+
+class ReturningCandidateTests(ExamTestBase):
+    """A submitted candidate who re-enters with the same link sees their result."""
+
+    def submit(self):
+        page, cfg = self.open_page()
+        self.call(self.client_a, cfg, "start")
+        self.assertTrue(self.call(self.client_a, cfg, "submit").json()["submitted"])
+        return Attempt.objects.get(exam=self.exam).access_key
+
+    def test_reentry_redirects_to_result_even_from_a_new_browser(self):
+        key = self.submit()
+        fresh = Client()
+        r = self.enter(client=fresh)
+        self.assertRedirects(r, reverse("assessments:result", args=[key]), fetch_redirect_response=False)
+        self.assertEqual(fresh.get(reverse("assessments:result", args=[key])).status_code, 200)
+
+    def test_reentry_works_after_exam_is_closed(self):
+        key = self.submit()
+        self.exam.is_open = False
+        self.exam.save()
+        r = self.enter(client=Client())
+        self.assertRedirects(r, reverse("assessments:result", args=[key]), fetch_redirect_response=False)
+
+    def test_wrong_password_never_reveals_result(self):
+        self.submit()
+        self.assertEqual(self.enter(client=Client(), password="nope").status_code, 403)
+
+    def test_wrong_name_without_class_list_is_refused(self):
+        key = self.submit()
+        c = Client()
+        self.assertEqual(self.enter(client=c, name="Someone Else").status_code, 403)
+        self.assertEqual(c.get(reverse("assessments:result", args=[key])).status_code, 404)
+
+    def test_name_match_ignores_case_and_spacing(self):
+        key = self.submit()
+        r = self.enter(client=Client(), name="  alice   MUTESI ")
+        self.assertRedirects(r, reverse("assessments:result", args=[key]), fetch_redirect_response=False)
+
+    def test_unsubmitted_candidate_still_enters_exam(self):
+        r = self.enter()
+        self.assertRedirects(r, reverse("assessments:take", args=[self.exam.public_id]), fetch_redirect_response=False)
