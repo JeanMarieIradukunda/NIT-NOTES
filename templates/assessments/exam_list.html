@@ -13,7 +13,10 @@
         <h1>{% if show_owner %}All assessments{% else %}My assessments{% endif %}</h1>
         <p class="lead">Timed online assessments with an exam password, a limit on opens, browser lockdown and automatic mark deductions.</p>
       </div>
-      <a class="btn btn-primary" href="{% url 'assessments:exam_create' %}"><i class="bi bi-plus-lg me-1"></i>New assessment</a>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="{% url 'assessments:class_list' %}"><i class="bi bi-people me-1"></i>Classes</a>
+        <a class="btn btn-primary" href="{% url 'assessments:exam_create' %}"><i class="bi bi-plus-lg me-1"></i>New assessment</a>
+      </div>
     </div>
   </div>
 

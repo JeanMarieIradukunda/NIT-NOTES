@@ -273,3 +273,41 @@ def reset_opens(attempt, extra_minutes=0):
             attempt.end_at += timedelta(minutes=extra_minutes)
         attempt.save()
     return attempt
+
+
+def grant_retake(attempt):
+    """
+    Give a candidate another chance: keep a one-line record of the old result, then return the
+    attempt to a fresh, not-yet-started state. Answers, violations, penalties, marks, the clock
+    and device/open counts are cleared. A new access key is issued so the old exam tab and the
+    old result link stop working. The candidate must enter again with the password.
+    """
+    with transaction.atomic():
+        attempt = Attempt.objects.select_for_update().select_related("exam").get(pk=attempt.pk)
+        record = {
+            "started_at": attempt.started_at.isoformat() if attempt.started_at else "",
+            "submitted_at": attempt.submitted_at.isoformat() if attempt.submitted_at else "",
+            "status": attempt.status,
+            "reason": attempt.get_submit_reason_display() if attempt.submit_reason else "",
+            "final_score": str(attempt.final_score) if attempt.final_score is not None else "",
+            "out_of": str(attempt.exam.total_marks),
+            "violations": attempt.violation_count,
+            "penalty": str(attempt.penalty_total),
+            "reset_at": timezone.now().isoformat(),
+        }
+        attempt.previous_attempts = (attempt.previous_attempts or [])[-19:] + [record]
+        attempt.devices.all().delete()
+        attempt.violations.all().delete()
+        attempt.status = Attempt.IN_PROGRESS
+        attempt.submit_reason = ""
+        attempt.started_at = attempt.end_at = attempt.submitted_at = None
+        attempt.answers, attempt.answers_saved_at, attempt.layout = {}, None, {}
+        attempt.active_tab_token, attempt.last_heartbeat = "", None
+        attempt.reset_epoch += 1
+        attempt.access_key = secrets.token_urlsafe(24)
+        attempt.violation_count, attempt.penalty_total = 0, Decimal("0")
+        attempt.objective_score, attempt.section_scores, attempt.open_marks = Decimal("0"), {}, {}
+        attempt.marking_complete, attempt.trainer_comment, attempt.final_score = False, "", None
+        attempt.save()
+    return attempt
+

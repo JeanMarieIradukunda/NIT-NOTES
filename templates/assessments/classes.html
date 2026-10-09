@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Classes{% endblock %}
+{% block site_search %}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_list' %}">Assessments</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Classes</li>
+    </ol></nav>
+    <h1>{% if show_owner %}All classes{% else %}My classes{% endif %}</h1>
+    <p class="lead">Upload a class list once, then choose it on any assessment to publish that assessment to the class. Only the candidates on the list can enter.</p>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <form method="post" enctype="multipart/form-data" class="panel panel-body" novalidate>
+        {% csrf_token %}
+        <h2 class="fs-6">Add a class</h2>
+        <label class="form-label small" for="class_name">Class name</label>
+        <input class="form-control mb-3" type="text" id="class_name" name="name" maxlength="120" placeholder="e.g. Year 2 Networking" required>
+        <label class="form-label small" for="paste">Paste one candidate per line</label>
+        <textarea class="form-control mb-1 mono" id="paste" name="paste" rows="7" placeholder="NIT-001, Alice Mutesi&#10;NIT-002, Jean Bosco Habimana"></textarea>
+        <div class="form-text mb-3">Candidate number, then full name (comma, semicolon or tab). A header row is skipped automatically.</div>
+        <label class="form-label small" for="file">…or upload a CSV / TXT file</label>
+        <input class="form-control mb-3" type="file" id="file" name="file" accept=".csv,.txt,text/csv,text/plain">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-upload me-1"></i>Save class</button>
+      </form>
+    </div>
+    <div class="col-lg-7">
+      {% if not classes %}
+      <div class="empty-state"><span class="icon-chip"><i class="bi bi-people"></i></span><h3>No classes yet</h3><p>Add your first class on the left. You can then pick it when you publish an assessment.</p></div>
+      {% else %}
+      <div class="panel list-panel mb-5"><div class="table-responsive">
+        <table class="table grid-table align-middle">
+          <thead><tr><th scope="col">Class</th><th scope="col" class="text-end">Candidates</th>{% if show_owner %}<th scope="col">Saved by</th>{% endif %}<th scope="col"></th></tr></thead>
+          <tbody>{% for c in classes %}<tr>
+            <td><a class="title-link" href="{% url 'assessments:class_detail' c.pk %}">{{ c.name }}</a></td>
+            <td class="text-end">{{ c.n_members }}</td>
+            {% if show_owner %}<td class="small text-muted-2">{{ c.created_by.get_full_name|default:c.created_by.username|default:"—" }}</td>{% endif %}
+            <td class="text-end">
+              <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:class_detail' c.pk %}">Open</a>
+              <form method="post" action="{% url 'assessments:class_delete' c.pk %}" class="d-inline" onsubmit="return confirm('Delete this class? Assessments that already used it keep their own copy of the list.');">{% csrf_token %}<button class="btn btn-outline-danger btn-sm" type="submit">Delete</button></form>
+            </td>
+          </tr>{% endfor %}</tbody>
+        </table>
+      </div></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

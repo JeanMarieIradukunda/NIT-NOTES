@@ -17,6 +17,23 @@
 
   <div class="row g-4">
     <div class="col-lg-5">
+      <form method="post" action="{% url 'assessments:roster_assign' exam.pk %}" class="panel panel-body mb-3" novalidate>
+        {% csrf_token %}
+        <h2 class="fs-6">Publish to a saved class</h2>
+        {% if classes %}
+        <p class="small text-muted-2 mb-2">Choose one or more classes. Their candidates are added to this assessment and only they can enter.</p>
+        <div class="mb-3">{% for c in classes %}
+          <div class="form-check"><input class="form-check-input" type="checkbox" name="classes" value="{{ c.pk }}" id="cls_{{ c.pk }}"><label class="form-check-label" for="cls_{{ c.pk }}">{{ c.name }} <span class="text-muted-2 small">({{ c.n_members }})</span></label></div>
+        {% endfor %}</div>
+        <div class="form-check"><input class="form-check-input" type="radio" name="mode" id="a_add" value="add" checked><label class="form-check-label" for="a_add">Add to the current list</label></div>
+        <div class="form-check mb-3"><input class="form-check-input" type="radio" name="mode" id="a_rep" value="replace"><label class="form-check-label" for="a_rep">Replace the current list</label></div>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-people me-1"></i>Use selected class{{ classes|length|pluralize:",es" }}</button>
+        <a class="btn btn-link btn-sm" href="{% url 'assessments:class_list' %}">Manage classes</a>
+        {% else %}
+        <p class="small text-muted-2 mb-2">You have no saved classes yet. Save one once and reuse it on every assessment.</p>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:class_list' %}"><i class="bi bi-plus-lg me-1"></i>Add a class</a>
+        {% endif %}
+      </form>
       <form method="post" enctype="multipart/form-data" class="panel panel-body" novalidate>
         {% csrf_token %}
         <h2 class="fs-6">Add candidates</h2>
@@ -27,6 +44,8 @@
         <input class="form-control mb-3" type="file" id="file" name="file" accept=".csv,.txt,text/csv,text/plain">
         <div class="form-check"><input class="form-check-input" type="radio" name="mode" id="m_add" value="add" checked><label class="form-check-label" for="m_add">Add to the list (updates names of numbers already there)</label></div>
         <div class="form-check mb-3"><input class="form-check-input" type="radio" name="mode" id="m_rep" value="replace"><label class="form-check-label" for="m_rep">Replace the whole list</label></div>
+        <label class="form-label small" for="save_as">Also save as a class (optional)</label>
+        <input class="form-control mb-3" type="text" id="save_as" name="save_as" maxlength="120" placeholder="e.g. Year 2 Networking">
         <button class="btn btn-primary" type="submit"><i class="bi bi-upload me-1"></i>Save class list</button>
       </form>
       {% if total %}

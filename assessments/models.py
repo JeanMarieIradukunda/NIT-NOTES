@@ -262,6 +262,8 @@ class Attempt(models.Model):
     last_heartbeat = models.DateTimeField(null=True, blank=True)
     # Bumped by a trainer reset so stale localStorage counters stop applying.
     reset_epoch = models.PositiveIntegerField(default=0)
+    # Results of earlier chances, kept when a trainer gives the candidate another chance.
+    previous_attempts = models.JSONField(default=list, blank=True)
 
     # Per-candidate question/option order, fixed at first open so later edits can't reshuffle a paper.
     layout = models.JSONField(default=dict, blank=True)
@@ -360,3 +362,34 @@ class RosterEntry(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.reg_no_display or self.reg_no})"
+
+
+class ClassGroup(models.Model):
+    """A saved class list a trainer uploads once and can then attach to any assessment."""
+    name = models.CharField(max_length=120)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                   on_delete=models.SET_NULL, related_name="class_groups")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [models.UniqueConstraint(fields=["created_by", "name"], name="one_class_name_per_owner")]
+
+    def __str__(self):
+        return self.name
+
+
+class ClassMember(models.Model):
+    group = models.ForeignKey(ClassGroup, related_name="members", on_delete=models.CASCADE)
+    reg_no = models.CharField(max_length=60)               # normalised
+    reg_no_display = models.CharField(max_length=60, blank=True)
+    name = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        ordering = ["name", "reg_no"]
+        constraints = [models.UniqueConstraint(fields=["group", "reg_no"], name="one_member_per_class")]
+
+    def __str__(self):
+        return f"{self.name} ({self.reg_no_display or self.reg_no})"
+

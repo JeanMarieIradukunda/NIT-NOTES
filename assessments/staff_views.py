@@ -14,6 +14,8 @@ from django.db.models import Count
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_POST
 
 from accounts.roles import is_admin
@@ -210,6 +212,16 @@ def exam_results(request, pk):
     return render(request, "assessments/results.html", {"exam": exam, "attempts": attempts})
 
 
+def _history(attempt):
+    """Earlier chances, newest first, with the stored ISO times turned back into datetimes."""
+    out = []
+    for h in reversed(attempt.previous_attempts or []):
+        h = dict(h)
+        h["when"] = parse_datetime(h.get("submitted_at") or h.get("reset_at") or "")
+        out.append(h)
+    return out
+
+
 @trainer_required
 def attempt_detail(request, pk, aid):
     exam, denied = _exam_or_deny(request, pk)
@@ -231,6 +243,7 @@ def attempt_detail(request, pk, aid):
     return render(request, "assessments/attempt_detail.html", {
         "exam": exam, "attempt": attempt, "rows": rows,
         "violations": attempt.violations.all(), "devices": attempt.devices.all(),
+        "history": _history(attempt),
         "has_open": any(r["q"].section == "open" for r in rows)})
 
 
@@ -286,6 +299,27 @@ def attempt_reset(request, pk, aid):
     services.reset_opens(attempt, extra)
     messages.success(request, "Opens reset. The candidate can enter again; their saved answers and the exam "
                               "clock are kept" + (f", and {extra} minutes were added." if extra else "."))
+    return redirect("assessments:attempt_detail", pk=exam.pk, aid=attempt.pk)
+
+
+@require_POST
+@trainer_required
+def attempt_retake(request, pk, aid):
+    """Give the candidate another full chance (fresh paper, clock and opens). The old score is kept as a note."""
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    attempt = get_object_or_404(Attempt, pk=aid, exam=exam)
+    services.grant_retake(attempt)
+    messages.success(request, f"{attempt.candidate_name} can now take the assessment again from the start. "
+                              "Their earlier result is kept in the history below.")
+    if not exam.is_open:
+        messages.warning(request, "The assessment is closed. Open it so the candidate can enter.")
+    elif exam.closes_at and timezone.now() > exam.closes_at:
+        messages.warning(request, "The entry cutoff has passed, so the candidate cannot start. "
+                                  "Change the cutoff in the assessment settings.")
+    if request.POST.get("next") == "results":
+        return redirect("assessments:exam_results", pk=exam.pk)
     return redirect("assessments:attempt_detail", pk=exam.pk, aid=attempt.pk)
 
 

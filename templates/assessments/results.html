@@ -31,7 +31,8 @@
           <td class="text-end">{% if a.penalty_total %}−{{ a.penalty_total|floatformat:"-2" }}{% else %}0{% endif %}</td>
           <td class="text-end">{% if a.is_submitted %}{{ a.final_score|floatformat:"-2" }}{% else %}—{% endif %}</td>
           <td class="text-end">{% if not a.is_submitted %}—{% elif a.marking_complete %}<span class="pill pill--success">Done</span>{% else %}<span class="pill pill--warning">Pending</span>{% endif %}</td>
-          <td class="text-end"><a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:attempt_detail' exam.pk a.pk %}">Open</a></td>
+          <td class="text-end text-nowrap"><a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:attempt_detail' exam.pk a.pk %}">Open</a>
+            <form method="post" action="{% url 'assessments:attempt_retake' exam.pk a.pk %}" class="d-inline" onsubmit="return confirm('Give {{ a.candidate_name|escapejs }} another chance? Their current answers, marks and violations are cleared (a summary is kept) and they must enter again.');">{% csrf_token %}<input type="hidden" name="next" value="results"><button class="btn btn-outline-warning btn-sm" type="submit" title="Allow another attempt"><i class="bi bi-arrow-repeat"></i><span class="visually-hidden">Allow another attempt</span></button></form></td>
         </tr>
       {% endfor %}
       </tbody>

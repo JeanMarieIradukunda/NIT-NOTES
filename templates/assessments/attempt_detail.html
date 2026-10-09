@@ -74,6 +74,19 @@
           <button class="btn btn-outline-secondary btn-sm" type="submit"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset opens after crash</button>
         </form>
       </div>
+      <div class="panel panel-body mb-3">
+        <h2 class="fs-6">Give another chance</h2>
+        <p class="small text-muted-2">Starts this candidate again from scratch: new paper, full time, fresh opens, no violations. Their entry password stays the same. The result below is kept in the history.</p>
+        <form method="post" action="{% url 'assessments:attempt_retake' exam.pk attempt.pk %}" onsubmit="return confirm('Give {{ attempt.candidate_name|escapejs }} another chance? Their current answers, marks and violations are cleared (a summary is kept in the history) and they must enter again.');">
+          {% csrf_token %}
+          <button class="btn btn-outline-warning btn-sm" type="submit"><i class="bi bi-arrow-repeat me-1"></i>Allow another attempt</button>
+        </form>
+        {% if history %}
+        <hr>
+        <h3 class="fs-6">Earlier chances</h3>
+        <ul class="small list-unstyled mb-0">{% for h in history %}<li class="mb-1">{% if h.when %}{{ h.when|date:"j M Y H:i" }}{% else %}Earlier{% endif %} · {% if h.status == "submitted" %}{{ h.final_score|default:"—" }} / {{ h.out_of }}{% if h.reason %} ({{ h.reason }}){% endif %}{% else %}not submitted{% endif %} · {{ h.violations }} violation{{ h.violations|pluralize }}{% if h.penalty and h.penalty != "0.00" and h.penalty != "0" %}, −{{ h.penalty }}{% endif %}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
       {% if not attempt.is_submitted %}
       <div class="panel panel-body">
         <h2 class="fs-6">Submit for the candidate</h2>

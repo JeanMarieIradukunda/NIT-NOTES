@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import api, import_views, roster_views, staff_views, views
+from . import api, class_views, import_views, roster_views, staff_views, views
 
 app_name = "assessments"
 
@@ -37,8 +37,14 @@ urlpatterns = [
     path("assessments/<int:pk>/roster/", roster_views.roster_page, name="roster"),
     path("assessments/<int:pk>/roster/<int:rid>/delete/", roster_views.roster_delete, name="roster_delete"),
     path("assessments/<int:pk>/roster/clear/", roster_views.roster_clear, name="roster_clear"),
+    path("assessments/<int:pk>/roster/assign/", roster_views.roster_assign, name="roster_assign"),
+    path("classes/", class_views.class_list, name="class_list"),
+    path("classes/<int:cid>/", class_views.class_detail, name="class_detail"),
+    path("classes/<int:cid>/members/<int:mid>/delete/", class_views.class_member_delete, name="class_member_delete"),
+    path("classes/<int:cid>/delete/", class_views.class_delete, name="class_delete"),
     path("assessments/<int:pk>/results/<int:aid>/", staff_views.attempt_detail, name="attempt_detail"),
     path("assessments/<int:pk>/results/<int:aid>/mark/", staff_views.attempt_mark, name="attempt_mark"),
     path("assessments/<int:pk>/results/<int:aid>/reset/", staff_views.attempt_reset, name="attempt_reset"),
+    path("assessments/<int:pk>/results/<int:aid>/retake/", staff_views.attempt_retake, name="attempt_retake"),
     path("assessments/<int:pk>/results/<int:aid>/submit/", staff_views.attempt_force_submit, name="attempt_force_submit"),
 ]
