@@ -1,0 +1,9 @@
+{# One headline number. Args: url, icon, label, value, sub, warn (optional: highlights the sub-line). #}
+<a class="nd-stat" href="{{ url }}">
+  <span class="nd-stat-top">
+    <span class="nd-stat-label">{{ label }}</span>
+    <i class="bi {{ icon }}" aria-hidden="true"></i>
+  </span>
+  <span class="nd-stat-value">{{ value }}</span>
+  <span class="nd-stat-sub{% if warn %} is-warn{% endif %}">{{ sub }}</span>
+</a>

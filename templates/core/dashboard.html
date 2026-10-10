@@ -1,272 +1,114 @@
-{% extends "base.html" %}
-{% load static %}
-{% block title %}Dashboard{% endblock %}
-{% block body_class %}night{% endblock %}
+{% extends "core/dashboard_base.html" %}
+{% comment %}
+  Student dashboard (anyone who is not staff, including anonymous visitors).
+  Order: open assessments > continue learning > levels > latest > saved.
+  Every block is hidden when it has nothing to show.
+{% endcomment %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
-{% endblock %}
+{% block dash_eyebrow %}Student library{% endblock %}
+{% block dash_title %}Study NIT, Levels 3 to 5{% endblock %}
+{% block dash_lead %}Module notes, lessons and activities. Read online or download for offline study.{% endblock %}
+{% block dash_actions %}<a class="btn btn-primary btn-sm" href="{% url 'core:browse' %}"><i class="bi bi-compass me-1" aria-hidden="true"></i>Browse all modules</a>{% endblock %}
 
-{% block content %}
-{% with spotlight=latest_notes.0 %}
+{% block dash_body %}
 
-{# ------------------------------------------------------------------ hero --- #}
-<section class="nd-hero" aria-labelledby="hero-title">
-  <div class="nd-wrap">
-    <div class="nd-hero-grid">
+{# ------------------------------------------------ open / new assessments --- #}
+{% if open_assessments %}
+<section class="nd-block" aria-labelledby="assess-title">
+  <h2 class="nd-h" id="assess-title"><span class="nd-pulse" aria-hidden="true"></span>{% if new_assessment_count %}New assessment{{ new_assessment_count|pluralize }}{% else %}Open for you now{% endif %}</h2>
+  <div class="nd-assess">
+    {% for e in open_assessments %}
+    <a class="nd-assess-card{% if e.is_new %} is-new{% endif %}" href="{% url 'assessments:entry' e.public_id %}">
+      <span class="nd-assess-main">
+        <span class="nd-row-title">{{ e.title }}</span>
+        <span class="nd-row-meta">
+          {% if e.is_new %}<span class="nd-badge nd-badge-new">New</span>{% endif %}
+          {% if e.module %}<span class="nd-code">{{ e.module.code }}</span>{% endif %}
+          <span>{{ e.duration_minutes }} min</span>
+          <span>{{ e.total_marks|floatformat:"-2" }} marks</span>
+          {% if e.when_label %}<span>{{ e.when_label }}</span>{% endif %}
+        </span>
+      </span>
+      <span class="nd-cta">Open <i class="bi bi-arrow-up-right" aria-hidden="true"></i></span>
+    </a>
+    {% endfor %}
+  </div>
+  <p class="nd-note">Keep your candidate number and the exam password ready.</p>
+</section>
+{% endif %}
 
-      <div>
-        <h1 id="hero-title" class="nd-rise" style="--i:0">Everything you need to study NIT, in one place.</h1>
-        <p class="lead nd-rise" style="--i:1">Module notes, lessons and past papers for Levels 3 to 5. Read online, or download for offline study.</p>
-        {% if stats.modules %}<p class="nd-hero-note nd-rise" style="--i:3">Currently covering {{ stats.modules }} module{{ stats.modules|pluralize }} across Levels 3 to 5.</p>{% endif %}
-      </div>
+{# ------------------------------------------------------ continue learning --- #}
+{% if resume %}
+<a href="{{ resume.lesson.get_absolute_url }}" class="nd-resume">
+  <span class="nd-resume-main">
+    <span class="nd-eyebrow">Continue learning</span>
+    <span class="nd-row-title">{{ resume.lesson.title }}</span>
+    <span class="nd-row-meta"><span class="nd-code">{{ resume.lesson.module.code }}</span><span>{{ resume.lesson.module.name }} · {{ resume.progress_pct }}% read</span></span>
+  </span>
+  <span class="nd-bar" role="progressbar" aria-label="Reading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ resume.progress_pct }}"><span style="width:{{ resume.progress_pct }}%"></span></span>
+</a>
+{% endif %}
 
-      <div class="nd-rise" style="--i:3">
-        {% if spotlight %}
-        <a class="nd-spot" href="{{ spotlight.get_absolute_url }}">
-          <span class="nd-spot-label"><span class="nd-dot" aria-hidden="true"></span>Latest from your trainers</span>
-          <span class="d-flex align-items-center gap-2">
-            <span class="nd-tile{% if spotlight.is_pdf %} nd-tile--pdf{% endif %}"><i class="bi {% if spotlight.is_pdf %}bi-file-earmark-pdf{% else %}bi-filetype-html{% endif %}" aria-hidden="true"></i></span>
-            <span class="nd-code">{{ spotlight.module.code }}</span>
-          </span>
-          <h2>{{ spotlight.title }}</h2>
-          <span class="nd-spot-meta">{{ spotlight.module.name }}</span>
-          <span class="nd-spot-foot">
-            <span class="nd-spot-date">Published {{ spotlight.published_at|date:"j M Y" }}{% if spotlight.uploaded_by %} by {{ spotlight.uploaded_by.first_name|default:spotlight.uploaded_by.username }}{% endif %}</span>
-            <span class="nd-cta">Read notes <i class="bi bi-arrow-up-right" aria-hidden="true"></i></span>
-          </span>
-        </a>
-        {% else %}
-        <div class="nd-empty">
-          <span class="nd-tile nd-tile--lamp"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span>
-          <h2>No notes have been published yet</h2>
-          <p>{% if request.is_trainer %}Add your first module notes: upload a PDF or HTML file and publish it for students.{% else %}Trainers are still adding notes. Check back soon.{% endif %}</p>
-          {% if request.is_trainer %}<a class="btn btn-primary" href="{% url 'core:note_create' %}"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Add module notes</a>{% endif %}
-        </div>
-        {% endif %}
-      </div>
+{% if has_content %}
 
-    </div>
+{# ---------------------------------------------------------------- levels --- #}
+{% if levels %}
+<section class="nd-block" aria-labelledby="levels-title">
+  <h2 class="nd-h" id="levels-title">Choose your level</h2>
+  <div class="nd-levels">
+    {% for lv in levels %}
+    <a class="nd-level" href="{% url 'core:browse' %}?trade={{ lv.trade.key }}">
+      <span class="nd-level-name">{{ lv.trade.name }}</span>
+      <span class="nd-level-counts">
+        <span><b>{{ lv.modules }}</b> module{{ lv.modules|pluralize }}</span>
+        <span><b>{{ lv.notes }}</b> note{{ lv.notes|pluralize }}</span>
+        {% if lv.lessons %}<span><b>{{ lv.lessons }}</b> lesson{{ lv.lessons|pluralize }}</span>{% endif %}
+      </span>
+      <i class="bi bi-arrow-up-right nd-level-go" aria-hidden="true"></i>
+    </a>
+    {% endfor %}
   </div>
 </section>
+{% endif %}
 
-{# ------------------------------------------- open / new assessments ----- #}
-{% if open_assessments %}
-<div class="nd-wrap nd-main nd-main--assess">
-  <section class="nd-assess" aria-labelledby="assess-title">
-    <div class="nd-heading">
-      <h2 id="assess-title"><span class="nd-pulse" aria-hidden="true"></span>{% if new_assessment_count %}New assessment{{ new_assessment_count|pluralize }}{% else %}Open for you now{% endif %}</h2>
-      <p>Your trainer has opened {% if open_assessments|length == 1 %}an assessment{% else %}assessments{% endif %}. Keep your candidate number and the exam password ready.</p>
+{# ---------------------------------------------------- latest + saved lessons --- #}
+{% if latest or saved %}
+<div class="nd-cols{% if not saved %} nd-cols--solo{% endif %}">
+  {% if latest %}
+  <section class="nd-block" aria-labelledby="latest-title">
+    <h2 class="nd-h" id="latest-title">Latest from your trainers</h2>
+    <div class="nd-list" role="list">
+      {% for item in latest %}{% include "core/_dash_row.html" %}{% endfor %}
     </div>
-    <div class="nd-assess-grid">
-      {% for e in open_assessments %}
-      <a class="nd-assess-card{% if e.is_new %} is-new{% endif %}" href="{% url 'assessments:entry' e.public_id %}">
-        <span class="nd-assess-top">
-          {% if e.is_new %}<span class="nd-badge-new">New</span>{% endif %}
-          {% if e.module %}<span class="nd-code">{{ e.module.code }}</span>{% endif %}
+  </section>
+  {% endif %}
+
+  {% if saved %}
+  <section class="nd-block" aria-labelledby="saved-title">
+    <h2 class="nd-h" id="saved-title">Saved lessons</h2>
+    <div class="nd-list" role="list">
+      {% for a in saved %}
+      <a class="nd-row" href="{{ a.lesson.get_absolute_url }}" role="listitem">
+        <span class="nd-tile nd-tile--lamp"><i class="bi bi-bookmark-star" aria-hidden="true"></i></span>
+        <span class="nd-row-main">
+          <span class="nd-row-title">{{ a.lesson.title }}</span>
+          <span class="nd-row-meta"><span class="nd-code">{{ a.lesson.module.code }}</span><span>{{ a.lesson.module.name }}</span></span>
         </span>
-        <h3>{{ e.title }}</h3>
-        {% if e.module %}<span class="nd-spot-meta">{{ e.module.name }}</span>{% endif %}
-        <span class="nd-assess-meta">
-          <span><i class="bi bi-clock" aria-hidden="true"></i>{{ e.duration_minutes }} min</span>
-          <span><i class="bi bi-award" aria-hidden="true"></i>{{ e.total_marks|floatformat:"-2" }} marks</span>
-          {% if e.when_label %}<span><i class="bi bi-calendar-event" aria-hidden="true"></i>{{ e.when_label }}</span>{% endif %}
-        </span>
-        <span class="nd-spot-foot"><span class="nd-spot-date">Created {{ e.created_at|date:"j M Y" }}</span><span class="nd-cta">Open assessment <i class="bi bi-arrow-up-right" aria-hidden="true"></i></span></span>
       </a>
       {% endfor %}
     </div>
   </section>
+  {% endif %}
 </div>
 {% endif %}
 
-<div class="nd-wrap nd-main">
+{% else %}
+{# --------------------------------------------------------- empty library --- #}
+<section class="nd-empty" aria-labelledby="empty-title">
+  <span class="nd-tile"><i class="bi bi-journal-text" aria-hidden="true"></i></span>
+  <h2 id="empty-title">Nothing has been published yet</h2>
+  <p>Trainers are still adding notes. Check back soon; levels will appear here as soon as a module has something to open.</p>
+</section>
+{% endif %}
 
-  {# ------------------------------------------- trainer / admin workspace --- #}
-  {% if my_notes is not None or my_activities is not None %}
-  <div class="nd-workspace{% if my_notes is not None and my_activities is not None %} nd-workspace--two{% endif %}">
-    {% if my_notes is not None %}
-    <section class="nd-ws" aria-labelledby="ws-title">
-      <span class="nd-tile"><i class="bi bi-person-workspace" aria-hidden="true"></i></span>
-      <div class="nd-ws-text">
-        <h2 id="ws-title">{% if request.is_admin_role %}Notes workspace{% else %}Your trainer workspace{% endif %}</h2>
-        <p>
-          {% if my_notes.total %}
-            {{ my_notes.published }} published, {{ my_notes.drafts }} draft{{ my_notes.drafts|pluralize }}{% if request.is_admin_role %} across all trainers{% endif %}
-          {% else %}
-            Upload PDF or HTML notes for a module and publish them for students.
-          {% endif %}
-        </p>
-      </div>
-      <div class="nd-ws-actions">
-        {% if my_notes.total %}<a class="btn btn-outline-secondary btn-sm" href="{% url 'core:notes_manage' %}">Manage notes</a>{% endif %}
-        <a class="btn btn-primary btn-sm" href="{% url 'core:note_create' %}"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Add module notes</a>
-      </div>
-    </section>
-    {% endif %}
-
-    {% if my_activities is not None %}
-    <section class="nd-ws" aria-labelledby="ws-activities-title">
-      <span class="nd-tile nd-tile--lamp"><i class="bi bi-clipboard2-check" aria-hidden="true"></i></span>
-      <div class="nd-ws-text">
-        <h2 id="ws-activities-title">{% if request.is_admin_role %}Activities workspace{% else %}Your activities{% endif %}</h2>
-        <p>
-          {% if my_activities.total %}
-            {{ my_activities.published }} published, {{ my_activities.drafts }} draft{{ my_activities.drafts|pluralize }}{% if request.is_admin_role %} across all trainers{% endif %}
-          {% else %}
-            Choose a module, upload a PDF or HTML activity document, and publish it for students.
-          {% endif %}
-        </p>
-      </div>
-      <div class="nd-ws-actions">
-        {% if my_activities.total %}<a class="btn btn-outline-secondary btn-sm" href="{% url 'core:activities_manage' %}">Manage activities</a>{% endif %}
-        <a class="btn btn-primary btn-sm" href="{% url 'core:activity_create' %}"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Add activity</a>
-      </div>
-    </section>
-    {% endif %}
-  </div>
-  {% endif %}
-
-  {# ------------------------------------------------- continue learning ----- #}
-  {% if resume %}
-  <a href="{{ resume.lesson.get_absolute_url }}" class="nd-resume">
-    <span class="nd-spot-label"><span class="nd-dot" aria-hidden="true"></span>Continue learning</span>
-    <span class="nd-resume-title">{{ resume.lesson.title }}</span>
-    <span class="nd-row-meta mt-0"><span class="nd-code">{{ resume.lesson.module.code }}</span><span>{{ resume.lesson.module.name }}, {{ resume.lesson.minutes }} min</span></span>
-    <span class="nd-bar" role="progressbar" aria-label="Reading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ resume.progress_pct }}"><span style="width:{{ resume.progress_pct }}%"></span></span>
-    <span class="nd-row-meta mt-0">{{ resume.progress_pct }}% read</span>
-  </a>
-  {% endif %}
-
-  {# ------------------------------- just published + levels, side by side --- #}
-  {% with rest=latest_notes|slice:"1:" %}
-  <div class="nd-body{% if not rest %} nd-body--solo{% endif %}">
-
-    {% if rest %}
-    <section class="nd-feed" aria-labelledby="whats-new-title">
-      <div class="nd-heading">
-        <h2 id="whats-new-title">Just published</h2>
-        <p>Fresh notes from your trainers, newest first.</p>
-      </div>
-      <div class="nd-list" role="list">
-        {% for n in rest %}
-        <a class="nd-row" href="{{ n.get_absolute_url }}" role="listitem">
-          <span class="nd-tile{% if n.is_pdf %} nd-tile--pdf{% endif %}"><i class="bi {% if n.is_pdf %}bi-file-earmark-pdf{% else %}bi-filetype-html{% endif %}" aria-hidden="true"></i></span>
-          <span>
-            <span class="nd-row-title">{{ n.title }}</span>
-            <span class="nd-row-meta"><span class="nd-code">{{ n.module.code }}</span><span>{{ n.module.name }}</span></span>
-          </span>
-          <span class="nd-row-aside"><span>{{ n.published_at|date:"j M Y" }}</span>{% if n.uploaded_by %}<span>{{ n.uploaded_by.first_name|default:n.uploaded_by.username }}</span>{% endif %}</span>
-        </a>
-        {% endfor %}
-      </div>
-    </section>
-    {% endif %}
-
-    {# Levels: only those that have something students can open. #}
-    <section class="nd-levels-col" aria-labelledby="levels-title">
-      <div class="nd-heading">
-        <h2 id="levels-title">Choose your level</h2>
-        <p>Each level lists its modules, notes and lessons.</p>
-      </div>
-
-      <div class="nd-levels">
-        {% for trade in trades %}
-        {% with notes=trade.note_count lessons=trade.lesson_count %}
-        {% if notes or lessons %}
-        <a class="nd-level" href="{% url 'core:browse' %}?trade={{ trade.key }}">
-          <span>
-            <h3 class="nd-level-name">{{ trade.name }}</h3>
-            {% if trade.summary %}<p class="nd-level-sum">{{ trade.summary }}</p>{% endif %}
-          </span>
-          <span class="nd-level-counts">
-            <span><b>{{ trade.modules.count }}</b>module{{ trade.modules.count|pluralize }}</span>
-            <span><b>{{ notes }}</b>note{{ notes|pluralize }}</span>
-            {% if lessons %}<span><b>{{ lessons }}</b>lesson{{ lessons|pluralize }}</span>{% endif %}
-          </span>
-          <span class="nd-level-go" aria-hidden="true"><i class="bi bi-arrow-up-right"></i></span>
-        </a>
-        {% endif %}
-        {% endwith %}
-        {% endfor %}
-      </div>
-
-      {% if not stats.notes and not stats.lessons %}
-      <div class="nd-empty">
-        <span class="nd-tile"><i class="bi bi-diagram-3" aria-hidden="true"></i></span>
-        <h3>Levels will appear here</h3>
-        <p>A level shows up once a module inside it has published notes or lessons.</p>
-      </div>
-      {% endif %}
-
-      <a class="nd-link mt-4" href="{% url 'core:browse' %}">Browse every module <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a>
-    </section>
-
-  </div>
-  {% endwith %}
-
-  {# ----------------------------------------------- published activities --- #}
-  {% if latest_activities %}
-  <section class="nd-feed" aria-labelledby="activities-title">
-    <div class="nd-heading">
-      <h2 id="activities-title">Activities</h2>
-      <p>Practice work published by your trainers, newest first.</p>
-    </div>
-    <div class="nd-list" role="list">
-      {% for a in latest_activities %}
-      <a class="nd-row" href="{% url 'core:activity_detail' a.pk %}" role="listitem">
-        <span class="nd-tile{% if a.is_pdf %} nd-tile--pdf{% endif %}"><i class="bi {% if a.is_pdf %}bi-file-earmark-pdf{% else %}bi-filetype-html{% endif %}" aria-hidden="true"></i></span>
-        <span>
-          <span class="nd-row-title">{{ a.title }}</span>
-          <span class="nd-row-meta"><span class="nd-code">{{ a.module.code }}</span><span>{{ a.module.name }}</span></span>
-        </span>
-        <span class="nd-row-aside"><span>{{ a.updated_at|date:"j M Y" }}</span><span>Open</span></span>
-      </a>
-      {% endfor %}
-    </div>
-  </section>
-  {% endif %}
-
-  {# --------------------------------------------- recently viewed / saved --- #}
-  {% if recents or bookmarks %}
-  <div class="nd-duo{% if recents and bookmarks %} nd-duo--two{% endif %}">
-    {% if recents %}
-    <section aria-labelledby="recent-title">
-      <h2 class="nd-sub" id="recent-title">Recently viewed</h2>
-      <div class="nd-list" role="list">
-        {% for a in recents %}
-        <a class="nd-row" href="{{ a.lesson.get_absolute_url }}" role="listitem">
-          <span class="nd-tile"><i class="bi bi-journal-text" aria-hidden="true"></i></span>
-          <span>
-            <span class="nd-row-title">{{ a.lesson.title }}</span>
-            <span class="nd-row-meta"><span class="nd-code">{{ a.lesson.module.code }}</span><span>{{ a.lesson.module.name }}</span></span>
-          </span>
-          <span class="nd-row-aside"><span>{{ a.last_viewed|timesince }} ago</span>{% if a.progress_pct %}<span>{{ a.progress_pct }}% read</span>{% endif %}</span>
-        </a>
-        {% endfor %}
-      </div>
-    </section>
-    {% endif %}
-
-    {% if bookmarks %}
-    <section aria-labelledby="saved-title">
-      <h2 class="nd-sub" id="saved-title">Saved lessons</h2>
-      <div class="nd-list" role="list">
-        {% for a in bookmarks %}
-        <a class="nd-row" href="{{ a.lesson.get_absolute_url }}" role="listitem">
-          <span class="nd-tile nd-tile--lamp"><i class="bi bi-bookmark-star" aria-hidden="true"></i></span>
-          <span>
-            <span class="nd-row-title">{{ a.lesson.title }}</span>
-            <span class="nd-row-meta"><span class="nd-code">{{ a.lesson.module.code }}</span><span>{{ a.lesson.module.name }}</span></span>
-          </span>
-        </a>
-        {% endfor %}
-      </div>
-    </section>
-    {% endif %}
-  </div>
-  {% endif %}
-
-</div>
-{% endwith %}
 {% endblock %}

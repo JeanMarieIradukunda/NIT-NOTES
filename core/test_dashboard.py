@@ -1,4 +1,4 @@
-"""Tests for the dark student dashboard (landing page)."""
+"""Tests for the three dashboards (landing page): student, trainer, administrator."""
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
@@ -8,6 +8,8 @@ from core.tests import PDF_BYTES, BaseCase
 
 
 class DashboardPage(BaseCase):
+    """The student dashboard: what anonymous visitors and non-staff accounts see."""
+
     def get(self):
         return self.client.get(reverse("core:dashboard"))
 
@@ -27,59 +29,70 @@ class DashboardPage(BaseCase):
             self.assertNotIn("night", html.split("<body", 1)[1].split(">", 1)[0], name)
             self.assertNotIn("dashboard.css", html, name)
 
-    def test_empty_library_shows_guidance_for_students_and_trainers(self):
-        self.client.logout()
-        self.assertContains(self.get(), "Trainers are still adding notes")
-        self.assertContains(self.get(), "Levels will appear here")
-        self.client.force_login(self.alice)
-        r = self.get()
-        self.assertContains(r, "Add your first module notes")
-        self.assertContains(r, reverse("core:note_create"))
+    def test_empty_library_shows_a_single_guidance_card(self):
+        for who in (None, self.student):
+            self.client.logout()
+            if who:
+                self.client.force_login(who)
+            html = self.get().content.decode()
+            self.assertIn("Nothing has been published yet", html)
+            self.assertIn("Trainers are still adding notes", html)
+            self.assertEqual(html.count('class="nd-empty"'), 1)
+            self.assertNotIn("Choose your level", html)
+            self.assertNotIn('id="latest-title"', html)
 
-    def test_newest_published_note_is_the_spotlight_and_rest_are_listed(self):
-        first = self.make_note()
-        self.post_note(self.alice, title="Second published note",
-                       module_data={"module": first.module_id})
-        second = ModuleNote.objects.latest("pk")
-        self.assertNotEqual(first.pk, second.pk)
+    def test_published_note_appears_under_its_level_and_in_latest(self):
+        note = self.make_note()
         self.client.logout()
         html = self.get().content.decode()
-        self.assertIn("Latest from your trainers", html)
-        # Spotlight holds the newest note, the list below holds the others.
-        spot = html.split('class="nd-spot"', 1)[1].split("</a>", 1)[0]
-        self.assertIn(second.title, spot)
-        self.assertNotIn(second.title, html.split("Just published", 1)[1])
-        self.assertIn(first.title, html.split("Just published", 1)[1])
-
-    def test_single_note_has_no_duplicate_feed_and_levels_span_the_page(self):
-        self.make_note()
-        self.client.logout()
-        html = self.get().content.decode()
-        self.assertNotIn('id="whats-new-title"', html)
-        self.assertIn("nd-body--solo", html)
         self.assertIn("Choose your level", html)
+        self.assertIn(self.level.name, html)
+        self.assertIn("Latest from your trainers", html)
+        self.assertIn(note.title, html)
+        self.assertNotIn("Nothing has been published yet", html)
+
+    def test_latest_is_one_list_newest_first_capped_at_five(self):
+        first = self.make_note()
+        for i in range(6):
+            self.post_note(self.alice, title=f"Extra note {i}", module_data={"module": first.module_id})
+        self.client.logout()
+        html = self.get().content.decode()
+        self.assertEqual(html.count('id="latest-title"'), 1)
+        self.assertEqual(html.count("nd-row-title"), 5)
+        self.assertIn("Extra note 5", html)                  # newest is in
+        self.assertNotIn(first.title, html.split("latest-title", 1)[1])   # oldest dropped
 
     def test_drafts_never_appear_for_students(self):
         self.make_note(published=False)
         self.client.logout()
         r = self.get()
         self.assertNotContains(r, "Loops notes")
-        self.assertContains(r, "Trainers are still adding notes")
+        self.assertContains(r, "Nothing has been published yet")
 
-    def test_trainer_workspace_is_hidden_from_students(self):
+    def test_old_clutter_is_gone(self):
         self.make_note()
+        self.client.force_login(self.student)
+        html = self.get().content.decode()
+        for gone in ("nd-hero", "nd-spot", "Recently viewed", "Just published", "nd-workspace"):
+            self.assertNotIn(gone, html)
+
+    def test_each_role_gets_its_own_dashboard(self):
         self.client.logout()
-        self.assertNotContains(self.get(), "Your trainer workspace")
+        self.assertContains(self.get(), "Student library")
+        self.client.force_login(self.student)
+        self.assertContains(self.get(), "Student library")
         self.client.force_login(self.alice)
         r = self.get()
-        self.assertContains(r, "Your trainer workspace")
-        self.assertContains(r, "Add module notes")
+        self.assertContains(r, "Trainer workspace")
+        self.assertNotContains(r, "Student library")
         self.client.force_login(self.admin)
-        self.assertContains(self.get(), "Notes workspace")
+        r = self.get()
+        self.assertContains(r, "Platform overview")
+        self.assertNotContains(r, "Trainer workspace")
 
 
 class DashboardActivities(BaseCase):
-    """Published activities appear on the dashboard for everyone; drafts never do."""
+    """Published activities share the student "Latest" list; drafts never appear."""
 
     @classmethod
     def setUpTestData(cls):
@@ -101,7 +114,7 @@ class DashboardActivities(BaseCase):
         activity = self.make_activity("Loops worksheet")
         self.client.logout()
         r = self.get()
-        self.assertContains(r, 'id="activities-title"')
+        self.assertContains(r, 'id="latest-title"')
         self.assertContains(r, "Loops worksheet")
         self.assertContains(r, reverse("core:activity_detail", args=[activity.pk]))
 
@@ -115,7 +128,7 @@ class DashboardActivities(BaseCase):
         self.client.logout()
         r = self.get()
         self.assertNotContains(r, "Secret draft activity")
-        self.assertNotContains(r, 'id="activities-title"')
+        self.assertNotContains(r, 'id="latest-title"')
 
     def test_activities_open_in_the_reader_not_as_a_download(self):
         activity = self.make_activity("Loops worksheet")
@@ -123,6 +136,99 @@ class DashboardActivities(BaseCase):
         html = self.get().content.decode()
         self.assertIn(reverse("core:activity_detail", args=[activity.pk]), html)
         self.assertNotIn(reverse("core:activity_file", args=[activity.pk]), html)
+
+
+class TrainerDashboard(BaseCase):
+    """A trainer sees only their own work: four numbers, recent uploads, their modules."""
+
+    def get(self, who=None):
+        self.client.force_login(who or self.alice)
+        return self.client.get(reverse("core:dashboard"))
+
+    def test_shows_four_numbers_and_the_quick_actions(self):
+        html = self.get().content.decode()
+        self.assertEqual(html.count('class="nd-stat"'), 4)
+        for label in ("Notes", "Activities", "Open assessments", "Awaiting marking"):
+            self.assertIn(label, html)
+        for name in ("core:note_create", "core:activity_create", "assessments:exam_create"):
+            self.assertIn(reverse(name), html)
+        self.assertIn("Welcome back, Alice", html)
+
+    def test_counts_only_this_trainers_notes_with_drafts_called_out(self):
+        self.make_note(self.alice)                                 # published
+        self.make_note(self.alice, published=False)                # draft
+        self.ensure_module("GENCP302", "C Programming", self.bob)
+        self.make_note(self.bob)                                   # someone else's
+        r = self.get()
+        notes = next(s for s in r.context["stats"] if s["label"] == "Notes")
+        self.assertEqual(notes["value"], 1)
+        self.assertEqual(notes["sub"], "1 draft")
+        self.assertTrue(notes["warn"])
+
+    def test_recent_uploads_are_mine_with_a_status_badge_and_link_to_edit(self):
+        mine = self.make_note(self.alice, published=False)
+        self.ensure_module("GENCP302", "C Programming", self.bob)
+        theirs = self.make_note(self.bob)
+        html = self.get().content.decode()
+        self.assertIn(mine.title, html)
+        self.assertIn("nd-badge-draft", html)
+        self.assertIn(reverse("core:note_edit", args=[mine.pk]), html)
+        self.assertNotIn(reverse("core:note_edit", args=[theirs.pk]), html)
+
+    def test_lists_assigned_modules_or_explains_there_are_none(self):
+        self.assertContains(self.get(), "No modules are assigned to you yet")
+        self.ensure_module("GENCP302", "C Programming", self.alice)
+        r = self.get()
+        self.assertContains(r, "GENCP302")
+        self.assertNotContains(r, "No modules are assigned")
+
+    def test_empty_state_invites_the_first_upload(self):
+        r = self.get()
+        self.assertContains(r, "Add your first notes")
+        self.assertNotContains(r, "Choose your level")            # no student content here
+
+
+class AdminDashboard(BaseCase):
+    """Administrators see platform totals and only the things that need action."""
+
+    def get(self):
+        self.client.force_login(self.admin)
+        return self.client.get(reverse("core:dashboard"))
+
+    def test_shows_four_totals_and_two_actions(self):
+        html = self.get().content.decode()
+        self.assertEqual(html.count('class="nd-stat"'), 4)
+        for label in ("Trainers", "Modules", "Published content", "Open assessments"):
+            self.assertIn(label, html)
+        self.assertIn(reverse("accounts:create_trainer"), html)
+        self.assertIn(reverse("core:curriculum"), html)
+
+    def test_all_clear_when_nothing_needs_attention(self):
+        self.ensure_module("GENCP302", "C Programming", self.alice, self.bob)
+        r = self.get()
+        self.assertEqual(r.context["attention"], [])
+        self.assertContains(r, "Nothing needs attention right now")
+
+    def test_flags_trainers_without_modules_and_unpublished_drafts(self):
+        self.ensure_module("GENCP302", "C Programming", self.alice)       # bob has none
+        self.make_note(self.alice, published=False)
+        r = self.get()
+        texts = [a["text"] for a in r.context["attention"]]
+        self.assertIn("1 trainer without modules", texts)
+        self.assertIn("1 draft not yet published", texts)
+        self.assertContains(r, reverse("accounts:manage_trainers"))
+
+    def test_latest_uploads_span_all_trainers_and_name_the_author(self):
+        self.ensure_module("GENCP302", "C Programming", self.alice, self.bob)
+        a, b = self.make_note(self.alice), self.make_note(self.bob)
+        html = self.get().content.decode()
+        self.assertIn(reverse("core:note_edit", args=[a.pk]), html)
+        self.assertIn(reverse("core:note_edit", args=[b.pk]), html)
+        self.assertIn("Alice", html.split("Latest uploads", 1)[1])
+        self.assertIn("Bob", html.split("Latest uploads", 1)[1])
+
+    def test_never_links_to_the_retired_django_admin(self):
+        self.assertNotContains(self.get(), 'href="/admin/')
 
 
 class SiteHeaderLayout(BaseCase):

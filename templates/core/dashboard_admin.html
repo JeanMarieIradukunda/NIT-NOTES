@@ -1,0 +1,53 @@
+{% extends "core/dashboard_base.html" %}
+{% comment %}
+  Administrator dashboard. Four totals, what needs attention, the latest uploads.
+{% endcomment %}
+
+{% block dash_eyebrow %}Administration{% endblock %}
+{% block dash_title %}Platform overview{% endblock %}
+{% block dash_lead %}Trainers, content and assessments across the whole platform.{% endblock %}
+{% block dash_actions %}
+<a class="btn btn-primary btn-sm" href="{% url 'accounts:create_trainer' %}"><i class="bi bi-person-plus me-1" aria-hidden="true"></i>Add trainer</a>
+<a class="btn btn-outline-secondary btn-sm" href="{% url 'core:curriculum' %}">Curriculum</a>
+{% endblock %}
+
+{% block dash_body %}
+
+<div class="nd-stats">
+  {% for s in stats %}{% include "core/_dash_stat.html" with url=s.url icon=s.icon label=s.label value=s.value sub=s.sub warn=s.warn %}{% endfor %}
+</div>
+
+<div class="nd-cols nd-cols--flip">
+  <section class="nd-block" aria-labelledby="attention-title">
+    <h2 class="nd-h" id="attention-title">Needs attention</h2>
+    {% if attention %}
+    <div class="nd-list" role="list">
+      {% for a in attention %}
+      <a class="nd-row" href="{{ a.url }}" role="listitem">
+        <span class="nd-tile{% if a.tone == 'warn' %} nd-tile--warn{% endif %}"><i class="bi {{ a.icon }}" aria-hidden="true"></i></span>
+        <span class="nd-row-main">
+          <span class="nd-row-title">{{ a.text }}</span>
+          <span class="nd-row-meta">{{ a.hint }}</span>
+        </span>
+        <span class="nd-row-aside"><span class="nd-link-text">{{ a.cta }}</span></span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="nd-empty nd-empty--inline"><p><i class="bi bi-check-circle me-1" aria-hidden="true"></i>All clear. Nothing needs attention right now.</p></div>
+    {% endif %}
+  </section>
+
+  <section class="nd-block" aria-labelledby="recent-title">
+    <h2 class="nd-h" id="recent-title">Latest uploads</h2>
+    {% if recent %}
+    <div class="nd-list" role="list">
+      {% for item in recent %}{% include "core/_dash_row.html" %}{% endfor %}
+    </div>
+    {% else %}
+    <div class="nd-empty nd-empty--inline"><p>No notes or activities have been uploaded yet.</p></div>
+    {% endif %}
+  </section>
+</div>
+
+{% endblock %}

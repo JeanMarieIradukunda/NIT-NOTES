@@ -1,0 +1,12 @@
+{# One row in a feed. Arg: item (see core/dashboard.py:_item). Staff lists also show item.status. #}
+<a class="nd-row" href="{{ item.url }}" role="listitem">
+  <span class="nd-tile{% if item.is_pdf %} nd-tile--pdf{% endif %}"><i class="bi {% if item.is_pdf %}bi-file-earmark-pdf{% else %}bi-filetype-html{% endif %}" aria-hidden="true"></i></span>
+  <span class="nd-row-main">
+    <span class="nd-row-title">{{ item.title }}</span>
+    <span class="nd-row-meta"><span class="nd-code">{{ item.code }}</span><span>{{ item.module }}</span></span>
+  </span>
+  <span class="nd-row-aside">
+    {% if item.status %}<span class="nd-badge nd-badge-{{ item.status|lower }}">{{ item.status }}</span>{% else %}<span class="nd-kind">{{ item.kind }}</span>{% endif %}
+    <span>{% if item.status %}{{ item.kind }} · {% endif %}{{ item.when|date:"j M Y" }}{% if item.who %} · {{ item.who }}{% endif %}</span>
+  </span>
+</a>
