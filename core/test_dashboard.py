@@ -309,6 +309,16 @@ class MarkingGuidePage(BaseCase):
         self.assertContains(r, reverse("assessments:question_edit",
                                        args=[self.exam.pk, self.qs[("open", 1)].pk]))
 
+    def test_answers_are_highlighted_and_the_choice_key_is_one_line(self):
+        self.client.force_login(self.alice)
+        html = self.client.get(self.url).content.decode()
+        self.assertEqual(html.count('class="mg-key-item"'), 2)           # both multiple-choice answers
+        self.assertIn('class="mg-chip is-answer"><b>B</b>Network', html)    # correct option highlighted
+        self.assertNotIn('class="mg-chip is-answer"><b>A</b>Physical', html)  # wrong options are not
+        self.assertIn(f'class="mg-chip is-answer">{SECRET_FILL}', html)     # fill-in answers
+        self.assertIn('class="mg-guide', html)                              # written guide, highlighted
+        self.assertEqual(html.count('class="mg-q"'), 5)                     # one compact card per question
+
     def test_a_missing_guide_is_flagged_with_an_add_button(self):
         AnswerKey.objects.filter(question=self.qs[("open", 1)]).update(data={"guide": ""})
         self.client.force_login(self.alice)

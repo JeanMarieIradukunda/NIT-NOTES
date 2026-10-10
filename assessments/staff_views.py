@@ -115,7 +115,9 @@ def _guide_row(q, marks):
     row = {"q": q, "marks": marks}
     if q.section == "mcq":
         options = q.payload.get("options") or []
-        row["options"] = [{"text": o, "correct": i == data.get("correct")} for i, o in enumerate(options)]
+        row["options"] = [{"letter": chr(65 + i) if i < 26 else str(i + 1), "text": o,
+                           "correct": i == data.get("correct")} for i, o in enumerate(options)]
+        row["letter"] = next((o["letter"] for o in row["options"] if o["correct"]), "")
     elif q.section == "fill":
         row["accepted"] = data.get("accepted") or []
         row["case_sensitive"] = bool(data.get("case_sensitive"))
@@ -139,16 +141,19 @@ def exam_guide(request, pk):
         return denied
     questions = list(exam.questions.select_related("key"))
     maxima = question_max_marks(exam, questions)
-    sections, missing = [], 0
+    sections, missing, quick_key = [], 0, []
     for s in SECTION_ORDER:
         rows = [_guide_row(q, maxima[q.id]) for q in questions if q.section == s]
         if not rows:
             continue
         if s == "open":
             missing = sum(1 for r in rows if not r["guide"])
+        if s == "mcq":      # "1 B · 2 B · 3 A": the whole multiple-choice key on one line
+            quick_key = [(r["q"].order, r["letter"]) for r in rows if r["letter"]]
         sections.append({"key": s, "label": SECTION_LABELS[s], "rows": rows})
     return render(request, "assessments/exam_guide.html", {
-        "exam": exam, "sections": sections, "missing": missing, "n_questions": len(questions)})
+        "exam": exam, "sections": sections, "missing": missing, "quick_key": quick_key,
+        "n_questions": len(questions)})
 
 
 @require_POST

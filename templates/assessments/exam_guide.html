@@ -1,6 +1,45 @@
 {% extends "base.html" %}
 {% block title %}Marking guide · {{ exam.title }}{% endblock %}
 {% block site_search %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Compact marking guide: questions in a grid, answers highlighted beside them. */
+  .mg-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .75rem; margin-bottom: 1rem; padding: .55rem .8rem; border-radius: 12px; background: var(--c-surface); border: 1px solid var(--c-border); font-size: .82rem; color: var(--c-muted); }
+  .mg-bar b { color: var(--c-text); }
+  .mg-key { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+  .mg-key-label { font-weight: 700; color: var(--c-text); margin-right: .15rem; }
+  .mg-key-item { display: inline-flex; gap: .25rem; padding: .05rem .5rem; border-radius: 999px; background: var(--c-success-soft); color: var(--c-success); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .mg-warn { margin-left: auto; padding: .05rem .6rem; border-radius: 999px; background: var(--c-warning-soft); color: var(--c-warning); font-weight: 700; }
+
+  .mg-sec { margin-bottom: 1.1rem; }
+  .mg-sec-h { display: flex; align-items: center; gap: .5rem; margin: 0 0 .5rem; font-size: .9rem; font-weight: 700; }
+  .mg-n { display: inline-grid; place-items: center; min-width: 1.35rem; height: 1.35rem; padding-inline: .35rem; border-radius: 999px; background: var(--c-brand-soft); color: var(--c-brand); font-size: .7rem; }
+  .mg-grid { display: grid; gap: .6rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 430px), 1fr)); }
+
+  .mg-q { display: grid; gap: .4rem; align-content: start; padding: .65rem .8rem; border-radius: 12px; background: var(--c-surface); border: 1px solid var(--c-border); min-width: 0; }
+  .mg-q-top { display: flex; align-items: center; gap: .5rem; }
+  .mg-num { display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 8px; background: var(--c-surface-3); font-size: .75rem; font-weight: 700; }
+  .mg-marks { color: var(--c-muted); font-size: .72rem; font-weight: 600; }
+  .mg-edit { margin-left: auto; padding: .1rem .55rem; font-size: .74rem; }
+  .mg-text { margin: 0; font-size: .86rem; line-height: 1.4; overflow-wrap: anywhere; }
+
+  .mg-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin: 0; padding: 0; list-style: none; }
+  .mg-chip { display: inline-flex; align-items: center; gap: .35rem; padding: .12rem .55rem; border-radius: 8px; font-size: .78rem; background: var(--c-surface-2); border: 1px solid var(--c-border); color: var(--c-muted); }
+  .mg-chip b { font-weight: 700; }
+  .mg-chip.is-answer { background: var(--c-success-soft); border-color: var(--c-success); color: var(--c-success); font-weight: 700; }
+  .mg-label { font-size: .7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--c-muted); }
+  .mg-guide { max-height: 7.5rem; overflow-y: auto; padding: .45rem .65rem; border-radius: 8px; font-size: .8rem; line-height: 1.4; background: var(--c-success-soft); border-left: 3px solid var(--c-success); }
+  .mg-missing { padding: .35rem .65rem; border-radius: 8px; font-size: .78rem; font-weight: 600; background: var(--c-warning-soft); color: var(--c-warning); }
+
+  @media print {
+    .mg-grid { grid-template-columns: 1fr 1fr; }
+    .mg-q, .mg-bar { break-inside: avoid; }
+    .mg-guide { max-height: none; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-xxl">
   <div class="page-head">
@@ -10,49 +49,54 @@
       <li class="breadcrumb-item"><a href="{% url 'assessments:exam_detail' exam.pk %}">{{ exam.title }}</a></li>
       <li class="breadcrumb-item active" aria-current="page">Marking guide</li>
     </ol></nav>
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-      <div>
-        <h1>Marking guide</h1>
-        <p class="lead">{{ exam.title }} · {{ n_questions }} question{{ n_questions|pluralize }} · {{ exam.total_marks|floatformat:"-2" }} marks. For trainers only; candidates never see this page.</p>
-      </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <h1 class="mb-0 fs-4">Marking guide <span class="text-muted-2 fs-6 fw-normal">· {{ exam.title }}</span></h1>
       <div class="d-flex flex-wrap gap-2 d-print-none">
-        <button class="btn btn-outline-secondary" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print</button>
-        <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_detail' exam.pk %}"><i class="bi bi-pencil-square me-1"></i>Manage assessment</a>
+        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print</button>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:exam_detail' exam.pk %}"><i class="bi bi-pencil-square me-1"></i>Manage assessment</a>
       </div>
     </div>
   </div>
 
-  {% if missing %}<div class="alert alert-warning py-2">{{ missing }} written question{{ missing|pluralize }} {{ missing|pluralize:"has,have" }} no marking guide yet. Use <strong>Add guide</strong> below.</div>{% endif %}
+  <div class="mg-bar">
+    <span><b>{{ n_questions }}</b> question{{ n_questions|pluralize }} · <b>{{ exam.total_marks|floatformat:"-2" }}</b> marks · trainers only</span>
+    {% if quick_key %}
+    <span class="mg-key"><span class="mg-key-label">Multiple choice key</span>{% for n, letter in quick_key %}<span class="mg-key-item">{{ n }}<span aria-hidden="true">·</span>{{ letter }}</span>{% endfor %}</span>
+    {% endif %}
+    {% if missing %}<span class="mg-warn">{{ missing }} written question{{ missing|pluralize }} without a guide</span>{% endif %}
+  </div>
 
   {% for sec in sections %}
-  <section class="panel panel-body mb-4">
-    <h2 class="fs-6 mb-3">{{ sec.label }}</h2>
-    {% for r in sec.rows %}
-    <div class="{% if not forloop.last %}pb-3 mb-3 border-bottom{% endif %}">
-      <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
-        <div class="fw-semibold">{{ r.q.order }}. {{ r.q.text|linebreaksbr }}</div>
-        <div class="d-flex align-items-center gap-2">
-          <span class="pill pill--muted">{{ r.marks|floatformat:"-2" }} mark{{ r.marks|pluralize }}</span>
-          <a class="btn btn-outline-secondary btn-sm d-print-none" href="{% url 'assessments:question_edit' exam.pk r.q.pk %}"><i class="bi bi-pencil me-1"></i>{% if sec.key == 'open' and not r.guide %}Add guide{% else %}Edit{% endif %}</a>
+  <section class="mg-sec" aria-labelledby="sec-{{ sec.key }}">
+    <h2 class="mg-sec-h" id="sec-{{ sec.key }}">{{ sec.label }} <span class="mg-n">{{ sec.rows|length }}</span></h2>
+    <div class="mg-grid">
+      {% for r in sec.rows %}
+      <article class="mg-q">
+        <div class="mg-q-top">
+          <span class="mg-num">{{ r.q.order }}</span>
+          <span class="mg-marks">{{ r.marks|floatformat:"-2" }} mark{{ r.marks|pluralize }}</span>
+          <a class="btn btn-outline-secondary mg-edit d-print-none" href="{% url 'assessments:question_edit' exam.pk r.q.pk %}"><i class="bi bi-pencil me-1"></i>{% if sec.key == 'open' and not r.guide %}Add guide{% else %}Edit{% endif %}</a>
         </div>
-      </div>
+        <p class="mg-text">{{ r.q.text|linebreaksbr }}</p>
 
-      {% if sec.key == "mcq" %}
-        <ol type="A" class="mt-2 mb-0">
-          {% for o in r.options %}<li{% if o.correct %} class="fw-semibold text-success"{% endif %}>{{ o.text }}{% if o.correct %} <i class="bi bi-check-circle-fill ms-1" aria-hidden="true"></i><span class="visually-hidden"> (correct answer)</span>{% endif %}</li>{% endfor %}
-        </ol>
-      {% elif sec.key == "fill" %}
-        <div class="small mt-2"><span class="text-muted-2">Accepted answers{% if r.case_sensitive %} (case sensitive){% endif %}:</span> <strong>{{ r.accepted|join:" · " }}</strong></div>
-      {% elif sec.key == "match" %}
-        <ul class="mt-2 mb-0 list-unstyled">
-          {% for left, right in r.pairs %}<li>{{ left }} <i class="bi bi-arrow-right mx-1 text-muted-2" aria-hidden="true"></i> <strong>{{ right }}</strong></li>{% endfor %}
-        </ul>
-      {% else %}
-        {% if r.guide %}<div class="answer-box mt-2">{{ r.guide|linebreaksbr }}</div>
-        {% else %}<div class="small text-warning mt-2">No marking guide yet.</div>{% endif %}
-      {% endif %}
+        {% if sec.key == "mcq" %}
+          <ul class="mg-chips">
+            {% for o in r.options %}<li class="mg-chip{% if o.correct %} is-answer{% endif %}"><b>{{ o.letter }}</b>{{ o.text }}{% if o.correct %}<i class="bi bi-check-circle-fill" aria-hidden="true"></i><span class="visually-hidden"> (correct answer)</span>{% endif %}</li>{% endfor %}
+          </ul>
+        {% elif sec.key == "fill" %}
+          <div><span class="mg-label">Accepted{% if r.case_sensitive %} · case sensitive{% endif %}</span>
+          <ul class="mg-chips mt-1">{% for a in r.accepted %}<li class="mg-chip is-answer">{{ a }}</li>{% endfor %}</ul></div>
+        {% elif sec.key == "match" %}
+          <ul class="mg-chips">
+            {% for left, right in r.pairs %}<li class="mg-chip is-answer">{{ left }}<i class="bi bi-arrow-right" aria-hidden="true"></i>{{ right }}</li>{% endfor %}
+          </ul>
+        {% else %}
+          {% if r.guide %}<div><span class="mg-label">Marking guide</span><div class="mg-guide mt-1">{{ r.guide|linebreaksbr }}</div></div>
+          {% else %}<div class="mg-missing">No marking guide yet.</div>{% endif %}
+        {% endif %}
+      </article>
+      {% endfor %}
     </div>
-    {% endfor %}
   </section>
   {% empty %}
   <div class="panel panel-body">
