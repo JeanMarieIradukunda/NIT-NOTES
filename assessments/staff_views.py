@@ -22,8 +22,8 @@ from accounts.roles import is_admin
 
 from . import analysis, evidence, services
 from .forms import ExamForm, QuestionForm
-from .marking import (OVERRIDABLE_SECTIONS, mark_objective, ordered_questions, q2, question_max_marks,
-                      recompute_final)
+from .marking import (OVERRIDABLE_SECTIONS, correct_set, is_multi, mark_objective, ordered_questions, q2,
+                      question_max_marks, recompute_final)
 from .models import (ALL_VIOLATION_LABELS, SECTION_LABELS, SECTION_ORDER, AnswerKey, Attempt, Exam,
                      Question)
 from .permissions import can_manage_exam, deny, trainer_required
@@ -85,7 +85,8 @@ def exam_detail(request, pk):
         items = [q for q in questions if q.section == s]
         for q in items:
             q.max_marks = maxima[q.id]
-        groups.append({"key": s, "label": SECTION_LABELS[s], "marks": exam.section_marks(s), "questions": items})
+            q.guide = _guide_row(q, maxima[q.id])
+        groups.append({"key": s, "label": GUIDE_LABELS[s], "marks": exam.section_marks(s), "questions": items})
     warnings = []
     for g in groups:
         if g["questions"] and g["marks"] <= 0:
@@ -106,6 +107,13 @@ def _pair_index(value, size):
     return i if 0 <= i < size else None
 
 
+GUIDE_LABELS = {**SECTION_LABELS, "mcq": "Multiple choice & True/False"}
+
+
+def _is_true_false(options):
+    return sorted(str(o).strip().lower() for o in options) == ["false", "true"]
+
+
 def _guide_row(q, marks):
     """What the trainer needs to mark one question: the right answer, or the written-answer guide."""
     try:
@@ -115,9 +123,18 @@ def _guide_row(q, marks):
     row = {"q": q, "marks": marks}
     if q.section == "mcq":
         options = q.payload.get("options") or []
-        row["options"] = [{"letter": chr(65 + i) if i < 26 else str(i + 1), "text": o,
-                           "correct": i == data.get("correct")} for i, o in enumerate(options)]
-        row["letter"] = next((o["letter"] for o in row["options"] if o["correct"]), "")
+        right = correct_set(data)           # reads both the old single number and the newer list
+        tf = _is_true_false(options)
+        row["tf"] = tf
+        row["multi"] = is_multi(q)
+        row["accept_any"] = (not row["multi"]) and len(right) > 1
+        row["options"] = [{"letter": "" if tf else (chr(65 + i) if i < 26 else str(i + 1)),
+                           "text": o, "correct": i in right} for i, o in enumerate(options)]
+        picked = [o for o in row["options"] if o["correct"]]
+        # Short label for the one-line key: "B", "B+D", "B/D" (any one), or "T"/"F" for True/False.
+        glue = "+" if row["multi"] else "/"
+        row["label"] = (picked[0]["text"][:1].upper() if tf and picked
+                        else glue.join(o["letter"] for o in picked))
     elif q.section == "fill":
         row["accepted"] = data.get("accepted") or []
         row["case_sensitive"] = bool(data.get("case_sensitive"))
@@ -148,9 +165,9 @@ def exam_guide(request, pk):
             continue
         if s == "open":
             missing = sum(1 for r in rows if not r["guide"])
-        if s == "mcq":      # "1 B · 2 B · 3 A": the whole multiple-choice key on one line
-            quick_key = [(r["q"].order, r["letter"]) for r in rows if r["letter"]]
-        sections.append({"key": s, "label": SECTION_LABELS[s], "rows": rows})
+        if s == "mcq":      # "1 B · 2 T · 3 B+D": the whole choice / true-false key on one line
+            quick_key = [(r["q"].order, r["label"]) for r in rows if r["label"]]
+        sections.append({"key": s, "label": GUIDE_LABELS[s], "rows": rows})
     return render(request, "assessments/exam_guide.html", {
         "exam": exam, "sections": sections, "missing": missing, "quick_key": quick_key,
         "n_questions": len(questions)})

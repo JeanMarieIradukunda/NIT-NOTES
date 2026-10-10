@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ exam.title }}{% endblock %}
 {% block site_search %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/answers.css' %}">{% endblock %}
 {% block content %}
 <div class="container-xxl">
   <div class="page-head">
@@ -61,6 +63,7 @@
         <span class="small text-muted-2">{{ q.max_marks|floatformat:"-2" }} marks</span>
         <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:question_edit' exam.pk q.pk %}">Edit</a>
         <form method="post" action="{% url 'assessments:question_delete' exam.pk q.pk %}" onsubmit="return confirm('Delete this question?');">{% csrf_token %}<button class="btn btn-outline-danger btn-sm" type="submit">Delete</button></form>
+        <div class="w-100 mg-inline">{% include "assessments/_answer.html" with r=q.guide key=g.key %}</div>
       </li>
       {% endfor %}
     </ul>

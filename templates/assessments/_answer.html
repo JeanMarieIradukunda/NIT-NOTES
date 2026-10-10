@@ -1,0 +1,19 @@
+{# The highlighted answer for one question. Args: r (a row from staff_views._guide_row), key (mcq | fill | match | open). #}
+{% if key == "mcq" %}
+  <div class="mg-line">
+    {% if r.tf %}<span class="mg-tag">True / False</span>{% elif r.multi %}<span class="mg-tag">Select all that apply</span>{% elif r.accept_any %}<span class="mg-tag">Any one accepted</span>{% endif %}
+    <ul class="mg-chips">
+      {% for o in r.options %}<li class="mg-chip{% if o.correct %} is-answer{% endif %}">{% if o.letter %}<b>{{ o.letter }}</b>{% endif %}{{ o.text }}{% if o.correct %}<i class="bi bi-check-circle-fill" aria-hidden="true"></i><span class="visually-hidden"> (correct answer)</span>{% endif %}</li>{% endfor %}
+    </ul>
+  </div>
+{% elif key == "fill" %}
+  <div class="mg-line"><span class="mg-label">Accepted{% if r.case_sensitive %} · case sensitive{% endif %}</span>
+    <ul class="mg-chips">{% for a in r.accepted %}<li class="mg-chip is-answer">{{ a }}</li>{% endfor %}</ul></div>
+{% elif key == "match" %}
+  <ul class="mg-chips">
+    {% for left, right in r.pairs %}<li class="mg-chip is-answer">{{ left }}<i class="bi bi-arrow-right" aria-hidden="true"></i>{{ right }}</li>{% endfor %}
+  </ul>
+{% else %}
+  {% if r.guide %}<div><span class="mg-label">Marking guide</span><div class="mg-guide mt-1">{{ r.guide|linebreaksbr }}</div></div>
+  {% else %}<div class="mg-missing">No marking guide yet.</div>{% endif %}
+{% endif %}

@@ -3,7 +3,7 @@
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from assessments.models import AnswerKey
+from assessments.models import AnswerKey, Question
 from assessments.tests import SECRET_FILL, make_exam
 from core.models import Activity, Module, ModuleNote, Unit
 from core.tests import PDF_BYTES, BaseCase
@@ -318,6 +318,46 @@ class MarkingGuidePage(BaseCase):
         self.assertIn(f'class="mg-chip is-answer">{SECRET_FILL}', html)     # fill-in answers
         self.assertIn('class="mg-guide', html)                              # written guide, highlighted
         self.assertEqual(html.count('class="mg-q"'), 5)                     # one compact card per question
+
+    def test_newer_list_format_answers_are_highlighted(self):
+        """Questions saved by the form or the importer store the answers as a list."""
+        q = self.qs[("mcq", 1)]
+        q.payload = {**q.payload, "multi": True}
+        q.save()
+        AnswerKey.objects.filter(question=q).update(data={"correct": [0, 2]})
+        self.client.force_login(self.alice)
+        html = self.client.get(self.url).content.decode()
+        self.assertIn('class="mg-chip is-answer"><b>A</b>Physical', html)
+        self.assertIn('class="mg-chip is-answer"><b>C</b>Session', html)
+        self.assertNotIn('class="mg-chip is-answer"><b>B</b>Network</li>', html.split("Default HTTP port")[0])
+        self.assertIn("Select all that apply", html)
+        self.assertIn("1<span aria-hidden=\"true\">·</span>A+C", html)         # the one-line key
+
+    def test_true_false_questions_show_their_answer(self):
+        tf = Question.objects.create(exam=self.exam, section="mcq", order=3, text="The sun is a star.",
+                                     payload={"options": ["True", "False"]})
+        AnswerKey.objects.create(question=tf, data={"correct": [0]})
+        self.client.force_login(self.alice)
+        r = self.client.get(self.url)
+        self.assertContains(r, "Multiple choice &amp; True/False")
+        self.assertContains(r, "True / False")
+        self.assertContains(r, 'class="mg-chip is-answer">True')
+        self.assertNotContains(r, 'class="mg-chip is-answer">False')
+        self.assertContains(r, "3<span aria-hidden=\"true\">·</span>T")           # key shows T
+
+    def test_assessment_page_shows_the_answers_under_every_question_type(self):
+        tf = Question.objects.create(exam=self.exam, section="mcq", order=3, text="The sun is a star.",
+                                     payload={"options": ["True", "False"]})
+        AnswerKey.objects.create(question=tf, data={"correct": [0]})
+        self.client.force_login(self.alice)
+        r = self.client.get(reverse("assessments:exam_detail", args=[self.exam.pk]))
+        self.assertContains(r, "css/answers.css")
+        self.assertContains(r, "Multiple choice &amp; True/False")
+        self.assertContains(r, 'class="mg-chip is-answer"><b>B</b>Network')       # multiple choice
+        self.assertContains(r, 'class="mg-chip is-answer">True')                  # true / false
+        self.assertContains(r, f'class="mg-chip is-answer">{SECRET_FILL}')        # fill in the blank
+        self.assertContains(r, "Connects networks")                               # matching
+        self.assertContains(r, "Mentions leases and automatic addressing.")       # open
 
     def test_a_missing_guide_is_flagged_with_an_add_button(self):
         AnswerKey.objects.filter(question=self.qs[("open", 1)]).update(data={"guide": ""})
