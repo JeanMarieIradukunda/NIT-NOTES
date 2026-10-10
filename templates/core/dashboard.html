@@ -16,7 +16,14 @@
 {% if open_assessments %}
 <section class="nd-block" aria-labelledby="assess-title">
   <h2 class="nd-h" id="assess-title"><span class="nd-pulse" aria-hidden="true"></span>{% if new_assessment_count %}New assessment{{ new_assessment_count|pluralize }}{% else %}Open for you now{% endif %} <span class="nd-count">{{ open_assessments|length }}</span></h2>
-  <div class="nd-assess">
+  {% if open_assessments|length > 5 %}
+  <div class="nd-filter">
+    <label class="visually-hidden" for="assess-filter">Filter assessments</label>
+    <input id="assess-filter" class="form-control form-control-sm" type="text" placeholder="Filter by title or module code" autocomplete="off">
+    <span class="nd-note nd-note--inline" id="assess-shown" aria-live="polite"></span>
+  </div>
+  {% endif %}
+  <div class="nd-assess" id="assess-list">
     {% for e in open_assessments %}
     <a class="nd-assess-card{% if e.is_new %} is-new{% endif %}" href="{% url 'assessments:entry' e.public_id %}">
       <span class="nd-assess-main">
@@ -111,4 +118,22 @@
 </section>
 {% endif %}
 
+{% endblock %}
+
+{% block extra_js %}
+{% if open_assessments|length > 5 %}
+<script>
+(function () {
+  var box = document.getElementById("assess-filter"), list = document.getElementById("assess-list");
+  if (!box || !list) return;
+  var cards = Array.prototype.slice.call(list.querySelectorAll(".nd-assess-card")), shown = document.getElementById("assess-shown");
+  function run() {
+    var q = box.value.trim().toLowerCase(), n = 0;
+    cards.forEach(function (c) { var ok = !q || c.textContent.toLowerCase().indexOf(q) !== -1; c.hidden = !ok; if (ok) n++; });
+    shown.textContent = q ? (n + " of " + cards.length + " shown") : "";
+  }
+  box.addEventListener("input", run);
+})();
+</script>
+{% endif %}
 {% endblock %}

@@ -1,9 +1,12 @@
 """Tests for the three dashboards (landing page): student, trainer, administrator."""
 
+from datetime import timedelta
+
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils import timezone
 
-from assessments.models import AnswerKey, Question
+from assessments.models import AnswerKey, Attempt, Question
 from assessments.tests import SECRET_FILL, make_exam
 from core.models import Activity, Module, ModuleNote, Unit
 from core.tests import PDF_BYTES, BaseCase
@@ -386,6 +389,63 @@ class MarkingGuidePage(BaseCase):
         self.assertContains(r, self.url)
 
 
+class DashboardExtras(BaseCase):
+    """Marking-queue links, the admin submissions chart and the student assessment filter."""
+
+    def submitted(self, exam, days_ago=0):
+        return Attempt.objects.create(exam=exam, candidate_name="Cand", reg_no=f"R{Attempt.objects.count()}", status=Attempt.SUBMITTED,
+                                      submitted_at=timezone.now() - timedelta(days=days_ago))
+
+    def test_awaiting_marking_tile_opens_the_queue(self):
+        self.client.force_login(self.alice)
+        r = self.client.get(reverse("core:dashboard"))
+        tile = next(t for t in r.context["stats"] if t["label"] == "Awaiting marking")
+        self.assertEqual(tile["url"], reverse("assessments:marking_queue"))
+
+    def test_admin_attention_row_for_marking_opens_the_queue(self):
+        exam, _ = make_exam(self.alice)
+        self.submitted(exam)
+        self.client.force_login(self.admin)
+        r = self.client.get(reverse("core:dashboard"))
+        row = next(a for a in r.context["attention"] if "awaiting marking" in a["text"])
+        self.assertEqual(row["url"], reverse("assessments:marking_queue"))
+
+    def test_admin_chart_counts_submissions_per_week(self):
+        exam, _ = make_exam(self.alice)
+        self.submitted(exam, 0), self.submitted(exam, 0), self.submitted(exam, 21)
+        self.submitted(exam, 200)                                  # too old for the chart
+        self.client.force_login(self.admin)
+        r = self.client.get(reverse("core:dashboard"))
+        weekly = r.context["weekly"]
+        self.assertEqual(len(weekly["bars"]), 8)
+        self.assertEqual(weekly["this_week"], 2)
+        self.assertEqual(weekly["total"], 3)
+        self.assertEqual(max(b["pct"] for b in weekly["bars"]), 100)
+        self.assertContains(r, "Submissions, last 8 weeks")
+        self.assertContains(r, 'class="nd-chart"')
+
+    def test_admin_chart_is_calm_when_there_is_no_data(self):
+        self.client.force_login(self.admin)
+        weekly = self.client.get(reverse("core:dashboard")).context["weekly"]
+        self.assertEqual((weekly["total"], max(b["pct"] for b in weekly["bars"])), (0, 0))
+
+    def test_trainers_do_not_get_the_platform_chart(self):
+        self.client.force_login(self.alice)
+        self.assertNotContains(self.client.get(reverse("core:dashboard")), "nd-chart")
+
+    def test_student_filter_appears_only_when_there_are_many_open_assessments(self):
+        for _ in range(2):
+            make_exam(self.alice)
+        self.client.logout()
+        self.assertNotContains(self.client.get(reverse("core:dashboard")), 'id="assess-filter"')
+        for _ in range(4):
+            make_exam(self.alice)
+        html = self.client.get(reverse("core:dashboard")).content.decode()
+        self.assertIn('id="assess-filter"', html)
+        self.assertEqual(html.count('type="search"'), 1)           # the site search stays the only search box
+        self.assertEqual(html.count('class="nd-assess-card'), 6)   # the filter hides cards, the page still lists all
+
+
 class SiteHeaderLayout(BaseCase):
     """Header = logo + user menu; then one menu bar; then the search field."""
 
@@ -404,7 +464,7 @@ class SiteHeaderLayout(BaseCase):
 
     def test_header_row_holds_only_brand_and_user_area(self):
         top = self.html(self.alice).split('class="app-topbar"', 1)[1].split("</header>", 1)[0]
-        self.assertIn("brand-mark", top)
+        self.assertIn("brand-logo", top)
         self.assertIn("user-toggle", top)
         self.assertNotIn("nav-link", top)
         self.assertNotIn('type="search"', top)
@@ -491,4 +551,5 @@ class MenuBarWidth(BaseCase):
         self.assertIn("max-width: 100%", menu)
         self.assertIn("border-radius: 999px", menu)
         bar = css.split(".app-menubar {", 1)[1].split("}", 1)[0]
-        self.assertNotIn("background", bar)       # no full-width band behind the pill
+        self.assertIn("var(--c-surface)", bar)    # the band uses the shared surface colour, no private one
+        self.assertNotIn("#", bar)

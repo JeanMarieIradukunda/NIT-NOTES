@@ -137,6 +137,38 @@ def _exam_rows(exams):
     } for e in exams]
 
 
+WEEKS = 8
+
+
+def _weekly_submissions():
+    """Submitted attempts per week for the last WEEKS weeks (oldest first), for the admin chart."""
+    from datetime import datetime, time, timedelta
+
+    from django.db.models.functions import TruncWeek
+    from django.utils import timezone
+
+    from assessments.models import Attempt
+
+    this_monday = timezone.localdate() - timedelta(days=timezone.localdate().weekday())
+    mondays = [this_monday - timedelta(weeks=i) for i in range(WEEKS - 1, -1, -1)]
+    start = timezone.make_aware(datetime.combine(mondays[0], time.min))
+    try:
+        found = {}
+        for row in (Attempt.objects.filter(status=Attempt.SUBMITTED, submitted_at__gte=start)
+                    .annotate(week=TruncWeek("submitted_at")).values("week").annotate(n=Count("pk"))):
+            day = row["week"].date() if hasattr(row["week"], "date") else row["week"]
+            found[day] = row["n"]
+    except DatabaseError:
+        found = {}
+    counts = [found.get(m, 0) for m in mondays]
+    peak = max(counts) or 1
+    return {
+        "bars": [{"label": m.strftime("%d %b").lstrip("0"), "count": c,
+                  "pct": (max(round(c / peak * 100), 6) if c else 0)} for m, c in zip(mondays, counts)],
+        "total": sum(counts), "this_week": counts[-1],
+    }
+
+
 # --------------------------------------------------------------------------- #
 # Student
 # --------------------------------------------------------------------------- #
@@ -201,7 +233,7 @@ def _trainer(request):
                   _plural(acts["drafts"], "draft"), acts["drafts"]),
             _stat("assessments:exam_list", "bi-shield-check", "Open assessments", exams["open"],
                   f"{exams['total']} in total"),
-            _stat("assessments:exam_list", "bi-pencil-square", "Awaiting marking", exams["pending"],
+            _stat("assessments:marking_queue", "bi-pencil-square", "Awaiting marking", exams["pending"],
                   "submissions to mark" if exams["pending"] else "all marked", exams["pending"]),
         ],
         "exams": _exam_rows(Exam.objects.filter(created_by=user)),
@@ -241,7 +273,7 @@ def _admin(request):
             "icon": "bi-pencil-square", "tone": "warn",
             "text": f"{_plural(assessments['pending'], 'submission')} awaiting marking",
             "hint": "Open questions are still unmarked.",
-            "url": reverse("assessments:exam_list"), "cta": "Assessments"})
+            "url": reverse("assessments:marking_queue"), "cta": "Marking queue"})
     if drafts:
         attention.append({
             "icon": "bi-file-earmark-text", "tone": "",
@@ -263,6 +295,7 @@ def _admin(request):
                   assessments["open"], f"{assessments['total']} in total"),
         ],
         "attention": attention,
+        "weekly": _weekly_submissions(),
         "exams": _exam_rows(Exam.objects.all()),
         "recent": _merged(ModuleNote.objects.order_by("-updated_at"),
                           Activity.objects.order_by("-updated_at"), staff=True),

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Marking guide: {{ exam.title }}</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 9pt; color: #666; } }
+  body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 10pt; color: #111; }
+  h1 { font-size: 17pt; margin: 0 0 2pt; } .meta { color: #555; margin: 0 0 12pt; }
+  h2 { font-size: 12pt; border-bottom: 1px solid #999; padding-bottom: 2pt; margin: 14pt 0 6pt; }
+  .q { break-inside: avoid; margin: 0 0 8pt; }
+  .q b { font-weight: 700; } .marks { color: #555; }
+  ul { margin: 3pt 0 0 14pt; padding: 0; } li { margin: 1pt 0; }
+</style></head><body>
+<h1>Marking guide: {{ exam.title }}</h1>
+<p class="meta">{{ exam.total_marks|floatformat:"-2" }} marks · {{ exam.duration_minutes }} minutes · for trainers only</p>
+{% for sec in sections %}
+<h2>{{ sec.label }}</h2>
+{% for r in sec.rows %}
+<div class="q"><b>{{ r.number }}. {{ r.text|linebreaksbr }}</b> <span class="marks">[{{ r.marks|floatformat:"-2" }} mark{{ r.marks|pluralize }}]</span>
+  <ul>{% for line in r.lines %}<li>{{ line }}</li>{% endfor %}</ul></div>
+{% endfor %}
+{% endfor %}
+</body></html>

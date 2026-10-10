@@ -52,4 +52,20 @@
   </section>
 </div>
 
+<section class="nd-block" aria-labelledby="weekly-title">
+  <div class="nd-block-head">
+    <h2 class="nd-h" id="weekly-title">Submissions, last 8 weeks</h2>
+    <span class="nd-note nd-note--inline">{{ weekly.total }} in total · {{ weekly.this_week }} this week</span>
+  </div>
+  <div class="nd-chart" role="img" aria-label="Submitted assessments per week: {% for b in weekly.bars %}{{ b.label }}: {{ b.count }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+    {% for b in weekly.bars %}
+    <div class="nd-chart-col">
+      <span class="nd-chart-n">{{ b.count }}</span>
+      <span class="nd-chart-track"><span class="nd-chart-fill" style="height:{{ b.pct }}%"></span></span>
+      <span class="nd-chart-label">{{ b.label }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
 {% endblock %}

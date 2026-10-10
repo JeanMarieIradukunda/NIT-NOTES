@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Edit marking guides · {{ exam.title }}{% endblock %}
+{% block site_search %}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_detail' exam.pk %}">{{ exam.title }}</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_guide' exam.pk %}">Marking guide</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Edit all guides</li>
+    </ol></nav>
+    <h1>Edit marking guides</h1>
+    <p class="lead">One box per written question: what a full-mark answer contains and how marks are split.</p>
+  </div>
+
+  {% if not rows %}
+  <div class="panel panel-body">
+    <p class="mb-2">This assessment has no written questions, so there are no guides to write.</p>
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:exam_guide' exam.pk %}">Back to the marking guide</a>
+  </div>
+  {% else %}
+  <form method="post" novalidate>{% csrf_token %}
+    {% for r in rows %}
+    <div class="panel panel-body mb-3">
+      <label class="form-label d-flex flex-wrap justify-content-between gap-2" for="guide_{{ r.q.pk }}">
+        <span class="fw-semibold">{{ r.q.order }}. {{ r.q.text|truncatechars:200 }}</span>
+        <span class="small text-muted-2">{{ r.marks|floatformat:"-2" }} mark{{ r.marks|pluralize }}</span>
+      </label>
+      <textarea class="form-control" id="guide_{{ r.q.pk }}" name="guide_{{ r.q.pk }}" rows="4" maxlength="{{ max_chars }}" placeholder="e.g. 2 marks: names DHCP and the address pool. 2 marks: explains the lease. 2 marks: gives a correct example.">{{ r.guide }}</textarea>
+    </div>
+    {% endfor %}
+    <div class="d-flex gap-2 mb-5">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-check2 me-1"></i>Save all guides</button>
+      <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_guide' exam.pk %}">Cancel</a>
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

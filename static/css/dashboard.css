@@ -137,6 +137,19 @@ a.nd-row:hover .nd-row-title { color: var(--nd-lamp); }
 .nd-row-link:focus-visible { outline: 0; box-shadow: 0 0 0 2px var(--c-brand); border-radius: 4px; }
 @media (max-width: 575.98px) { .nd-row-actions { grid-column: 2; justify-content: flex-start; } }
 
+.nd-filter { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; margin-bottom: .6rem; }
+.nd-filter .form-control { max-width: 20rem; }
+.nd-note--inline { margin: 0; }
+.nd-assess-card[hidden] { display: none; }
+
+/* ----------------------------------------------- admin: submissions per week --- */
+.nd-chart { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: .5rem; padding: .9rem 1rem .7rem; border-radius: var(--nd-radius); background: var(--nd-panel); border: 1px solid var(--nd-line); box-shadow: var(--shadow-1); }
+.nd-chart-col { display: grid; grid-template-rows: auto 96px auto; gap: .3rem; justify-items: center; min-width: 0; }
+.nd-chart-n { color: var(--nd-text); font-family: var(--font-display); font-size: .78rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.nd-chart-track { display: flex; align-items: flex-end; width: 100%; max-width: 44px; height: 96px; border-radius: 8px; background: var(--c-surface-3); overflow: hidden; }
+.nd-chart-fill { display: block; width: 100%; border-radius: 8px 8px 0 0; background: linear-gradient(180deg, var(--c-brand-2), var(--c-brand)); }
+.nd-chart-label { color: var(--nd-muted); font-size: .68rem; white-space: nowrap; }
+
 /* ---------------------------------------------------------------- levels --- */
 .nd-levels { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
 .nd-level {
