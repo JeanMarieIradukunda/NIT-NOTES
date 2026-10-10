@@ -124,6 +124,18 @@ a.nd-row:hover .nd-row-title { color: var(--nd-lamp); }
 .nd-badge-published { background: var(--nd-green-soft); color: var(--nd-green); }
 .nd-badge-draft { background: var(--nd-amber-soft); color: var(--nd-amber); }
 .nd-badge-new { background: var(--nd-solid); color: #fff; }
+.nd-badge-open { background: var(--nd-green-soft); color: var(--nd-green); }
+.nd-badge-closed { background: var(--c-surface-3); color: var(--nd-muted); }
+.nd-count { display: inline-grid; place-items: center; min-width: 1.4rem; height: 1.4rem; padding-inline: .4rem; border-radius: 999px; background: var(--nd-lamp-soft); color: var(--nd-lamp); font-size: .7rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.nd-warn-text { color: var(--nd-amber); font-weight: 600; }
+
+.nd-list--scroll { max-height: 26rem; overflow-y: auto; overscroll-behavior: contain; }
+.nd-row-actions { display: flex; justify-content: flex-end; }
+.nd-row-actions .btn { font-family: var(--font-display); font-weight: 600; white-space: nowrap; }
+.nd-row-link { text-decoration: none; }
+.nd-row-link:hover { color: var(--nd-lamp); }
+.nd-row-link:focus-visible { outline: 0; box-shadow: 0 0 0 2px var(--c-brand); border-radius: 4px; }
+@media (max-width: 575.98px) { .nd-row-actions { grid-column: 2; justify-content: flex-start; } }
 
 /* ---------------------------------------------------------------- levels --- */
 .nd-levels { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
@@ -145,7 +157,7 @@ a.nd-row:hover .nd-row-title { color: var(--nd-lamp); }
 .nd-level:hover .nd-level-go { background: var(--nd-solid); color: #fff; }
 
 /* -------------------------------------------- assessments and continue card --- */
-.nd-assess { display: grid; gap: .6rem; }
+.nd-assess { display: grid; gap: .6rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); }
 .nd-assess-card, .nd-resume {
   display: grid; align-items: center; gap: .6rem 1rem; padding: .9rem 1.1rem; border-radius: var(--nd-radius);
   color: inherit; text-decoration: none; border: 1px solid var(--c-brand-line); box-shadow: var(--shadow-1);

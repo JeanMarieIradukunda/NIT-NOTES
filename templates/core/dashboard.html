@@ -15,7 +15,7 @@
 {# ------------------------------------------------ open / new assessments --- #}
 {% if open_assessments %}
 <section class="nd-block" aria-labelledby="assess-title">
-  <h2 class="nd-h" id="assess-title"><span class="nd-pulse" aria-hidden="true"></span>{% if new_assessment_count %}New assessment{{ new_assessment_count|pluralize }}{% else %}Open for you now{% endif %}</h2>
+  <h2 class="nd-h" id="assess-title"><span class="nd-pulse" aria-hidden="true"></span>{% if new_assessment_count %}New assessment{{ new_assessment_count|pluralize }}{% else %}Open for you now{% endif %} <span class="nd-count">{{ open_assessments|length }}</span></h2>
   <div class="nd-assess">
     {% for e in open_assessments %}
     <a class="nd-assess-card{% if e.is_new %} is-new{% endif %}" href="{% url 'assessments:entry' e.public_id %}">

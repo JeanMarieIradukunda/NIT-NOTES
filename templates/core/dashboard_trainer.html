@@ -18,6 +18,8 @@
   {% for s in stats %}{% include "core/_dash_stat.html" with url=s.url icon=s.icon label=s.label value=s.value sub=s.sub warn=s.warn %}{% endfor %}
 </div>
 
+{% include "core/_dash_exams.html" with exams=exams title="Your assessments" show_owner=False %}
+
 <div class="nd-cols">
   <section class="nd-block" aria-labelledby="recent-title">
     <div class="nd-block-head">

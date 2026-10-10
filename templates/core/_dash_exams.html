@@ -1,0 +1,17 @@
+{# Assessment list with a Marking guide button per row. Args: exams, title, show_owner. #}
+<section class="nd-block" aria-labelledby="exams-title">
+  <div class="nd-block-head">
+    <h2 class="nd-h" id="exams-title">{{ title }}{% if exams %} <span class="nd-count">{{ exams|length }}</span>{% endif %}</h2>
+    <a class="nd-link" href="{% url 'assessments:exam_list' %}">All assessments <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a>
+  </div>
+  {% if exams %}
+  <div class="nd-list nd-list--scroll" role="list">
+    {% for x in exams %}{% include "core/_dash_exam.html" %}{% endfor %}
+  </div>
+  {% else %}
+  <div class="nd-empty nd-empty--inline">
+    <p>No assessments have been created yet.</p>
+    <a class="btn btn-primary btn-sm" href="{% url 'assessments:exam_create' %}"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>New assessment</a>
+  </div>
+  {% endif %}
+</section>

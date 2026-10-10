@@ -3,6 +3,8 @@
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
+from assessments.models import AnswerKey
+from assessments.tests import SECRET_FILL, make_exam
 from core.models import Activity, Module, ModuleNote, Unit
 from core.tests import PDF_BYTES, BaseCase
 
@@ -229,6 +231,109 @@ class AdminDashboard(BaseCase):
 
     def test_never_links_to_the_retired_django_admin(self):
         self.assertNotContains(self.get(), 'href="/admin/')
+
+
+class StudentSeesEveryOpenAssessment(BaseCase):
+    """No cap: every open assessment that is meant for the dashboard is listed."""
+
+    def test_all_open_assessments_are_listed_not_just_three(self):
+        for _ in range(5):
+            make_exam(self.alice)
+        self.client.logout()
+        html = self.client.get(reverse("core:dashboard")).content.decode()
+        self.assertEqual(html.count('class="nd-assess-card'), 5)
+        self.assertIn('<span class="nd-count">5</span>', html)
+
+    def test_closed_or_hidden_assessments_are_still_left_out(self):
+        make_exam(self.alice)
+        make_exam(self.alice, is_open=False)
+        make_exam(self.alice, show_on_dashboard=False)
+        self.client.logout()
+        html = self.client.get(reverse("core:dashboard")).content.decode()
+        self.assertEqual(html.count('class="nd-assess-card'), 1)
+
+
+class StaffAssessmentButtons(BaseCase):
+    """Trainer and administrator dashboards: one Marking guide button per assessment."""
+
+    def test_trainer_gets_a_button_for_each_of_their_assessments_only(self):
+        mine = [make_exam(self.alice)[0], make_exam(self.alice, is_open=False)[0]]
+        theirs = make_exam(self.bob)[0]
+        self.client.force_login(self.alice)
+        html = self.client.get(reverse("core:dashboard")).content.decode()
+        self.assertEqual(html.count("Marking guide</a>"), 2)
+        for e in mine:
+            self.assertIn(reverse("assessments:exam_guide", args=[e.pk]), html)
+            self.assertIn(reverse("assessments:exam_detail", args=[e.pk]), html)
+        self.assertNotIn(reverse("assessments:exam_guide", args=[theirs.pk]), html)
+
+    def test_admin_gets_a_button_for_every_assessment_with_the_owner(self):
+        a, b = make_exam(self.alice)[0], make_exam(self.bob)[0]
+        self.client.force_login(self.admin)
+        html = self.client.get(reverse("core:dashboard")).content.decode()
+        self.assertEqual(html.count("Marking guide</a>"), 2)
+        self.assertIn(reverse("assessments:exam_guide", args=[a.pk]), html)
+        self.assertIn(reverse("assessments:exam_guide", args=[b.pk]), html)
+        self.assertIn("by Alice", html)
+        self.assertIn("by Bob", html)
+
+    def test_shows_how_many_written_questions_lack_a_guide(self):
+        exam, qs = make_exam(self.alice)
+        AnswerKey.objects.filter(question=qs[("open", 1)]).update(data={"guide": ""})
+        self.client.force_login(self.alice)
+        self.assertContains(self.client.get(reverse("core:dashboard")), "1 without guide")
+
+    def test_empty_state_offers_a_new_assessment(self):
+        self.client.force_login(self.alice)
+        r = self.client.get(reverse("core:dashboard"))
+        self.assertContains(r, "No assessments have been created yet")
+        self.assertContains(r, reverse("assessments:exam_create"))
+
+
+class MarkingGuidePage(BaseCase):
+    """The page the dashboard button opens."""
+
+    def setUp(self):
+        super().setUp()
+        self.exam, self.qs = make_exam(self.alice)
+        self.url = reverse("assessments:exam_guide", args=[self.exam.pk])
+
+    def test_owner_sees_every_answer_and_the_written_guide(self):
+        self.client.force_login(self.alice)
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Mentions leases and automatic addressing.")   # written guide
+        self.assertContains(r, SECRET_FILL)                                   # fill-in answers
+        self.assertContains(r, "(correct answer)")                            # multiple choice
+        self.assertContains(r, "Connects networks")                           # matching pairs
+        self.assertContains(r, reverse("assessments:question_edit",
+                                       args=[self.exam.pk, self.qs[("open", 1)].pk]))
+
+    def test_a_missing_guide_is_flagged_with_an_add_button(self):
+        AnswerKey.objects.filter(question=self.qs[("open", 1)]).update(data={"guide": ""})
+        self.client.force_login(self.alice)
+        r = self.client.get(self.url)
+        self.assertContains(r, "No marking guide yet")
+        self.assertContains(r, "Add guide")
+
+    def test_admin_can_open_any_guide(self):
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+
+    def test_another_trainer_students_and_visitors_are_kept_out(self):
+        self.client.force_login(self.bob)
+        self.assertEqual(self.client.get(self.url).status_code, 403)
+        self.client.force_login(self.student)
+        self.assertEqual(self.client.get(self.url).status_code, 403)
+        self.client.logout()
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("login", r["Location"])
+
+    def test_assessment_page_links_to_its_guide(self):
+        self.client.force_login(self.alice)
+        r = self.client.get(reverse("assessments:exam_detail", args=[self.exam.pk]))
+        self.assertContains(r, self.url)
 
 
 class SiteHeaderLayout(BaseCase):

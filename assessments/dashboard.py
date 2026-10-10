@@ -2,7 +2,7 @@
 assessments.dashboard
 =====================
 
-Open assessments for the student dashboard's highlighted "New assessment" links.
+Open assessments for the student dashboard's highlighted "New assessment" links (all of them).
 
 An assessment is listed while it is open, its trainer has left "Show on the student
 dashboard" ticked, its exam date has not passed and its late-entry cutoff has not
@@ -21,7 +21,7 @@ from .models import Exam
 logger = logging.getLogger(__name__)
 
 NEW_FOR_DAYS = 7      # an assessment created within this many days carries the "New" badge
-MAX_SHOWN = 3
+MAX_SHOWN = None      # no cap: every open assessment is listed
 
 
 def _when(exam, now, today):

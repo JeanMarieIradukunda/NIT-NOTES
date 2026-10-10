@@ -1,0 +1,15 @@
+{# One assessment: its title opens it for managing; the button opens its marking guide. Args: x, show_owner. #}
+<div class="nd-row" role="listitem">
+  <span class="nd-tile"><i class="bi bi-shield-check" aria-hidden="true"></i></span>
+  <span class="nd-row-main">
+    <a class="nd-row-title nd-row-link" href="{{ x.detail_url }}">{{ x.title }}</a>
+    <span class="nd-row-meta">
+      {% if x.code %}<span class="nd-code">{{ x.code }}</span>{% endif %}
+      <span class="nd-badge nd-badge-{% if x.is_open %}open{% else %}closed{% endif %}">{% if x.is_open %}Open{% else %}Closed{% endif %}</span>
+      <span>{{ x.n_questions }} question{{ x.n_questions|pluralize }}</span>
+      {% if x.missing %}<span class="nd-warn-text">{{ x.missing }} without guide</span>{% endif %}
+      {% if show_owner and x.owner %}<span>by {{ x.owner }}</span>{% endif %}
+    </span>
+  </span>
+  <span class="nd-row-actions"><a class="btn btn-outline-secondary btn-sm" href="{{ x.guide_url }}"><i class="bi bi-journal-check me-1" aria-hidden="true"></i>Marking guide</a></span>
+</div>

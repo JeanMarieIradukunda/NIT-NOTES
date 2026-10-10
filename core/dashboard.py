@@ -104,6 +104,39 @@ def _assessment_counts(exams=None, attempts=None):
     return {"total": counts["total"], "open": counts["open"], "pending": pending}
 
 
+def _exam_rows(exams):
+    """One row per assessment, newest first, for the dashboards' assessment list.
+
+    Each row carries the two links the dashboard needs: the assessment itself (view /
+    manage) and its marking guide. ``missing`` counts written questions that still have
+    no marking guide, so a trainer sees at a glance which ones need attention.
+    Never raises (same reason as _assessment_counts).
+    """
+    from assessments.models import Question
+
+    try:
+        exams = list(exams.select_related("module", "created_by")
+                     .annotate(n_questions=Count("questions", distinct=True))
+                     .order_by("-created_at"))
+        missing = {}
+        for q in Question.objects.filter(exam__in=exams, section="open").select_related("key"):
+            key = getattr(q, "key", None)
+            if not (key and (key.data or {}).get("guide", "").strip()):
+                missing[q.exam_id] = missing.get(q.exam_id, 0) + 1
+    except DatabaseError:
+        return []
+    return [{
+        "title": e.title,
+        "code": e.module.code if e.module else "",
+        "owner": _who(e.created_by),
+        "is_open": e.is_open,
+        "n_questions": e.n_questions,
+        "missing": missing.get(e.pk, 0),
+        "detail_url": reverse("assessments:exam_detail", args=[e.pk]),
+        "guide_url": reverse("assessments:exam_guide", args=[e.pk]),
+    } for e in exams]
+
+
 # --------------------------------------------------------------------------- #
 # Student
 # --------------------------------------------------------------------------- #
@@ -171,6 +204,7 @@ def _trainer(request):
             _stat("assessments:exam_list", "bi-pencil-square", "Awaiting marking", exams["pending"],
                   "submissions to mark" if exams["pending"] else "all marked", exams["pending"]),
         ],
+        "exams": _exam_rows(Exam.objects.filter(created_by=user)),
         "recent": _merged(my_notes.order_by("-updated_at"),
                           my_acts.order_by("-updated_at"), staff=True, with_who=False),
         "modules": modules,
@@ -182,6 +216,8 @@ def _trainer(request):
 # --------------------------------------------------------------------------- #
 
 def _admin(request):
+    from assessments.models import Exam
+
     trainers = get_user_model().objects.filter(groups__name=TRAINER, is_active=True).distinct()
     n_trainers = trainers.count()
     unassigned = (trainers.filter(Q(profile__isnull=True) | Q(profile__trainer_modules__isnull=True))
@@ -227,6 +263,7 @@ def _admin(request):
                   assessments["open"], f"{assessments['total']} in total"),
         ],
         "attention": attention,
+        "exams": _exam_rows(Exam.objects.all()),
         "recent": _merged(ModuleNote.objects.order_by("-updated_at"),
                           Activity.objects.order_by("-updated_at"), staff=True),
     }

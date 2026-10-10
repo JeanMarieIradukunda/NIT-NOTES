@@ -23,6 +23,7 @@ urlpatterns = [
     path("assessments/new/", staff_views.exam_create, name="exam_create"),
     path("assessments/<int:pk>/", staff_views.exam_detail, name="exam_detail"),
     path("assessments/<int:pk>/edit/", staff_views.exam_edit, name="exam_edit"),
+    path("assessments/<int:pk>/marking-guide/", staff_views.exam_guide, name="exam_guide"),
     path("assessments/<int:pk>/open/", staff_views.exam_toggle_open, name="exam_toggle_open"),
     path("assessments/<int:pk>/answers/", staff_views.exam_toggle_answers, name="exam_toggle_answers"),
     path("assessments/<int:pk>/delete/", staff_views.exam_delete, name="exam_delete"),

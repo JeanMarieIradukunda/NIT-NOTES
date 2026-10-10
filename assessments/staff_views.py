@@ -24,7 +24,8 @@ from . import analysis, evidence, services
 from .forms import ExamForm, QuestionForm
 from .marking import (OVERRIDABLE_SECTIONS, mark_objective, ordered_questions, q2, question_max_marks,
                       recompute_final)
-from .models import (ALL_VIOLATION_LABELS, SECTION_LABELS, SECTION_ORDER, Attempt, Exam, Question)
+from .models import (ALL_VIOLATION_LABELS, SECTION_LABELS, SECTION_ORDER, AnswerKey, Attempt, Exam,
+                     Question)
 from .permissions import can_manage_exam, deny, trainer_required
 from .views import _sheet_rows, evidence_response
 
@@ -95,6 +96,59 @@ def exam_detail(request, pk):
         "exam": exam, "groups": groups, "warnings": warnings,
         "entry_url": request.build_absolute_uri(reverse("assessments:entry", args=[exam.public_id])),
         "penalties": exam.penalty_table(), "n_attempts": exam.attempts.count(), "n_roster": exam.roster.count()})
+
+
+def _pair_index(value, size):
+    try:
+        i = int(value)
+    except (TypeError, ValueError):
+        return None
+    return i if 0 <= i < size else None
+
+
+def _guide_row(q, marks):
+    """What the trainer needs to mark one question: the right answer, or the written-answer guide."""
+    try:
+        data = q.key.data or {}
+    except AnswerKey.DoesNotExist:
+        data = {}
+    row = {"q": q, "marks": marks}
+    if q.section == "mcq":
+        options = q.payload.get("options") or []
+        row["options"] = [{"text": o, "correct": i == data.get("correct")} for i, o in enumerate(options)]
+    elif q.section == "fill":
+        row["accepted"] = data.get("accepted") or []
+        row["case_sensitive"] = bool(data.get("case_sensitive"))
+    elif q.section == "match":
+        left, right = q.payload.get("left") or [], q.payload.get("right") or []
+        pairs = data.get("pairs") or {}
+        row["pairs"] = []
+        for i, text in enumerate(left):
+            j = _pair_index(pairs.get(str(i)), len(right))
+            row["pairs"].append((text, right[j] if j is not None else "—"))
+    else:
+        row["guide"] = (data.get("guide") or "").strip()
+    return row
+
+
+@trainer_required
+def exam_guide(request, pk):
+    """Every question with its answer key / marking guide, for the trainer who owns the exam."""
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    questions = list(exam.questions.select_related("key"))
+    maxima = question_max_marks(exam, questions)
+    sections, missing = [], 0
+    for s in SECTION_ORDER:
+        rows = [_guide_row(q, maxima[q.id]) for q in questions if q.section == s]
+        if not rows:
+            continue
+        if s == "open":
+            missing = sum(1 for r in rows if not r["guide"])
+        sections.append({"key": s, "label": SECTION_LABELS[s], "rows": rows})
+    return render(request, "assessments/exam_guide.html", {
+        "exam": exam, "sections": sections, "missing": missing, "n_questions": len(questions)})
 
 
 @require_POST

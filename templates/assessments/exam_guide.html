@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Marking guide · {{ exam.title }}{% endblock %}
+{% block site_search %}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb" class="d-print-none"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_list' %}">Assessments</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_detail' exam.pk %}">{{ exam.title }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Marking guide</li>
+    </ol></nav>
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div>
+        <h1>Marking guide</h1>
+        <p class="lead">{{ exam.title }} · {{ n_questions }} question{{ n_questions|pluralize }} · {{ exam.total_marks|floatformat:"-2" }} marks. For trainers only; candidates never see this page.</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2 d-print-none">
+        <button class="btn btn-outline-secondary" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print</button>
+        <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_detail' exam.pk %}"><i class="bi bi-pencil-square me-1"></i>Manage assessment</a>
+      </div>
+    </div>
+  </div>
+
+  {% if missing %}<div class="alert alert-warning py-2">{{ missing }} written question{{ missing|pluralize }} {{ missing|pluralize:"has,have" }} no marking guide yet. Use <strong>Add guide</strong> below.</div>{% endif %}
+
+  {% for sec in sections %}
+  <section class="panel panel-body mb-4">
+    <h2 class="fs-6 mb-3">{{ sec.label }}</h2>
+    {% for r in sec.rows %}
+    <div class="{% if not forloop.last %}pb-3 mb-3 border-bottom{% endif %}">
+      <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+        <div class="fw-semibold">{{ r.q.order }}. {{ r.q.text|linebreaksbr }}</div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="pill pill--muted">{{ r.marks|floatformat:"-2" }} mark{{ r.marks|pluralize }}</span>
+          <a class="btn btn-outline-secondary btn-sm d-print-none" href="{% url 'assessments:question_edit' exam.pk r.q.pk %}"><i class="bi bi-pencil me-1"></i>{% if sec.key == 'open' and not r.guide %}Add guide{% else %}Edit{% endif %}</a>
+        </div>
+      </div>
+
+      {% if sec.key == "mcq" %}
+        <ol type="A" class="mt-2 mb-0">
+          {% for o in r.options %}<li{% if o.correct %} class="fw-semibold text-success"{% endif %}>{{ o.text }}{% if o.correct %} <i class="bi bi-check-circle-fill ms-1" aria-hidden="true"></i><span class="visually-hidden"> (correct answer)</span>{% endif %}</li>{% endfor %}
+        </ol>
+      {% elif sec.key == "fill" %}
+        <div class="small mt-2"><span class="text-muted-2">Accepted answers{% if r.case_sensitive %} (case sensitive){% endif %}:</span> <strong>{{ r.accepted|join:" · " }}</strong></div>
+      {% elif sec.key == "match" %}
+        <ul class="mt-2 mb-0 list-unstyled">
+          {% for left, right in r.pairs %}<li>{{ left }} <i class="bi bi-arrow-right mx-1 text-muted-2" aria-hidden="true"></i> <strong>{{ right }}</strong></li>{% endfor %}
+        </ul>
+      {% else %}
+        {% if r.guide %}<div class="answer-box mt-2">{{ r.guide|linebreaksbr }}</div>
+        {% else %}<div class="small text-warning mt-2">No marking guide yet.</div>{% endif %}
+      {% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% empty %}
+  <div class="panel panel-body">
+    <p class="mb-2">This assessment has no questions yet, so there is nothing to mark.</p>
+    <a class="btn btn-primary btn-sm" href="{% url 'assessments:question_create' exam.pk %}"><i class="bi bi-plus-lg me-1"></i>Add a question</a>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
