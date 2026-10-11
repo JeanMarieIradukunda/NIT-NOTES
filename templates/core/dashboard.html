@@ -1,25 +1,22 @@
 {% extends "core/dashboard_base.html" %}
 {% comment %}
   Student dashboard (anyone who is not staff, including anonymous visitors).
-  Order: open assessments > continue learning > levels > latest > saved.
-  Every block is hidden when it has nothing to show.
+  Order: open assessments > continue learning > levels > latest > saved. Each block hides when empty.
 {% endcomment %}
 
-{% block dash_eyebrow %}Student library{% endblock %}
 {% block dash_title %}Study NIT, Levels 3 to 5{% endblock %}
-{% block dash_lead %}Module notes, lessons and activities. Read online or download for offline study.{% endblock %}
-{% block dash_actions %}<a class="btn btn-primary btn-sm" href="{% url 'core:browse' %}"><i class="bi bi-compass me-1" aria-hidden="true"></i>Browse all modules</a>{% endblock %}
+{% block dash_lead %}Notes, lessons and activities from your trainers. Read them here or download them to study offline.{% endblock %}
 
 {% block dash_body %}
 
 {# ------------------------------------------------ open / new assessments --- #}
 {% if open_assessments %}
 <section class="nd-block" aria-labelledby="assess-title">
-  <h2 class="nd-h" id="assess-title"><span class="nd-pulse" aria-hidden="true"></span>{% if new_assessment_count %}New assessment{{ new_assessment_count|pluralize }}{% else %}Open for you now{% endif %} <span class="nd-count">{{ open_assessments|length }}</span></h2>
+  <h2 class="nd-h" id="assess-title"><span class="nd-pulse" aria-hidden="true"></span>{% if new_assessment_count %}New assessment{{ new_assessment_count|pluralize }}{% else %}Open for you now{% endif %} <span class="nd-count is-violet">{{ open_assessments|length }}</span></h2>
   {% if open_assessments|length > 5 %}
   <div class="nd-filter">
     <label class="visually-hidden" for="assess-filter">Filter assessments</label>
-    <input id="assess-filter" class="form-control form-control-sm" type="text" placeholder="Filter by title or module code" autocomplete="off">
+    <input id="assess-filter" class="form-control" type="text" placeholder="Filter by title or module code" autocomplete="off">
     <span class="nd-note nd-note--inline" id="assess-shown" aria-live="polite"></span>
   </div>
   {% endif %}
@@ -27,8 +24,8 @@
     {% for e in open_assessments %}
     <a class="nd-assess-card{% if e.is_new %} is-new{% endif %}" href="{% url 'assessments:entry' e.public_id %}">
       <span class="nd-assess-main">
-        <span class="nd-row-title">{{ e.title }}</span>
-        <span class="nd-row-meta">
+        <span class="nd-assess-title">{{ e.title }}</span>
+        <span class="nd-assess-meta">
           {% if e.is_new %}<span class="nd-badge nd-badge-new">New</span>{% endif %}
           {% if e.module %}<span class="nd-code">{{ e.module.code }}</span>{% endif %}
           <span>{{ e.duration_minutes }} min</span>
@@ -36,11 +33,11 @@
           {% if e.when_label %}<span>{{ e.when_label }}</span>{% endif %}
         </span>
       </span>
-      <span class="nd-cta">Open <i class="bi bi-arrow-up-right" aria-hidden="true"></i></span>
+      <span class="nd-cta">Open assessment</span>
     </a>
     {% endfor %}
   </div>
-  <p class="nd-note">Keep your candidate number and the exam password ready.</p>
+  <p class="nd-note"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Keep your candidate number and the exam password ready before you start.</p>
 </section>
 {% endif %}
 
@@ -48,9 +45,9 @@
 {% if resume %}
 <a href="{{ resume.lesson.get_absolute_url }}" class="nd-resume">
   <span class="nd-resume-main">
-    <span class="nd-eyebrow">Continue learning</span>
-    <span class="nd-row-title">{{ resume.lesson.title }}</span>
-    <span class="nd-row-meta"><span class="nd-code">{{ resume.lesson.module.code }}</span><span>{{ resume.lesson.module.name }} · {{ resume.progress_pct }}% read</span></span>
+    <span class="nd-resume-label">Pick up where you left off</span>
+    <span class="nd-resume-title">{{ resume.lesson.title }}</span>
+    <span class="nd-row-meta"><span class="nd-code">{{ resume.lesson.module.code }}</span><span>{{ resume.lesson.module.name }}</span><span>{{ resume.progress_pct }}% read</span></span>
   </span>
   <span class="nd-bar" role="progressbar" aria-label="Reading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ resume.progress_pct }}"><span style="width:{{ resume.progress_pct }}%"></span></span>
 </a>
@@ -62,16 +59,18 @@
 {% if levels %}
 <section class="nd-block" aria-labelledby="levels-title">
   <h2 class="nd-h" id="levels-title">Choose your level</h2>
-  <div class="nd-levels">
+  <div class="nd-doors">
     {% for lv in levels %}
-    <a class="nd-level" href="{% url 'core:browse' %}?trade={{ lv.trade.key }}">
-      <span class="nd-level-name">{{ lv.trade.name }}</span>
-      <span class="nd-level-counts">
-        <span><b>{{ lv.modules }}</b> module{{ lv.modules|pluralize }}</span>
-        <span><b>{{ lv.notes }}</b> note{{ lv.notes|pluralize }}</span>
-        {% if lv.lessons %}<span><b>{{ lv.lessons }}</b> lesson{{ lv.lessons|pluralize }}</span>{% endif %}
+    <a class="nd-door is-{{ lv.tone }}" href="{% url 'core:browse' %}?trade={{ lv.trade.key }}">
+      <span class="nd-door-num" aria-hidden="true">{{ lv.number }}</span>
+      <span class="nd-door-body">
+        <span class="nd-door-name">{{ lv.trade.name }}</span>
+        <span class="nd-door-counts">
+          <span><b>{{ lv.modules }}</b> module{{ lv.modules|pluralize }}</span>
+          <span><b>{{ lv.notes }}</b> note{{ lv.notes|pluralize }}</span>
+          {% if lv.lessons %}<span><b>{{ lv.lessons }}</b> lesson{{ lv.lessons|pluralize }}</span>{% endif %}
+        </span>
       </span>
-      <i class="bi bi-arrow-up-right nd-level-go" aria-hidden="true"></i>
     </a>
     {% endfor %}
   </div>
@@ -83,7 +82,10 @@
 <div class="nd-cols{% if not saved %} nd-cols--solo{% endif %}">
   {% if latest %}
   <section class="nd-block" aria-labelledby="latest-title">
-    <h2 class="nd-h" id="latest-title">Latest from your trainers</h2>
+    <div class="nd-block-head">
+      <h2 class="nd-h" id="latest-title">Latest from your trainers</h2>
+      <a class="nd-link" href="{% url 'core:browse' %}">Browse everything</a>
+    </div>
     <div class="nd-list" role="list">
       {% for item in latest %}{% include "core/_dash_row.html" %}{% endfor %}
     </div>
@@ -96,7 +98,7 @@
     <div class="nd-list" role="list">
       {% for a in saved %}
       <a class="nd-row" href="{{ a.lesson.get_absolute_url }}" role="listitem">
-        <span class="nd-tile nd-tile--lamp"><i class="bi bi-bookmark-star" aria-hidden="true"></i></span>
+        <span class="nd-tile is-blue"><i class="bi bi-bookmark-star" aria-hidden="true"></i></span>
         <span class="nd-row-main">
           <span class="nd-row-title">{{ a.lesson.title }}</span>
           <span class="nd-row-meta"><span class="nd-code">{{ a.lesson.module.code }}</span><span>{{ a.lesson.module.name }}</span></span>
@@ -112,7 +114,7 @@
 {% else %}
 {# --------------------------------------------------------- empty library --- #}
 <section class="nd-empty" aria-labelledby="empty-title">
-  <span class="nd-tile"><i class="bi bi-journal-text" aria-hidden="true"></i></span>
+  <span class="nd-tile is-blue"><i class="bi bi-journal-text" aria-hidden="true"></i></span>
   <h2 id="empty-title">Nothing has been published yet</h2>
   <p>Trainers are still adding notes. Check back soon; levels will appear here as soon as a module has something to open.</p>
 </section>

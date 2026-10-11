@@ -1,0 +1,20 @@
+{# What needs doing, most urgent first, each with one button. Args: attention, title. #}
+<section class="nd-block" aria-labelledby="attn-title">
+  <h2 class="nd-h" id="attn-title">{{ title }}{% if attention %} <span class="nd-count is-amber">{{ attention|length }}</span>{% endif %}</h2>
+  {% if attention %}
+  <div class="nd-attn" role="list">
+    {% for a in attention %}
+    <div class="nd-attn-row is-{{ a.tone }}" role="listitem">
+      <span class="nd-attn-ic"><i class="bi {{ a.icon }}" aria-hidden="true"></i></span>
+      <span class="nd-attn-main">
+        <span class="nd-attn-text">{{ a.text }}</span>
+        <span class="nd-attn-hint">{{ a.hint }}</span>
+      </span>
+      <a class="btn btn-primary nd-attn-btn" href="{{ a.url }}">{{ a.cta }}</a>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="nd-ok"><i class="bi bi-check-circle-fill" aria-hidden="true"></i><span>All clear. Nothing needs attention right now.</span></div>
+  {% endif %}
+</section>

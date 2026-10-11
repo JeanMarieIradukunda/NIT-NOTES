@@ -56,6 +56,15 @@ class DashboardPage(BaseCase):
         self.assertIn(note.title, html)
         self.assertNotIn("Nothing has been published yet", html)
 
+    def test_levels_are_big_numbered_doors_in_different_colours(self):
+        self.make_note()
+        self.client.logout()
+        r = self.get()
+        door = r.context["levels"][0]
+        self.assertEqual(door["number"], "3")                 # "Level 3 ..." shows a big 3
+        self.assertEqual(door["tone"], "blue")
+        self.assertContains(r, '<span class="nd-door-num" aria-hidden="true">3</span>')
+
     def test_latest_is_one_list_newest_first_capped_at_five(self):
         first = self.make_note()
         for i in range(6):
@@ -83,17 +92,17 @@ class DashboardPage(BaseCase):
 
     def test_each_role_gets_its_own_dashboard(self):
         self.client.logout()
-        self.assertContains(self.get(), "Student library")
+        self.assertContains(self.get(), "Study NIT")
         self.client.force_login(self.student)
-        self.assertContains(self.get(), "Student library")
+        self.assertContains(self.get(), "Study NIT")
         self.client.force_login(self.alice)
         r = self.get()
-        self.assertContains(r, "Trainer workspace")
-        self.assertNotContains(r, "Student library")
+        self.assertContains(r, "Welcome back, Alice")
+        self.assertNotContains(r, "Study NIT")
         self.client.force_login(self.admin)
         r = self.get()
         self.assertContains(r, "Platform overview")
-        self.assertNotContains(r, "Trainer workspace")
+        self.assertNotContains(r, "Welcome back")
 
 
 class DashboardActivities(BaseCase):
@@ -150,14 +159,41 @@ class TrainerDashboard(BaseCase):
         self.client.force_login(who or self.alice)
         return self.client.get(reverse("core:dashboard"))
 
-    def test_shows_four_numbers_and_the_quick_actions(self):
-        html = self.get().content.decode()
-        self.assertEqual(html.count('class="nd-stat"'), 4)
-        for label in ("Notes", "Activities", "Open assessments", "Awaiting marking"):
+    def test_shows_three_numbers_and_four_quick_actions(self):
+        r = self.get()
+        html = r.content.decode()
+        self.assertEqual(html.count('class="nd-stat is-'), 3)
+        for label in ("Notes published", "Activities published", "Assessments open"):
             self.assertIn(label, html)
-        for name in ("core:note_create", "core:activity_create", "assessments:exam_create"):
+        self.assertEqual(html.count('class="nd-act is-'), 4)
+        for name in ("core:note_create", "core:activity_create", "assessments:exam_create",
+                     "assessments:marking_queue"):
             self.assertIn(reverse(name), html)
         self.assertIn("Welcome back, Alice", html)
+
+    def test_attention_lists_what_needs_doing_and_is_calm_when_nothing_does(self):
+        self.assertContains(self.get(), "All clear. Nothing needs attention right now.")
+        exam, qs = make_exam(self.alice)
+        AnswerKey.objects.filter(question=qs[("open", 1)]).update(data={"guide": ""})
+        self.make_note(self.alice, published=False)
+        from assessments.models import Attempt
+        Attempt.objects.create(exam=exam, candidate_name="C", reg_no="R1", status="submitted",
+                               submitted_at=timezone.now())
+        r = self.get()
+        texts = [a["text"] for a in r.context["attention"]]
+        self.assertEqual(texts, ["1 submission waiting to be marked", "1 draft not yet published",
+                                 "1 written question without a marking guide"])
+        guides = r.context["attention"][2]
+        self.assertEqual(guides["url"], reverse("assessments:guides_edit", args=[exam.pk]))   # straight to the fix
+        self.assertContains(r, "Open marking queue")
+
+    def test_marking_queue_button_shows_how_many_are_waiting(self):
+        exam, _ = make_exam(self.alice)
+        for i in range(3):
+            Attempt.objects.create(exam=exam, candidate_name="C", reg_no=f"R{i}", status="submitted",
+                                   submitted_at=timezone.now())
+        action = next(a for a in self.get().context["actions"] if a["label"] == "Marking queue")
+        self.assertEqual((action["badge"], action["hint"]), (3, "3 waiting"))
 
     def test_counts_only_this_trainers_notes_with_drafts_called_out(self):
         self.make_note(self.alice)                                 # published
@@ -165,7 +201,7 @@ class TrainerDashboard(BaseCase):
         self.ensure_module("GENCP302", "C Programming", self.bob)
         self.make_note(self.bob)                                   # someone else's
         r = self.get()
-        notes = next(s for s in r.context["stats"] if s["label"] == "Notes")
+        notes = next(s for s in r.context["stats"] if s["label"] == "Notes published")
         self.assertEqual(notes["value"], 1)
         self.assertEqual(notes["sub"], "1 draft")
         self.assertTrue(notes["warn"])
@@ -200,10 +236,11 @@ class AdminDashboard(BaseCase):
         self.client.force_login(self.admin)
         return self.client.get(reverse("core:dashboard"))
 
-    def test_shows_four_totals_and_two_actions(self):
+    def test_shows_four_totals_and_four_quick_actions(self):
         html = self.get().content.decode()
-        self.assertEqual(html.count('class="nd-stat"'), 4)
-        for label in ("Trainers", "Modules", "Published content", "Open assessments"):
+        self.assertEqual(html.count('class="nd-stat is-'), 4)
+        self.assertEqual(html.count('class="nd-act is-'), 4)
+        for label in ("Trainers", "Modules", "Published content", "Assessments open"):
             self.assertIn(label, html)
         self.assertIn(reverse("accounts:create_trainer"), html)
         self.assertIn(reverse("core:curriculum"), html)
@@ -245,7 +282,7 @@ class StudentSeesEveryOpenAssessment(BaseCase):
         self.client.logout()
         html = self.client.get(reverse("core:dashboard")).content.decode()
         self.assertEqual(html.count('class="nd-assess-card'), 5)
-        self.assertIn('<span class="nd-count">5</span>', html)
+        self.assertIn('<span class="nd-count is-violet">5</span>', html)
 
     def test_closed_or_hidden_assessments_are_still_left_out(self):
         make_exam(self.alice)
@@ -399,8 +436,8 @@ class DashboardExtras(BaseCase):
     def test_awaiting_marking_tile_opens_the_queue(self):
         self.client.force_login(self.alice)
         r = self.client.get(reverse("core:dashboard"))
-        tile = next(t for t in r.context["stats"] if t["label"] == "Awaiting marking")
-        self.assertEqual(tile["url"], reverse("assessments:marking_queue"))
+        action = next(a for a in r.context["actions"] if a["label"] == "Marking queue")
+        self.assertEqual(action["url"], reverse("assessments:marking_queue"))
 
     def test_admin_attention_row_for_marking_opens_the_queue(self):
         exam, _ = make_exam(self.alice)

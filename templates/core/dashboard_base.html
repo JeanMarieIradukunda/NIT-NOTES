@@ -8,18 +8,15 @@
 {% endblock %}
 
 {% comment %}
-  Shared frame for the three dashboards (student, trainer, administrator):
-  one header (eyebrow, title, one line of context, primary actions), then the body.
+  Shared frame for the three dashboards: a plain heading with one line of context, then the body.
+  Colour means something on these pages: blue = notes, teal = activities, violet = assessments,
+  amber = needs action, green = open / all clear.
 {% endcomment %}
 {% block content %}
 <div class="nd-wrap nd-page">
   <header class="nd-head">
-    <div class="nd-head-text">
-      <p class="nd-eyebrow">{% block dash_eyebrow %}{% endblock %}</p>
-      <h1 id="dash-title">{% block dash_title %}{% endblock %}</h1>
-      <p class="nd-lead">{% block dash_lead %}{% endblock %}</p>
-    </div>
-    <div class="nd-head-actions">{% block dash_actions %}{% endblock %}</div>
+    <h1 id="dash-title">{% block dash_title %}{% endblock %}</h1>
+    <p class="nd-lead">{% block dash_lead %}{% endblock %}</p>
   </header>
 
   {% block dash_body %}{% endblock %}

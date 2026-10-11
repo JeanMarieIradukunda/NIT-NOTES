@@ -13,6 +13,8 @@ Each builder returns a *small* context on purpose. Every number or list on a
 dashboard has to earn its place; anything else belongs on the page it links to.
 """
 
+import re
+
 from django.contrib.auth import get_user_model
 from django.db import DatabaseError
 from django.db.models import Count, Q
@@ -33,10 +35,21 @@ def _plural(n, word, plural=None):
     return f"{n} {word if n == 1 else (plural or word + 's')}"
 
 
-def _stat(url_name, icon, label, value, sub, warn=False):
+def _stat(url_name, icon, label, value, sub, warn=False, tone="blue"):
     """One headline number. ``warn`` tints the sub-line amber (only when it is non-zero)."""
     return {"url": reverse(url_name), "icon": icon, "label": label,
-            "value": value, "sub": sub, "warn": bool(warn)}
+            "value": value, "sub": sub, "warn": bool(warn), "tone": tone}
+
+
+def _act(label, hint, icon, tone, url_name, badge=0):
+    """A quick-action button on a staff dashboard. ``tone`` picks its colour (see dashboard.css)."""
+    return {"label": label, "hint": hint, "icon": icon, "tone": tone,
+            "url": reverse(url_name), "badge": badge}
+
+
+def _attn(icon, tone, text, hint, url, cta):
+    """One row of the "needs attention" panel: what is wrong, why it matters, one button to fix it."""
+    return {"icon": icon, "tone": tone, "text": text, "hint": hint, "url": url, "cta": cta}
 
 
 def _who(user):
@@ -47,6 +60,7 @@ def _item(kind, obj, url, when, status=None, with_who=True):
     """One row in a feed. ``status`` ("Published"/"Draft") is only set for staff lists."""
     return {
         "kind": kind,                       # "Notes" | "Activity"
+        "tone": "blue" if kind == "Notes" else "teal",
         "title": obj.title,
         "code": obj.module.code,
         "module": obj.module.name,
@@ -134,6 +148,7 @@ def _exam_rows(exams):
         "missing": missing.get(e.pk, 0),
         "detail_url": reverse("assessments:exam_detail", args=[e.pk]),
         "guide_url": reverse("assessments:exam_guide", args=[e.pk]),
+        "edit_guides_url": reverse("assessments:guides_edit", args=[e.pk]),
     } for e in exams]
 
 
@@ -180,8 +195,11 @@ def _student(request):
     for trade in Trade.objects.filter(kind=Trade.KIND_TRADE).prefetch_related("modules"):
         notes, lessons = trade.note_count, trade.lesson_count
         if notes or lessons:        # a level with nothing to open is left out
+            digits = re.search(r"\d+", trade.name)
             levels.append({"trade": trade, "modules": len(trade.modules.all()),
-                           "notes": notes, "lessons": lessons})
+                           "notes": notes, "lessons": lessons,
+                           "number": digits.group() if digits else trade.name[:1].upper(),
+                           "tone": ("blue", "teal", "violet")[len(levels) % 3]})
 
     latest = _merged(ModuleNote.objects.published().order_by("-published_at"),
                      Activity.objects.filter(is_published=True).order_by("-updated_at"),
@@ -224,19 +242,48 @@ def _trainer(request):
     notes, acts = _split(my_notes), _split(my_acts)
     exams = _assessment_counts(Exam.objects.filter(created_by=user),
                                Attempt.objects.filter(exam__created_by=user))
+    exam_rows = _exam_rows(Exam.objects.filter(created_by=user))
+
+    # What needs doing, most urgent first. Empty list means "all caught up".
+    attention = []
+    if exams["pending"]:
+        attention.append(_attn(
+            "bi-pencil-square", "amber", f"{_plural(exams['pending'], 'submission')} waiting to be marked",
+            "Candidates are waiting for their written answers to be marked.",
+            reverse("assessments:marking_queue"), "Open marking queue"))
+    drafts = notes["drafts"] + acts["drafts"]
+    if drafts:
+        attention.append(_attn(
+            "bi-file-earmark-text", "blue", f"{_plural(drafts, 'draft')} not yet published",
+            "Students cannot see these until you publish them.",
+            reverse("core:notes_manage" if notes["drafts"] else "core:activities_manage"), "Review drafts"))
+    no_guide = [r for r in exam_rows if r["missing"]]
+    if no_guide:
+        total = sum(r["missing"] for r in no_guide)
+        one = len(no_guide) == 1
+        attention.append(_attn(
+            "bi-journal-check", "violet", f"{_plural(total, 'written question')} without a marking guide",
+            f"In {no_guide[0]['title']}." if one else f"Across {len(no_guide)} assessments.",
+            no_guide[0]["edit_guides_url"] if one else reverse("assessments:exam_list"), "Add guides"))
 
     return "core/dashboard_trainer.html", {
-        "stats": [
-            _stat("core:notes_manage", "bi-journal-text", "Notes", notes["published"],
-                  _plural(notes["drafts"], "draft"), notes["drafts"]),
-            _stat("core:activities_manage", "bi-clipboard2-check", "Activities", acts["published"],
-                  _plural(acts["drafts"], "draft"), acts["drafts"]),
-            _stat("assessments:exam_list", "bi-shield-check", "Open assessments", exams["open"],
-                  f"{exams['total']} in total"),
-            _stat("assessments:marking_queue", "bi-pencil-square", "Awaiting marking", exams["pending"],
-                  "submissions to mark" if exams["pending"] else "all marked", exams["pending"]),
+        "attention": attention,
+        "actions": [
+            _act("Add notes", "Upload a PDF or HTML file", "bi-journal-plus", "blue", "core:note_create"),
+            _act("Add activity", "A worksheet or practice task", "bi-clipboard2-plus", "teal", "core:activity_create"),
+            _act("New assessment", "Timed, with an exam password", "bi-shield-plus", "violet", "assessments:exam_create"),
+            _act("Marking queue", f"{exams['pending']} waiting" if exams["pending"] else "Nothing waiting",
+                 "bi-pencil-square", "amber", "assessments:marking_queue", exams["pending"]),
         ],
-        "exams": _exam_rows(Exam.objects.filter(created_by=user)),
+        "stats": [
+            _stat("core:notes_manage", "bi-journal-text", "Notes published", notes["published"],
+                  _plural(notes["drafts"], "draft"), notes["drafts"], "blue"),
+            _stat("core:activities_manage", "bi-clipboard2-check", "Activities published", acts["published"],
+                  _plural(acts["drafts"], "draft"), acts["drafts"], "teal"),
+            _stat("assessments:exam_list", "bi-shield-check", "Assessments open", exams["open"],
+                  f"{exams['total']} in total", False, "violet"),
+        ],
+        "exams": exam_rows,
         "recent": _merged(my_notes.order_by("-updated_at"),
                           my_acts.order_by("-updated_at"), staff=True, with_who=False),
         "modules": modules,
@@ -263,38 +310,39 @@ def _admin(request):
     # Only things that genuinely need an administrator or trainer to act appear here.
     attention = []
     if unassigned:
-        attention.append({
-            "icon": "bi-person-exclamation", "tone": "warn",
-            "text": f"{_plural(unassigned, 'trainer')} without modules",
-            "hint": "Assign modules so they can add notes.",
-            "url": reverse("accounts:manage_trainers"), "cta": "Trainers"})
+        attention.append(_attn(
+            "bi-person-exclamation", "amber", f"{_plural(unassigned, 'trainer')} without modules",
+            "Assign modules so they can add notes.", reverse("accounts:manage_trainers"), "Assign modules"))
     if assessments["pending"]:
-        attention.append({
-            "icon": "bi-pencil-square", "tone": "warn",
-            "text": f"{_plural(assessments['pending'], 'submission')} awaiting marking",
-            "hint": "Open questions are still unmarked.",
-            "url": reverse("assessments:marking_queue"), "cta": "Marking queue"})
+        attention.append(_attn(
+            "bi-pencil-square", "amber", f"{_plural(assessments['pending'], 'submission')} awaiting marking",
+            "Written answers are still unmarked.", reverse("assessments:marking_queue"), "Open marking queue"))
     if drafts:
-        attention.append({
-            "icon": "bi-file-earmark-text", "tone": "",
-            "text": f"{_plural(drafts, 'draft')} not yet published",
-            "hint": "Notes and activities students cannot see yet.",
-            "url": reverse("core:notes_manage"), "cta": "Review"})
+        attention.append(_attn(
+            "bi-file-earmark-text", "blue", f"{_plural(drafts, 'draft')} not yet published",
+            "Notes and activities students cannot see yet.", reverse("core:notes_manage"), "Review drafts"))
 
     levels = Trade.objects.filter(kind=Trade.KIND_TRADE).count()
 
     return "core/dashboard_admin.html", {
+        "attention": attention,
+        "actions": [
+            _act("Add trainer", "Create a trainer account", "bi-person-plus", "blue", "accounts:create_trainer"),
+            _act("Curriculum", "Levels, modules and units", "bi-diagram-3", "teal", "core:curriculum"),
+            _act("All assessments", "Every trainer's assessments", "bi-shield-check", "violet", "assessments:exam_list"),
+            _act("Marking queue", f"{assessments['pending']} waiting" if assessments["pending"] else "Nothing waiting",
+                 "bi-pencil-square", "amber", "assessments:marking_queue", assessments["pending"]),
+        ],
         "stats": [
             _stat("accounts:manage_trainers", "bi-people", "Trainers", n_trainers,
-                  f"{unassigned} without modules" if unassigned else "all have modules", unassigned),
+                  f"{unassigned} without modules" if unassigned else "all have modules", unassigned, "blue"),
             _stat("core:curriculum", "bi-diagram-3", "Modules", Module.objects.count(),
-                  _plural(levels, "level")),
+                  _plural(levels, "level"), False, "teal"),
             _stat("core:notes_manage", "bi-journal-text", "Published content", published,
-                  _plural(drafts, "draft"), drafts),
-            _stat("assessments:exam_list", "bi-shield-check", "Open assessments",
-                  assessments["open"], f"{assessments['total']} in total"),
+                  _plural(drafts, "draft"), drafts, "blue"),
+            _stat("assessments:exam_list", "bi-shield-check", "Assessments open",
+                  assessments["open"], f"{assessments['total']} in total", False, "violet"),
         ],
-        "attention": attention,
         "weekly": _weekly_submissions(),
         "exams": _exam_rows(Exam.objects.all()),
         "recent": _merged(ModuleNote.objects.order_by("-updated_at"),
