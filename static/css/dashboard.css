@@ -151,7 +151,7 @@ a.nd-row:hover .nd-row-title, .nd-row-link:hover { color: var(--nd-lamp); }
 .nd-row-aside { display: grid; justify-items: end; gap: .3rem; color: var(--nd-text-2); font-size: .875rem; white-space: nowrap; }
 .nd-row-aside-top { display: flex; align-items: center; gap: .4rem; }
 .nd-row-aside-sub { display: flex; gap: .75rem; }
-.nd-row-actions { display: flex; justify-content: flex-end; }
+.nd-row-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
 .nd-row-actions .btn { font-family: var(--font-display); font-weight: 650; white-space: nowrap; min-height: 44px; display: inline-flex; align-items: center; }
 @media (max-width: 639.98px) {
   .nd-row { grid-template-columns: auto minmax(0, 1fr); padding: .85rem 1rem; }

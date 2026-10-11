@@ -54,6 +54,8 @@ urlpatterns = [
     path("assessments/<int:pk>/results/<int:aid>/mark/", staff_views.attempt_mark, name="attempt_mark"),
     path("assessments/<int:pk>/results/<int:aid>/reset/", staff_views.attempt_reset, name="attempt_reset"),
     path("assessments/<int:pk>/results/retake-all/", staff_views.exam_retake_all, name="exam_retake_all"),
+    path("assessments/<int:pk>/results/clear/", trainer_tools.exam_clear_submissions, name="exam_clear_submissions"),
+    path("assessments/<int:pk>/results/<int:aid>/delete/", trainer_tools.attempt_delete, name="attempt_delete"),
     path("assessments/<int:pk>/results/<int:aid>/retake/", staff_views.attempt_retake, name="attempt_retake"),
     path("assessments/<int:pk>/results/<int:aid>/submit/", staff_views.attempt_force_submit, name="attempt_force_submit"),
 ]

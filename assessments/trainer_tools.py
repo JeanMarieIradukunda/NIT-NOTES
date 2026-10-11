@@ -8,16 +8,19 @@ Four trainer conveniences built on top of the staff views:
 * ``guides_edit``      write or fix every written-answer marking guide on one page
 * ``guide_download``   the marking guide as a Word file or a PDF
 * ``exam_duplicate``   copy an assessment (settings, questions, answer keys) as a closed draft
+* ``attempt_delete``   permanently remove one candidate's submission
+* ``exam_clear_submissions``  permanently remove every submission of an assessment (the whole class)
 """
 
 import io
+import logging
 import re
 import secrets
 
 from django.contrib import messages
 from django.db import transaction
 from django.http import Http404, HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
@@ -31,6 +34,7 @@ from .permissions import trainer_required
 from .staff_views import GUIDE_LABELS, _exam_or_deny, _guide_row
 
 GUIDE_MAX_CHARS = 5000
+log = logging.getLogger(__name__)
 
 
 # --------------------------------------------------------------------------- #
@@ -226,3 +230,53 @@ def exam_duplicate(request, pk):
     messages.success(request, f"Copy created, closed. New exam password (shown once, write it down): {password}")
     messages.info(request, "Set the date, class list and open it when you are ready.")
     return redirect("assessments:exam_detail", pk=copy.pk)
+
+
+# --------------------------------------------------------------------------- #
+# Delete submissions (one candidate, or the whole class)
+# --------------------------------------------------------------------------- #
+# This is different from "Another chance", which keeps a summary of the old result. Deleting removes the
+# attempt completely: answers, marks, violations and device records. It cannot be undone.
+
+@require_POST
+@trainer_required
+def attempt_delete(request, pk, aid):
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    attempt = get_object_or_404(Attempt, pk=aid, exam=exam)
+    name = attempt.candidate_name
+    attempt.delete()
+    log.info("Submission deleted: exam=%s attempt=%s by user=%s", exam.pk, aid, request.user.pk)
+    messages.success(request, f"{name}'s submission was deleted. Nothing of it is kept.")
+    return redirect("assessments:exam_results", pk=exam.pk)
+
+
+@trainer_required
+def exam_clear_submissions(request, pk):
+    """Confirm, then delete every submission of this assessment. In-progress attempts are only
+    removed if the trainer ticks the extra box (deleting them would end a live candidate's paper)."""
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    attempts = exam.attempts.all()
+    n_submitted = attempts.filter(status=Attempt.SUBMITTED).count()
+    n_active = attempts.exclude(status=Attempt.SUBMITTED).count()
+
+    if request.method == "POST" and (n_submitted or n_active):
+        if request.POST.get("confirm") != "yes":
+            messages.error(request, "Tick the box to confirm. Nothing was deleted.")
+        else:
+            include_active = request.POST.get("include_active") == "yes"
+            with transaction.atomic():
+                doomed = attempts if include_active else attempts.filter(status=Attempt.SUBMITTED)
+                removed = doomed.count()
+                doomed.delete()
+            log.info("Submissions cleared: exam=%s removed=%s include_active=%s by user=%s",
+                     exam.pk, removed, include_active, request.user.pk)
+            messages.success(request, f"Deleted {removed} submission{'s' if removed != 1 else ''}. "
+                                      "The class list and the assessment itself are untouched.")
+            return redirect("assessments:exam_results", pk=exam.pk)
+
+    return render(request, "assessments/exam_clear.html", {
+        "exam": exam, "n_submitted": n_submitted, "n_active": n_active})

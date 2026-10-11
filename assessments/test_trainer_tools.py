@@ -201,3 +201,132 @@ class CopyAssessment(BaseCase):
             self.assertContains(g, reverse(f"assessments:{name}", args=[self.exam.pk]))
         self.assertContains(g, self.exam.pk and reverse("assessments:guide_download", args=[self.exam.pk, "docx"]))
         self.assertContains(g, reverse("assessments:guide_download", args=[self.exam.pk, "pdf"]))
+
+
+class DeleteSubmissions(BaseCase):
+    """Remove one candidate's submission, or every submission of an assessment."""
+
+    def setUp(self):
+        super().setUp()
+        self.exam, _ = make_exam(self.alice)
+        self.other_exam, _ = make_exam(self.alice)
+        self.ann = submit(self.exam, "Ann Student")
+        self.ben = submit(self.exam, "Ben Student")
+        self.live = Attempt.objects.create(exam=self.exam, candidate_name="Live Student", reg_no="LIVE1",
+                                           status=Attempt.IN_PROGRESS)
+        self.elsewhere = submit(self.other_exam, "Ann Student")
+        self.clear_url = reverse("assessments:exam_clear_submissions", args=[self.exam.pk])
+
+    def delete_url(self, attempt, exam=None):
+        return reverse("assessments:attempt_delete", args=[(exam or self.exam).pk, attempt.pk])
+
+    # ---- one candidate
+    def test_deleting_one_submission_removes_only_that_candidate_and_everything_attached(self):
+        from assessments.models import DeviceOpen, Violation
+        Violation.objects.create(attempt=self.ann, vtype="blur")
+        DeviceOpen.objects.create(attempt=self.ann, device_id="d1", opens=1)
+        self.client.force_login(self.alice)
+        r = self.client.post(self.delete_url(self.ann), follow=True)
+        self.assertRedirects(r, reverse("assessments:exam_results", args=[self.exam.pk]))
+        self.assertContains(r, "Ann Student&#x27;s submission was deleted")
+        self.assertFalse(Attempt.objects.filter(pk=self.ann.pk).exists())
+        self.assertEqual(Violation.objects.count(), 0)
+        self.assertEqual(DeviceOpen.objects.count(), 0)
+        for kept in (self.ben, self.live, self.elsewhere):                  # everyone else is untouched
+            self.assertTrue(Attempt.objects.filter(pk=kept.pk).exists())
+        self.assertTrue(Exam.objects.filter(pk=self.exam.pk).exists())
+
+    def test_results_page_has_a_delete_button_per_candidate_and_a_clear_all_button(self):
+        self.client.force_login(self.alice)
+        html = self.client.get(reverse("assessments:exam_results", args=[self.exam.pk])).content.decode()
+        for a in (self.ann, self.ben, self.live):
+            self.assertIn(self.delete_url(a), html)
+        self.assertNotIn(self.delete_url(self.elsewhere, self.other_exam), html)
+        self.assertIn(self.clear_url, html)
+        self.assertIn("Clear all submissions", html)
+
+    def test_only_post_only_the_owner_and_only_attempts_of_this_exam(self):
+        self.client.force_login(self.alice)
+        self.assertEqual(self.client.get(self.delete_url(self.ann)).status_code, 405)
+        self.assertEqual(self.client.post(self.delete_url(self.elsewhere, self.exam)).status_code, 404)
+        self.client.force_login(self.bob)
+        self.assertEqual(self.client.post(self.delete_url(self.ann)).status_code, 403)
+        self.client.force_login(self.student)
+        self.assertEqual(self.client.post(self.delete_url(self.ann)).status_code, 403)
+        self.client.logout()
+        self.assertEqual(self.client.post(self.delete_url(self.ann)).status_code, 302)
+        self.assertEqual(Attempt.objects.count(), 4)
+
+    def test_administrator_can_delete_any_submission(self):
+        self.client.force_login(self.admin)
+        self.client.post(self.delete_url(self.ann))
+        self.assertFalse(Attempt.objects.filter(pk=self.ann.pk).exists())
+
+    # ---- the whole class
+    def test_confirmation_page_counts_what_will_go(self):
+        self.client.force_login(self.alice)
+        r = self.client.get(self.clear_url)
+        self.assertContains(r, "This cannot be undone")
+        self.assertEqual((r.context["n_submitted"], r.context["n_active"]), (2, 1))
+        self.assertContains(r, 'name="include_active"')
+        self.assertEqual(Attempt.objects.count(), 4)                       # a GET deletes nothing
+
+    def test_clearing_needs_the_confirmation_box(self):
+        self.client.force_login(self.alice)
+        r = self.client.post(self.clear_url, {})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Tick the box to confirm")
+        self.assertEqual(Attempt.objects.filter(exam=self.exam).count(), 3)
+
+    def test_clearing_removes_submitted_attempts_and_keeps_live_ones_by_default(self):
+        self.client.force_login(self.alice)
+        r = self.client.post(self.clear_url, {"confirm": "yes"}, follow=True)
+        self.assertRedirects(r, reverse("assessments:exam_results", args=[self.exam.pk]))
+        self.assertContains(r, "Deleted 2 submissions")
+        remaining = set(Attempt.objects.filter(exam=self.exam).values_list("pk", flat=True))
+        self.assertEqual(remaining, {self.live.pk})
+        self.assertTrue(Attempt.objects.filter(pk=self.elsewhere.pk).exists())   # other assessments untouched
+
+    def test_ticking_the_extra_box_clears_in_progress_attempts_too(self):
+        questions_before = self.exam.questions.count()
+        self.client.force_login(self.alice)
+        self.client.post(self.clear_url, {"confirm": "yes", "include_active": "yes"})
+        self.assertEqual(Attempt.objects.filter(exam=self.exam).count(), 0)
+        self.assertEqual(Attempt.objects.filter(exam=self.other_exam).count(), 1)
+        self.assertTrue(Exam.objects.filter(pk=self.exam.pk).exists())
+        self.assertEqual(self.exam.questions.count(), questions_before)            # questions and keys survive
+
+    def test_nothing_to_clear_is_explained_and_has_no_form(self):
+        empty, _ = make_exam(self.alice)
+        self.client.force_login(self.alice)
+        r = self.client.get(reverse("assessments:exam_clear_submissions", args=[empty.pk]))
+        self.assertContains(r, "Nothing to clear")
+        self.assertNotContains(r, 'name="confirm"')
+
+    def test_other_trainers_students_and_visitors_cannot_clear(self):
+        for who, code in ((self.bob, 403), (self.student, 403)):
+            self.client.force_login(who)
+            self.assertEqual(self.client.get(self.clear_url).status_code, code)
+            self.assertEqual(self.client.post(self.clear_url, {"confirm": "yes"}).status_code, code)
+        self.client.logout()
+        self.assertEqual(self.client.post(self.clear_url, {"confirm": "yes"}).status_code, 302)
+        self.assertEqual(Attempt.objects.filter(exam=self.exam).count(), 3)
+
+    # ---- the dashboard
+    def test_each_dashboard_assessment_has_submissions_and_clear_all_buttons(self):
+        empty, _ = make_exam(self.alice)
+        self.client.force_login(self.alice)
+        r = self.client.get(reverse("core:dashboard"))
+        html = r.content.decode()
+        self.assertIn(reverse("assessments:exam_results", args=[self.exam.pk]), html)
+        self.assertIn(self.clear_url, html)                                        # has submissions: Clear all
+        self.assertNotIn(reverse("assessments:exam_clear_submissions", args=[empty.pk]), html)  # none: no button
+        rows = {x["title"]: x for x in r.context["exams"]}
+        mine = next(x for x in r.context["exams"] if x["clear_url"] == self.clear_url)
+        self.assertEqual((mine["n_attempts"], mine["n_submitted"]), (3, 2))
+        self.assertIn("2 submissions", html)
+        self.assertEqual(html.count("Marking guide</a>"), 3)                       # the guide button is unchanged
+
+    def test_administrator_dashboard_has_the_same_buttons(self):
+        self.client.force_login(self.admin)
+        self.assertIn(self.clear_url, self.client.get(reverse("core:dashboard")).content.decode())

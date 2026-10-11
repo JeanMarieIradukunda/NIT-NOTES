@@ -126,11 +126,14 @@ def _exam_rows(exams):
     no marking guide, so a trainer sees at a glance which ones need attention.
     Never raises (same reason as _assessment_counts).
     """
-    from assessments.models import Question
+    from assessments.models import Attempt, Question
 
     try:
         exams = list(exams.select_related("module", "created_by")
-                     .annotate(n_questions=Count("questions", distinct=True))
+                     .annotate(n_questions=Count("questions", distinct=True),
+                               n_attempts=Count("attempts", distinct=True),
+                               n_submitted=Count("attempts", filter=Q(attempts__status=Attempt.SUBMITTED),
+                                                 distinct=True))
                      .order_by("-created_at"))
         missing = {}
         for q in Question.objects.filter(exam__in=exams, section="open").select_related("key"):
@@ -149,6 +152,10 @@ def _exam_rows(exams):
         "detail_url": reverse("assessments:exam_detail", args=[e.pk]),
         "guide_url": reverse("assessments:exam_guide", args=[e.pk]),
         "edit_guides_url": reverse("assessments:guides_edit", args=[e.pk]),
+        "n_attempts": e.n_attempts,
+        "n_submitted": e.n_submitted,
+        "results_url": reverse("assessments:exam_results", args=[e.pk]),
+        "clear_url": reverse("assessments:exam_clear_submissions", args=[e.pk]),
     } for e in exams]
 
 

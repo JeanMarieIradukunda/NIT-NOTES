@@ -7,9 +7,14 @@
       {% if x.code %}<span class="nd-code">{{ x.code }}</span>{% endif %}
       <span class="nd-badge nd-badge-{% if x.is_open %}open{% else %}closed{% endif %}">{% if x.is_open %}Open{% else %}Closed{% endif %}</span>
       <span>{{ x.n_questions }} question{{ x.n_questions|pluralize }}</span>
+      <span>{{ x.n_submitted }} submission{{ x.n_submitted|pluralize }}</span>
       {% if x.missing %}<span class="nd-warn-text">{{ x.missing }} without guide</span>{% endif %}
       {% if show_owner and x.owner %}<span>by {{ x.owner }}</span>{% endif %}
     </span>
   </span>
-  <span class="nd-row-actions"><a class="btn btn-outline-secondary" href="{{ x.guide_url }}"><i class="bi bi-journal-check me-1" aria-hidden="true"></i>Marking guide</a></span>
+  <span class="nd-row-actions">
+    <a class="btn btn-outline-secondary" href="{{ x.guide_url }}"><i class="bi bi-journal-check me-1" aria-hidden="true"></i>Marking guide</a>
+    <a class="btn btn-outline-secondary" href="{{ x.results_url }}" title="See every candidate. Delete one student's submission from there."><i class="bi bi-people me-1" aria-hidden="true"></i>Submissions</a>
+    {% if x.n_attempts %}<a class="btn btn-outline-danger" href="{{ x.clear_url }}" title="Permanently delete every candidate's submission"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Clear all</a>{% endif %}
+  </span>
 </div>
