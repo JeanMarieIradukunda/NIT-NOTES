@@ -1,0 +1,41 @@
+{% extends "core/dashboard_base.html" %}
+{% comment %}
+  Administrator dashboard. Order: what needs doing > quick actions > numbers > assessments > latest work > trend.
+{% endcomment %}
+
+{% block dash_title %}Platform overview{% endblock %}
+{% block dash_lead %}What needs an administrator today, and how the platform is doing.{% endblock %}
+
+{% block dash_body %}
+{% include "core/_dash_attention.html" with attention=attention title="Needs attention" %}
+{% include "core/_dash_actions.html" with actions=actions %}
+{% include "core/_dash_summary.html" with stats=stats %}
+{% include "core/_dash_exams.html" with exams=exams title="Assessments" show_owner=True %}
+
+<section class="nd-block" aria-labelledby="recent-title">
+  <h2 class="nd-h" id="recent-title">Latest uploads</h2>
+  {% if recent %}
+  <div class="nd-list" role="list">
+    {% for item in recent %}{% include "core/_dash_row.html" %}{% endfor %}
+  </div>
+  {% else %}
+  <div class="nd-empty nd-empty--inline"><p>No notes or activities have been uploaded yet.</p></div>
+  {% endif %}
+</section>
+
+<section class="nd-block" aria-labelledby="weekly-title">
+  <div class="nd-block-head">
+    <h2 class="nd-h" id="weekly-title">Submissions, last 8 weeks</h2>
+    <span class="nd-note nd-note--inline">{{ weekly.total }} in total, {{ weekly.this_week }} this week</span>
+  </div>
+  <div class="nd-chart" role="img" aria-label="Submitted assessments per week: {% for b in weekly.bars %}{{ b.label }}: {{ b.count }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+    {% for b in weekly.bars %}
+    <div class="nd-chart-col">
+      <span class="nd-chart-n">{{ b.count }}</span>
+      <span class="nd-chart-track"><span class="nd-chart-fill" style="height:{{ b.pct }}%"></span></span>
+      <span class="nd-chart-label">{{ b.label }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

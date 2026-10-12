@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Dashboard{% endblock %}
+{% block body_class %}night{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+{% endblock %}
+
+{% comment %}
+  Shared frame for the three dashboards: a plain heading with one line of context, then the body.
+  Colour means something on these pages: blue = notes, teal = activities, violet = assessments,
+  amber = needs action, green = open / all clear.
+{% endcomment %}
+{% block content %}
+<div class="nd-wrap nd-page">
+  <header class="nd-head">
+    <h1 id="dash-title">{% block dash_title %}{% endblock %}</h1>
+    <p class="nd-lead">{% block dash_lead %}{% endblock %}</p>
+  </header>
+
+  {% block dash_body %}{% endblock %}
+</div>
+{% endblock %}

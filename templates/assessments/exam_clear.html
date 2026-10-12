@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Clear submissions · {{ exam.title }}{% endblock %}
+{% block site_search %}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_detail' exam.pk %}">{{ exam.title }}</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_results' exam.pk %}">Results</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Clear submissions</li>
+    </ol></nav>
+    <h1>Clear all submissions</h1>
+    <p class="lead">{{ exam.title }}</p>
+  </div>
+
+  {% if not n_submitted and not n_active %}
+  <div class="empty-state">
+    <span class="icon-chip"><i class="bi bi-inbox"></i></span>
+    <h3>Nothing to clear</h3>
+    <p>No candidate has entered this assessment yet.</p>
+    <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_results' exam.pk %}">Back to results</a>
+  </div>
+  {% else %}
+  <form method="post" class="panel panel-body border border-danger-subtle" style="max-width: 46rem;">{% csrf_token %}
+    <h2 class="fs-5 text-danger mb-3"><i class="bi bi-exclamation-triangle-fill me-2"></i>This cannot be undone</h2>
+    <p>This permanently deletes the following for <strong>every candidate</strong> of this assessment: their answers, marks, violations and device records.</p>
+    <ul>
+      <li><strong>{{ n_submitted }}</strong> submitted attempt{{ n_submitted|pluralize }} will be deleted.</li>
+      {% if n_active %}<li><strong>{{ n_active }}</strong> attempt{{ n_active|pluralize }} still in progress or not started (kept unless you tick the box below).</li>{% endif %}
+    </ul>
+    <p class="small text-muted-2">The assessment itself, its questions, marking guide, class list and exam password are not touched. Candidates can sit it again if it is open. To keep a record of today's results first, <a href="{% url 'assessments:exam_results' exam.pk %}?format=csv">export them as CSV</a>.</p>
+
+    {% if n_active %}
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="checkbox" name="include_active" value="yes" id="include_active">
+      <label class="form-check-label" for="include_active">Also delete the {{ n_active }} attempt{{ n_active|pluralize }} still in progress or not started (anyone sitting the paper right now will lose their work)</label>
+    </div>
+    {% endif %}
+    <div class="form-check mb-4">
+      <input class="form-check-input" type="checkbox" name="confirm" value="yes" id="confirm" required>
+      <label class="form-check-label fw-semibold" for="confirm">I understand this permanently deletes these submissions.</label>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <button class="btn btn-danger" type="submit"><i class="bi bi-trash3 me-1"></i>Delete submissions</button>
+      <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_results' exam.pk %}">Cancel</a>
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

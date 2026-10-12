@@ -52,60 +52,10 @@ def _library_stats():
 # --------------------------------------------------------------------------- #
 
 def dashboard(request):
-    trades = (Trade.objects.filter(kind=Trade.KIND_TRADE)
-              .prefetch_related("modules"))
-    stats = _library_stats()
-
-    resume = None
-    recents = []
-    bookmarks = []
-    if request.user.is_authenticated:
-        qs = (StudentActivity.objects.filter(user=request.user)
-              .select_related("lesson", "lesson__unit", "lesson__unit__module",
-                              "lesson__unit__module__trade")
-              .order_by("-last_viewed"))
-        recents = list(qs[:6])
-        resume = next((a for a in qs if 3 < a.progress_pct < 96), None)
-        bookmarks = list(qs.filter(bookmarked=True)[:6])
-
-    latest_notes = list(ModuleNote.objects.published()
-                        .select_related("module", "module__trade", "uploaded_by")
-                        .order_by("-published_at")[:6])
-
-    # Published activities are public, exactly like published notes: drafts are
-    # excluded here, and the file itself is served by core:activity_file.
-    latest_activities = list(Activity.objects.filter(is_published=True)
-                             .select_related("module", "module__trade", "uploaded_by")
-                             .order_by("-updated_at")[:6])
-
-    my_notes = None
-    if can_add_notes(request.user):
-        mine = ModuleNote.objects.all() if is_admin(request.user) \
-            else ModuleNote.objects.filter(uploaded_by=request.user)
-        my_notes = {"total": mine.count(),
-                    "published": mine.filter(is_published=True).count(),
-                    "drafts": mine.filter(is_published=False).count()}
-
-    my_activities = None
-    if can_add_activities(request.user):
-        mine = Activity.objects.all() if is_admin(request.user) \
-            else Activity.objects.filter(uploaded_by=request.user)
-        my_activities = {"total": mine.count(),
-                         "published": mine.filter(is_published=True).count(),
-                         "drafts": mine.filter(is_published=False).count()}
-
-    # Open assessments get a highlighted link (newest first; "New" if created this week).
-    from assessments.dashboard import dashboard_assessments
-    open_assessments = dashboard_assessments()
-
-    return render(request, "core/dashboard.html", {
-        "open_assessments": open_assessments,
-        "new_assessment_count": sum(1 for e in open_assessments if e.is_new),
-        "trades": trades, "stats": stats, "latest_notes": latest_notes,
-        "latest_activities": latest_activities,
-        "my_notes": my_notes, "my_activities": my_activities,
-        "resume": resume, "recents": recents, "bookmarks": bookmarks,
-    })
+    """Landing page. The content depends on who is looking: see core/dashboard.py."""
+    from .dashboard import build
+    template, context = build(request)
+    return render(request, template, context)
 
 
 # --------------------------------------------------------------------------- #

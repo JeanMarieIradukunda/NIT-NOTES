@@ -2,8 +2,10 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import Group
+from django.contrib.auth.views import LoginView
 from django.shortcuts import get_object_or_404, redirect, render
 
+from . import throttle
 from .forms import ProfileForm, TrainerCreateForm, TrainerModulesForm
 from .roles import is_admin, user_roles
 
@@ -112,3 +114,33 @@ def profile(request):
         "managed_modules": (request.user.profile.trainer_modules.select_related("trade")
                              if hasattr(request.user, "profile") else []),
     })
+
+
+# --------------------------------------------------------------------------- #
+# Sign in, paused after repeated failures
+# --------------------------------------------------------------------------- #
+
+class ThrottledLoginView(LoginView):
+    """The normal sign-in, but after throttle.MAX_FAILURES wrong attempts for one account
+    (or too many from one address) sign-in is paused for throttle.WINDOW_MINUTES, even for
+    the right password. A successful sign-in clears the account's failures."""
+
+    template_name = "accounts/login.html"
+
+    def post(self, request, *args, **kwargs):
+        username = throttle.clean_username(request.POST.get("username"))
+        if username and throttle.is_locked(username, throttle.client_ip(request)):
+            form = self.get_form()
+            return self.render_to_response(self.get_context_data(form=form, locked=True,
+                                                                 lock_minutes=throttle.WINDOW_MINUTES), status=429)
+        return super().post(request, *args, **kwargs)
+
+    def form_invalid(self, form):
+        username = throttle.clean_username(self.request.POST.get("username"))
+        if username:
+            throttle.record_failure(username, throttle.client_ip(self.request))
+        return super().form_invalid(form)
+
+    def form_valid(self, form):
+        throttle.clear(throttle.clean_username(form.get_user().get_username()))
+        return super().form_valid(form)

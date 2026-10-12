@@ -11,7 +11,9 @@
             <h1 class="fs-4 fw-bold mb-1">Sign in</h1>
             <p class="text-muted-2 small mb-3">For trainers and administrators.</p>
 
-            {% if form.errors %}
+            {% if locked %}
+            <div class="alert alert-warning py-2 small" role="alert">Too many failed sign-in attempts. Please wait {{ lock_minutes }} minutes and try again.</div>
+            {% elif form.errors %}
             <div class="alert alert-danger py-2 small" role="alert">Your username and password didn't match. Please try again.</div>
             {% endif %}
 

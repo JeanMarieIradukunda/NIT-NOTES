@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Marking guide · {{ exam.title }}{% endblock %}
+{% block site_search %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/answers.css' %}">
+<style>
+  /* Compact marking guide: questions in a grid, answers highlighted beside them. */
+  .mg-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .75rem; margin-bottom: 1rem; padding: .55rem .8rem; border-radius: 12px; background: var(--c-surface); border: 1px solid var(--c-border); font-size: .82rem; color: var(--c-muted); }
+  .mg-bar b { color: var(--c-text); }
+  .mg-key { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+  .mg-key-label { font-weight: 700; color: var(--c-text); margin-right: .15rem; }
+  .mg-key-item { display: inline-flex; gap: .25rem; padding: .05rem .5rem; border-radius: 999px; background: var(--c-success-soft); color: var(--c-success); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .mg-warn { margin-left: auto; padding: .05rem .6rem; border-radius: 999px; background: var(--c-warning-soft); color: var(--c-warning); font-weight: 700; }
+
+  .mg-sec { margin-bottom: 1.1rem; }
+  .mg-sec-h { display: flex; align-items: center; gap: .5rem; margin: 0 0 .5rem; font-size: .9rem; font-weight: 700; }
+  .mg-n { display: inline-grid; place-items: center; min-width: 1.35rem; height: 1.35rem; padding-inline: .35rem; border-radius: 999px; background: var(--c-brand-soft); color: var(--c-brand); font-size: .7rem; }
+  .mg-grid { display: grid; gap: .6rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 430px), 1fr)); }
+
+  .mg-q { display: grid; gap: .4rem; align-content: start; padding: .65rem .8rem; border-radius: 12px; background: var(--c-surface); border: 1px solid var(--c-border); min-width: 0; }
+  .mg-q-top { display: flex; align-items: center; gap: .5rem; }
+  .mg-num { display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 8px; background: var(--c-surface-3); font-size: .75rem; font-weight: 700; }
+  .mg-marks { color: var(--c-muted); font-size: .72rem; font-weight: 600; }
+  .mg-edit { margin-left: auto; padding: .1rem .55rem; font-size: .74rem; }
+  .mg-text { margin: 0; font-size: .86rem; line-height: 1.4; overflow-wrap: anywhere; }
+
+
+  @media print {
+    .mg-grid { grid-template-columns: 1fr 1fr; }
+    .mg-q, .mg-bar { break-inside: avoid; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb" class="d-print-none"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_list' %}">Assessments</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_detail' exam.pk %}">{{ exam.title }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Marking guide</li>
+    </ol></nav>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <h1 class="mb-0 fs-4">Marking guide <span class="text-muted-2 fs-6 fw-normal">· {{ exam.title }}</span></h1>
+      <div class="d-flex flex-wrap gap-2 d-print-none">
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:guides_edit' exam.pk %}"><i class="bi bi-pencil-square me-1"></i>Edit all guides</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:guide_download' exam.pk 'docx' %}"><i class="bi bi-file-earmark-word me-1"></i>Word</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:guide_download' exam.pk 'pdf' %}"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print</button>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:exam_detail' exam.pk %}"><i class="bi bi-pencil-square me-1"></i>Manage assessment</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="mg-bar">
+    <span><b>{{ n_questions }}</b> question{{ n_questions|pluralize }} · <b>{{ exam.total_marks|floatformat:"-2" }}</b> marks · trainers only</span>
+    {% if quick_key %}
+    <span class="mg-key"><span class="mg-key-label">Multiple choice key</span>{% for n, letter in quick_key %}<span class="mg-key-item">{{ n }}<span aria-hidden="true">·</span>{{ letter }}</span>{% endfor %}</span>
+    {% endif %}
+    {% if missing %}<span class="mg-warn">{{ missing }} written question{{ missing|pluralize }} without a guide</span>{% endif %}
+  </div>
+
+  {% for sec in sections %}
+  <section class="mg-sec" aria-labelledby="sec-{{ sec.key }}">
+    <h2 class="mg-sec-h" id="sec-{{ sec.key }}">{{ sec.label }} <span class="mg-n">{{ sec.rows|length }}</span></h2>
+    <div class="mg-grid">
+      {% for r in sec.rows %}
+      <article class="mg-q">
+        <div class="mg-q-top">
+          <span class="mg-num">{{ r.q.order }}</span>
+          <span class="mg-marks">{{ r.marks|floatformat:"-2" }} mark{{ r.marks|pluralize }}</span>
+          <a class="btn btn-outline-secondary mg-edit d-print-none" href="{% url 'assessments:question_edit' exam.pk r.q.pk %}"><i class="bi bi-pencil me-1"></i>{% if sec.key == 'open' and not r.guide %}Add guide{% else %}Edit{% endif %}</a>
+        </div>
+        <p class="mg-text">{{ r.q.text|linebreaksbr }}</p>
+
+        {% include "assessments/_answer.html" with r=r key=sec.key %}
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% empty %}
+  <div class="panel panel-body">
+    <p class="mb-2">This assessment has no questions yet, so there is nothing to mark.</p>
+    <a class="btn btn-primary btn-sm" href="{% url 'assessments:question_create' exam.pk %}"><i class="bi bi-plus-lg me-1"></i>Add a question</a>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -8,6 +8,7 @@ runs out of the box with `python manage.py runserver`.
 """
 
 import os
+import sys
 from pathlib import Path
 
 from django.contrib.messages import constants as message_constants
@@ -270,3 +271,9 @@ CSRF_TRUSTED_ORIGINS = list({
     *(h.strip() for h in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if h.strip()),
     "https://*.vercel.app",
 })
+
+
+# Tests create many users and exam passwords; the production hasher (deliberately slow)
+# made the suite take minutes. This only applies under `manage.py test`.
+if "test" in sys.argv[1:2]:
+    PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]

@@ -1,0 +1,44 @@
+{% extends "core/dashboard_base.html" %}
+{% comment %}
+  Trainer dashboard. Order: what needs doing > quick actions > numbers > assessments > recent work.
+{% endcomment %}
+
+{% block dash_title %}Welcome back, {{ user.first_name|default:user.username }}{% endblock %}
+{% block dash_lead %}Here is what needs you today, and the quickest way to do your usual work.{% endblock %}
+
+{% block dash_body %}
+{% include "core/_dash_attention.html" with attention=attention title="Needs your attention" %}
+{% include "core/_dash_actions.html" with actions=actions %}
+{% include "core/_dash_summary.html" with stats=stats %}
+{% include "core/_dash_exams.html" with exams=exams title="Your assessments" show_owner=False %}
+
+<div class="nd-cols">
+  <section class="nd-block" aria-labelledby="recent-title">
+    <div class="nd-block-head">
+      <h2 class="nd-h" id="recent-title">Your recent uploads</h2>
+      {% if recent %}<a class="nd-link" href="{% url 'core:notes_manage' %}">Manage notes</a>{% endif %}
+    </div>
+    {% if recent %}
+    <div class="nd-list" role="list">
+      {% for item in recent %}{% include "core/_dash_row.html" %}{% endfor %}
+    </div>
+    {% else %}
+    <div class="nd-empty nd-empty--inline">
+      <p>You have not added anything yet. Upload a PDF or HTML file for a module and publish it for students.</p>
+      <a class="btn btn-primary" href="{% url 'core:note_create' %}"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Add your first notes</a>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="nd-block" aria-labelledby="modules-title">
+    <h2 class="nd-h" id="modules-title">Your modules</h2>
+    {% if modules %}
+    <div class="nd-chips">
+      {% for m in modules %}<a class="nd-chip" href="{{ m.get_absolute_url }}" title="{{ m.name }}"><span class="nd-code">{{ m.code }}</span>{{ m.name }}</a>{% endfor %}
+    </div>
+    {% else %}
+    <p class="nd-note">No modules are assigned to you yet. Ask an administrator to assign them.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

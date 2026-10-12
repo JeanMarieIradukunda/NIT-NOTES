@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import api, class_views, import_views, roster_views, staff_views, views
+from . import api, class_views, import_views, roster_views, staff_views, trainer_tools, views
 
 app_name = "assessments"
 
@@ -23,6 +23,11 @@ urlpatterns = [
     path("assessments/new/", staff_views.exam_create, name="exam_create"),
     path("assessments/<int:pk>/", staff_views.exam_detail, name="exam_detail"),
     path("assessments/<int:pk>/edit/", staff_views.exam_edit, name="exam_edit"),
+    path("assessments/<int:pk>/marking-guide/", staff_views.exam_guide, name="exam_guide"),
+    path("assessments/marking-queue/", trainer_tools.marking_queue, name="marking_queue"),
+    path("assessments/<int:pk>/marking-guide/edit/", trainer_tools.guides_edit, name="guides_edit"),
+    path("assessments/<int:pk>/marking-guide/download/<str:fmt>/", trainer_tools.guide_download, name="guide_download"),
+    path("assessments/<int:pk>/duplicate/", trainer_tools.exam_duplicate, name="exam_duplicate"),
     path("assessments/<int:pk>/open/", staff_views.exam_toggle_open, name="exam_toggle_open"),
     path("assessments/<int:pk>/answers/", staff_views.exam_toggle_answers, name="exam_toggle_answers"),
     path("assessments/<int:pk>/delete/", staff_views.exam_delete, name="exam_delete"),
@@ -38,6 +43,7 @@ urlpatterns = [
     path("assessments/<int:pk>/roster/<int:rid>/delete/", roster_views.roster_delete, name="roster_delete"),
     path("assessments/<int:pk>/roster/clear/", roster_views.roster_clear, name="roster_clear"),
     path("assessments/<int:pk>/roster/assign/", roster_views.roster_assign, name="roster_assign"),
+    path("assessments/<int:pk>/roster/add-members/", roster_views.roster_add_members, name="roster_add_members"),
     path("classes/", class_views.class_list, name="class_list"),
     path("classes/<int:cid>/", class_views.class_detail, name="class_detail"),
     path("classes/<int:cid>/members/<int:mid>/edit/", class_views.class_member_edit, name="class_member_edit"),
@@ -49,6 +55,8 @@ urlpatterns = [
     path("assessments/<int:pk>/results/<int:aid>/mark/", staff_views.attempt_mark, name="attempt_mark"),
     path("assessments/<int:pk>/results/<int:aid>/reset/", staff_views.attempt_reset, name="attempt_reset"),
     path("assessments/<int:pk>/results/retake-all/", staff_views.exam_retake_all, name="exam_retake_all"),
+    path("assessments/<int:pk>/results/clear/", trainer_tools.exam_clear_submissions, name="exam_clear_submissions"),
+    path("assessments/<int:pk>/results/<int:aid>/delete/", trainer_tools.attempt_delete, name="attempt_delete"),
     path("assessments/<int:pk>/results/<int:aid>/retake/", staff_views.attempt_retake, name="attempt_retake"),
     path("assessments/<int:pk>/results/<int:aid>/submit/", staff_views.attempt_force_submit, name="attempt_force_submit"),
 ]

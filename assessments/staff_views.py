@@ -22,9 +22,10 @@ from accounts.roles import is_admin
 
 from . import analysis, evidence, services
 from .forms import ExamForm, QuestionForm
-from .marking import (OVERRIDABLE_SECTIONS, mark_objective, ordered_questions, q2, question_max_marks,
-                      recompute_final)
-from .models import (ALL_VIOLATION_LABELS, SECTION_LABELS, SECTION_ORDER, Attempt, Exam, Question)
+from .marking import (OVERRIDABLE_SECTIONS, correct_set, is_multi, mark_objective, ordered_questions, q2,
+                      question_max_marks, recompute_final)
+from .models import (ALL_VIOLATION_LABELS, SECTION_LABELS, SECTION_ORDER, AnswerKey, Attempt, Exam,
+                     Question)
 from .permissions import can_manage_exam, deny, trainer_required
 from .views import _sheet_rows, evidence_response
 
@@ -84,7 +85,8 @@ def exam_detail(request, pk):
         items = [q for q in questions if q.section == s]
         for q in items:
             q.max_marks = maxima[q.id]
-        groups.append({"key": s, "label": SECTION_LABELS[s], "marks": exam.section_marks(s), "questions": items})
+            q.guide = _guide_row(q, maxima[q.id])
+        groups.append({"key": s, "label": GUIDE_LABELS[s], "marks": exam.section_marks(s), "questions": items})
     warnings = []
     for g in groups:
         if g["questions"] and g["marks"] <= 0:
@@ -95,6 +97,80 @@ def exam_detail(request, pk):
         "exam": exam, "groups": groups, "warnings": warnings,
         "entry_url": request.build_absolute_uri(reverse("assessments:entry", args=[exam.public_id])),
         "penalties": exam.penalty_table(), "n_attempts": exam.attempts.count(), "n_roster": exam.roster.count()})
+
+
+def _pair_index(value, size):
+    try:
+        i = int(value)
+    except (TypeError, ValueError):
+        return None
+    return i if 0 <= i < size else None
+
+
+GUIDE_LABELS = {**SECTION_LABELS, "mcq": "Multiple choice & True/False"}
+
+
+def _is_true_false(options):
+    return sorted(str(o).strip().lower() for o in options) == ["false", "true"]
+
+
+def _guide_row(q, marks):
+    """What the trainer needs to mark one question: the right answer, or the written-answer guide."""
+    try:
+        data = q.key.data or {}
+    except AnswerKey.DoesNotExist:
+        data = {}
+    row = {"q": q, "marks": marks}
+    if q.section == "mcq":
+        options = q.payload.get("options") or []
+        right = correct_set(data)           # reads both the old single number and the newer list
+        tf = _is_true_false(options)
+        row["tf"] = tf
+        row["multi"] = is_multi(q)
+        row["accept_any"] = (not row["multi"]) and len(right) > 1
+        row["options"] = [{"letter": "" if tf else (chr(65 + i) if i < 26 else str(i + 1)),
+                           "text": o, "correct": i in right} for i, o in enumerate(options)]
+        picked = [o for o in row["options"] if o["correct"]]
+        # Short label for the one-line key: "B", "B+D", "B/D" (any one), or "T"/"F" for True/False.
+        glue = "+" if row["multi"] else "/"
+        row["label"] = (picked[0]["text"][:1].upper() if tf and picked
+                        else glue.join(o["letter"] for o in picked))
+    elif q.section == "fill":
+        row["accepted"] = data.get("accepted") or []
+        row["case_sensitive"] = bool(data.get("case_sensitive"))
+    elif q.section == "match":
+        left, right = q.payload.get("left") or [], q.payload.get("right") or []
+        pairs = data.get("pairs") or {}
+        row["pairs"] = []
+        for i, text in enumerate(left):
+            j = _pair_index(pairs.get(str(i)), len(right))
+            row["pairs"].append((text, right[j] if j is not None else "—"))
+    else:
+        row["guide"] = (data.get("guide") or "").strip()
+    return row
+
+
+@trainer_required
+def exam_guide(request, pk):
+    """Every question with its answer key / marking guide, for the trainer who owns the exam."""
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    questions = list(exam.questions.select_related("key"))
+    maxima = question_max_marks(exam, questions)
+    sections, missing, quick_key = [], 0, []
+    for s in SECTION_ORDER:
+        rows = [_guide_row(q, maxima[q.id]) for q in questions if q.section == s]
+        if not rows:
+            continue
+        if s == "open":
+            missing = sum(1 for r in rows if not r["guide"])
+        if s == "mcq":      # "1 B · 2 T · 3 B+D": the whole choice / true-false key on one line
+            quick_key = [(r["q"].order, r["label"]) for r in rows if r["label"]]
+        sections.append({"key": s, "label": GUIDE_LABELS[s], "rows": rows})
+    return render(request, "assessments/exam_guide.html", {
+        "exam": exam, "sections": sections, "missing": missing, "quick_key": quick_key,
+        "n_questions": len(questions)})
 
 
 @require_POST

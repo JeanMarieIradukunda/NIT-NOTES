@@ -1,0 +1,16 @@
+{# The things you do most, one tap each. Arg: actions. #}
+<section class="nd-block" aria-labelledby="acts-title">
+  <h2 class="nd-h" id="acts-title">Quick actions</h2>
+  <div class="nd-acts">
+    {% for a in actions %}
+    <a class="nd-act is-{{ a.tone }}" href="{{ a.url }}">
+      <span class="nd-act-ic"><i class="bi {{ a.icon }}" aria-hidden="true"></i></span>
+      <span class="nd-act-text">
+        <span class="nd-act-label">{{ a.label }}</span>
+        <span class="nd-act-hint">{{ a.hint }}</span>
+      </span>
+      {% if a.badge %}<span class="nd-act-badge" aria-label="{{ a.badge }} waiting">{{ a.badge }}</span>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+</section>

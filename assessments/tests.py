@@ -769,11 +769,11 @@ class DashboardAssessmentTests(ExamTestBase):
         self.assertNotContains(r, "nd-badge-new")
         self.assertContains(r, "Open for you now")
 
-    def test_at_most_three_newest_are_shown(self):
+    def test_every_open_assessment_is_shown_not_just_three(self):
         for i in range(4):
             e, _ = make_exam(self.trainer, title=f"Extra paper {i}")
         html = self.dash().content.decode()
-        self.assertEqual(html.count('class="nd-assess-card'), 3)
+        self.assertEqual(html.count('class="nd-assess-card'), 5)    # these four + the one from setUp
 
     def test_dashboard_survives_a_missing_migration(self):
         from unittest import mock

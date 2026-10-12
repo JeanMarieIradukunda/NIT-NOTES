@@ -1,0 +1,16 @@
+{# The big numbers as ONE panel (not separate boxes). Arg: stats. #}
+<section class="nd-block" aria-labelledby="sum-title">
+  <h2 class="nd-h" id="sum-title">At a glance</h2>
+  <div class="nd-summary">
+    {% for s in stats %}
+    <a class="nd-stat is-{{ s.tone }}" href="{{ s.url }}">
+      <span class="nd-stat-ic"><i class="bi {{ s.icon }}" aria-hidden="true"></i></span>
+      <span class="nd-stat-body">
+        <span class="nd-stat-value">{{ s.value }}</span>
+        <span class="nd-stat-label">{{ s.label }}</span>
+        <span class="nd-stat-sub{% if s.warn %} is-warn{% endif %}">{{ s.sub }}</span>
+      </span>
+    </a>
+    {% endfor %}
+  </div>
+</section>

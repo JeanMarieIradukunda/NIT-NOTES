@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Class list · {{ exam.title }}{% endblock %}
 {% block site_search %}{% endblock %}
+{% block extra_css %}
+<style>
+  .pick-list { max-height: 21rem; overflow-y: auto; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); }
+  .pick-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .75rem; margin: 0; padding: .6rem .85rem; border-bottom: 1px solid var(--c-border); cursor: pointer; }
+  .pick-row:last-child { border-bottom: 0; }
+  .pick-row:hover { background: var(--c-surface-2); }
+  .pick-row.is-listed { cursor: default; opacity: .65; }
+  .pick-row[hidden] { display: none; }
+  .pick-name { display: block; font-weight: 600; }
+  .pick-no { display: block; font-size: .85rem; color: var(--c-text-2); }
+</style>
+{% endblock %}
 {% block content %}
 <div class="container-xxl">
   <div class="page-head">
@@ -17,6 +29,55 @@
 
   <div class="row g-4">
     <div class="col-lg-5">
+      <section class="panel panel-body mb-3" id="pick" aria-labelledby="pick-title">
+        <h2 class="fs-6" id="pick-title">Pick students from a class</h2>
+        {% if classes %}
+        <p class="small text-muted-2 mb-2">Choose one of your saved classes, tick the students who sit this assessment, and add them to the list.</p>
+        <form method="get" action="#pick" class="d-flex gap-2 mb-3">
+          <label class="visually-hidden" for="pick_class">Class</label>
+          <select class="form-select" id="pick_class" name="from" onchange="this.form.submit()">
+            <option value=""{% if not picker_class %} selected{% endif %}>Choose a class…</option>
+            {% for c in classes %}<option value="{{ c.pk }}"{% if picker_class and picker_class.pk == c.pk %} selected{% endif %}>{{ c.name }} ({{ c.n_members }})</option>{% endfor %}
+          </select>
+          <noscript><button class="btn btn-outline-secondary" type="submit">Show</button></noscript>
+        </form>
+        {% if picker_class %}
+          {% if picker %}
+          <form method="post" action="{% url 'assessments:roster_add_members' exam.pk %}" id="pick-form">
+            {% csrf_token %}<input type="hidden" name="from" value="{{ picker_class.pk }}">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+              <label class="visually-hidden" for="pick_filter">Filter students</label>
+              <input class="form-control form-control-sm" style="max-width: 14rem;" id="pick_filter" type="text" placeholder="Filter by name or number" autocomplete="off">
+              <button class="btn btn-outline-secondary btn-sm" type="button" id="pick_all">Select all</button>
+              <button class="btn btn-outline-secondary btn-sm" type="button" id="pick_none">None</button>
+            </div>
+            <div class="pick-list mb-3" role="group" aria-label="Students in {{ picker_class.name }}">
+              {% for r in picker %}
+              <label class="pick-row{% if r.on_list %} is-listed{% endif %}">
+                <input class="form-check-input mt-0" type="checkbox" name="members" value="{{ r.m.pk }}"{% if r.on_list %} checked disabled{% endif %}>
+                <span><span class="pick-name">{{ r.m.name|default:"—" }}</span><span class="pick-no mono">{{ r.m.reg_no_display|default:r.m.reg_no }}</span></span>
+                {% if r.on_list %}<span class="pill pill--success">On the list</span>{% endif %}
+              </label>
+              {% endfor %}
+            </div>
+            {% if picker_new %}
+            <button class="btn btn-primary" type="submit" id="pick_submit" disabled><i class="bi bi-person-plus me-1"></i>Add selected to this assessment</button>
+            <span class="small text-muted-2 ms-2" id="pick_count" aria-live="polite"></span>
+            {% else %}
+            <p class="small text-muted-2 mb-0"><i class="bi bi-check-circle me-1"></i>Everyone in this class is already on the list.</p>
+            {% endif %}
+          </form>
+          {% else %}
+          <p class="small text-muted-2 mb-2">This class has no students yet.</p>
+          <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:class_detail' picker_class.pk %}">Add students to this class</a>
+          {% endif %}
+        {% endif %}
+        <div class="mt-2"><a class="btn btn-link btn-sm px-0" href="{% url 'assessments:class_list' %}">Manage classes</a></div>
+        {% else %}
+        <p class="small text-muted-2 mb-2">You have no saved classes yet. Save one once, then pick students from it on every assessment.</p>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:class_list' %}"><i class="bi bi-plus-lg me-1"></i>Add a class</a>
+        {% endif %}
+      </section>
       <form method="post" action="{% url 'assessments:roster_assign' exam.pk %}" class="panel panel-body mb-3" novalidate>
         {% csrf_token %}
         <h2 class="fs-6">Publish to a saved class</h2>
@@ -74,4 +135,37 @@
     </div>
   </div>
 </div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  var form = document.getElementById("pick-form");
+  if (!form) return;
+  var rows = Array.prototype.slice.call(form.querySelectorAll(".pick-row"));
+  var boxes = rows.map(function (r) { return r.querySelector("input[type=checkbox]"); });
+  var btn = document.getElementById("pick_submit"), count = document.getElementById("pick_count");
+  function visible(i) { return !rows[i].hidden; }
+  function update() {
+    var n = 0;
+    boxes.forEach(function (b) { if (b.checked && !b.disabled) n++; });
+    if (btn) btn.disabled = n === 0;
+    if (count) count.textContent = n ? n + " selected" : "";
+  }
+  document.getElementById("pick_filter").addEventListener("input", function () {
+    var q = this.value.trim().toLowerCase();
+    rows.forEach(function (r) {
+      var text = r.querySelector(".pick-name").textContent + " " + r.querySelector(".pick-no").textContent;
+      r.hidden = !!q && text.toLowerCase().indexOf(q) === -1;
+    });
+  });
+  document.getElementById("pick_all").addEventListener("click", function () {
+    boxes.forEach(function (b, i) { if (!b.disabled && visible(i)) b.checked = true; }); update();
+  });
+  document.getElementById("pick_none").addEventListener("click", function () {
+    boxes.forEach(function (b) { if (!b.disabled) b.checked = false; }); update();
+  });
+  form.addEventListener("change", update);
+  update();
+})();
+</script>
 {% endblock %}

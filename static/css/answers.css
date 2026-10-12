@@ -1,0 +1,17 @@
+/* answers.css: highlighted answers for trainers (marking guide + assessment question list).
+   Uses the shared platform tokens, so it follows the site palette. */
+.mg-line { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .4rem; }
+.mg-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin: 0; padding: 0; list-style: none; }
+.mg-chip { display: inline-flex; align-items: center; gap: .35rem; padding: .12rem .55rem; border-radius: 8px; font-size: .78rem; background: var(--c-surface-2); border: 1px solid var(--c-border); color: var(--c-muted); }
+.mg-chip b { font-weight: 700; }
+.mg-chip.is-answer { background: var(--c-success-soft); border-color: var(--c-success); color: var(--c-success); font-weight: 700; }
+.mg-label { font-size: .7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--c-muted); }
+.mg-tag { display: inline-block; padding: .05rem .5rem; border-radius: 999px; font-size: .68rem; font-weight: 700; letter-spacing: .03em; background: var(--c-brand-soft); color: var(--c-brand); white-space: nowrap; }
+.mg-guide { max-height: 7.5rem; overflow-y: auto; padding: .45rem .65rem; border-radius: 8px; font-size: .8rem; line-height: 1.4; background: var(--c-success-soft); border-left: 3px solid var(--c-success); }
+.mg-missing { padding: .35rem .65rem; border-radius: 8px; font-size: .78rem; font-weight: 600; background: var(--c-warning-soft); color: var(--c-warning); }
+
+/* Inside the assessment's question list the answer sits under the question, a little smaller. */
+.mg-inline { margin-top: .1rem; padding-left: 2rem; }
+.mg-inline .mg-guide { max-height: 4.5rem; }
+@media (max-width: 575.98px) { .mg-inline { padding-left: 0; } }
+@media print { .mg-guide { max-height: none; } }

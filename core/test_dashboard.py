@@ -1,13 +1,20 @@
-"""Tests for the dark student dashboard (landing page)."""
+"""Tests for the three dashboards (landing page): student, trainer, administrator."""
+
+from datetime import timedelta
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils import timezone
 
+from assessments.models import AnswerKey, Attempt, Question
+from assessments.tests import SECRET_FILL, make_exam
 from core.models import Activity, Module, ModuleNote, Unit
 from core.tests import PDF_BYTES, BaseCase
 
 
 class DashboardPage(BaseCase):
+    """The student dashboard: what anonymous visitors and non-staff accounts see."""
+
     def get(self):
         return self.client.get(reverse("core:dashboard"))
 
@@ -27,59 +34,79 @@ class DashboardPage(BaseCase):
             self.assertNotIn("night", html.split("<body", 1)[1].split(">", 1)[0], name)
             self.assertNotIn("dashboard.css", html, name)
 
-    def test_empty_library_shows_guidance_for_students_and_trainers(self):
-        self.client.logout()
-        self.assertContains(self.get(), "Trainers are still adding notes")
-        self.assertContains(self.get(), "Levels will appear here")
-        self.client.force_login(self.alice)
-        r = self.get()
-        self.assertContains(r, "Add your first module notes")
-        self.assertContains(r, reverse("core:note_create"))
+    def test_empty_library_shows_a_single_guidance_card(self):
+        for who in (None, self.student):
+            self.client.logout()
+            if who:
+                self.client.force_login(who)
+            html = self.get().content.decode()
+            self.assertIn("Nothing has been published yet", html)
+            self.assertIn("Trainers are still adding notes", html)
+            self.assertEqual(html.count('class="nd-empty"'), 1)
+            self.assertNotIn("Choose your level", html)
+            self.assertNotIn('id="latest-title"', html)
 
-    def test_newest_published_note_is_the_spotlight_and_rest_are_listed(self):
-        first = self.make_note()
-        self.post_note(self.alice, title="Second published note",
-                       module_data={"module": first.module_id})
-        second = ModuleNote.objects.latest("pk")
-        self.assertNotEqual(first.pk, second.pk)
+    def test_published_note_appears_under_its_level_and_in_latest(self):
+        note = self.make_note()
         self.client.logout()
         html = self.get().content.decode()
+        self.assertIn("Choose your level", html)
+        self.assertIn(self.level.name, html)
         self.assertIn("Latest from your trainers", html)
-        # Spotlight holds the newest note, the list below holds the others.
-        spot = html.split('class="nd-spot"', 1)[1].split("</a>", 1)[0]
-        self.assertIn(second.title, spot)
-        self.assertNotIn(second.title, html.split("Just published", 1)[1])
-        self.assertIn(first.title, html.split("Just published", 1)[1])
+        self.assertIn(note.title, html)
+        self.assertNotIn("Nothing has been published yet", html)
 
-    def test_single_note_has_no_duplicate_feed_and_levels_span_the_page(self):
+    def test_levels_are_big_numbered_doors_in_different_colours(self):
         self.make_note()
         self.client.logout()
+        r = self.get()
+        door = r.context["levels"][0]
+        self.assertEqual(door["number"], "3")                 # "Level 3 ..." shows a big 3
+        self.assertEqual(door["tone"], "blue")
+        self.assertContains(r, '<span class="nd-door-num" aria-hidden="true">3</span>')
+
+    def test_latest_is_one_list_newest_first_capped_at_five(self):
+        first = self.make_note()
+        for i in range(6):
+            self.post_note(self.alice, title=f"Extra note {i}", module_data={"module": first.module_id})
+        self.client.logout()
         html = self.get().content.decode()
-        self.assertNotIn('id="whats-new-title"', html)
-        self.assertIn("nd-body--solo", html)
-        self.assertIn("Choose your level", html)
+        self.assertEqual(html.count('id="latest-title"'), 1)
+        self.assertEqual(html.count("nd-row-title"), 5)
+        self.assertIn("Extra note 5", html)                  # newest is in
+        self.assertNotIn(first.title, html.split("latest-title", 1)[1])   # oldest dropped
 
     def test_drafts_never_appear_for_students(self):
         self.make_note(published=False)
         self.client.logout()
         r = self.get()
         self.assertNotContains(r, "Loops notes")
-        self.assertContains(r, "Trainers are still adding notes")
+        self.assertContains(r, "Nothing has been published yet")
 
-    def test_trainer_workspace_is_hidden_from_students(self):
+    def test_old_clutter_is_gone(self):
         self.make_note()
+        self.client.force_login(self.student)
+        html = self.get().content.decode()
+        for gone in ("nd-hero", "nd-spot", "Recently viewed", "Just published", "nd-workspace"):
+            self.assertNotIn(gone, html)
+
+    def test_each_role_gets_its_own_dashboard(self):
         self.client.logout()
-        self.assertNotContains(self.get(), "Your trainer workspace")
+        self.assertContains(self.get(), "Study NIT")
+        self.client.force_login(self.student)
+        self.assertContains(self.get(), "Study NIT")
         self.client.force_login(self.alice)
         r = self.get()
-        self.assertContains(r, "Your trainer workspace")
-        self.assertContains(r, "Add module notes")
+        self.assertContains(r, "Welcome back, Alice")
+        self.assertNotContains(r, "Study NIT")
         self.client.force_login(self.admin)
-        self.assertContains(self.get(), "Notes workspace")
+        r = self.get()
+        self.assertContains(r, "Platform overview")
+        self.assertNotContains(r, "Welcome back")
 
 
 class DashboardActivities(BaseCase):
-    """Published activities appear on the dashboard for everyone; drafts never do."""
+    """Published activities share the student "Latest" list; drafts never appear."""
 
     @classmethod
     def setUpTestData(cls):
@@ -101,7 +128,7 @@ class DashboardActivities(BaseCase):
         activity = self.make_activity("Loops worksheet")
         self.client.logout()
         r = self.get()
-        self.assertContains(r, 'id="activities-title"')
+        self.assertContains(r, 'id="latest-title"')
         self.assertContains(r, "Loops worksheet")
         self.assertContains(r, reverse("core:activity_detail", args=[activity.pk]))
 
@@ -115,7 +142,7 @@ class DashboardActivities(BaseCase):
         self.client.logout()
         r = self.get()
         self.assertNotContains(r, "Secret draft activity")
-        self.assertNotContains(r, 'id="activities-title"')
+        self.assertNotContains(r, 'id="latest-title"')
 
     def test_activities_open_in_the_reader_not_as_a_download(self):
         activity = self.make_activity("Loops worksheet")
@@ -123,6 +150,337 @@ class DashboardActivities(BaseCase):
         html = self.get().content.decode()
         self.assertIn(reverse("core:activity_detail", args=[activity.pk]), html)
         self.assertNotIn(reverse("core:activity_file", args=[activity.pk]), html)
+
+
+class TrainerDashboard(BaseCase):
+    """A trainer sees only their own work: four numbers, recent uploads, their modules."""
+
+    def get(self, who=None):
+        self.client.force_login(who or self.alice)
+        return self.client.get(reverse("core:dashboard"))
+
+    def test_shows_three_numbers_and_four_quick_actions(self):
+        r = self.get()
+        html = r.content.decode()
+        self.assertEqual(html.count('class="nd-stat is-'), 3)
+        for label in ("Notes published", "Activities published", "Assessments open"):
+            self.assertIn(label, html)
+        self.assertEqual(html.count('class="nd-act is-'), 4)
+        for name in ("core:note_create", "core:activity_create", "assessments:exam_create",
+                     "assessments:marking_queue"):
+            self.assertIn(reverse(name), html)
+        self.assertIn("Welcome back, Alice", html)
+
+    def test_attention_lists_what_needs_doing_and_is_calm_when_nothing_does(self):
+        self.assertContains(self.get(), "All clear. Nothing needs attention right now.")
+        exam, qs = make_exam(self.alice)
+        AnswerKey.objects.filter(question=qs[("open", 1)]).update(data={"guide": ""})
+        self.make_note(self.alice, published=False)
+        from assessments.models import Attempt
+        Attempt.objects.create(exam=exam, candidate_name="C", reg_no="R1", status="submitted",
+                               submitted_at=timezone.now())
+        r = self.get()
+        texts = [a["text"] for a in r.context["attention"]]
+        self.assertEqual(texts, ["1 submission waiting to be marked", "1 draft not yet published",
+                                 "1 written question without a marking guide"])
+        guides = r.context["attention"][2]
+        self.assertEqual(guides["url"], reverse("assessments:guides_edit", args=[exam.pk]))   # straight to the fix
+        self.assertContains(r, "Open marking queue")
+
+    def test_marking_queue_button_shows_how_many_are_waiting(self):
+        exam, _ = make_exam(self.alice)
+        for i in range(3):
+            Attempt.objects.create(exam=exam, candidate_name="C", reg_no=f"R{i}", status="submitted",
+                                   submitted_at=timezone.now())
+        action = next(a for a in self.get().context["actions"] if a["label"] == "Marking queue")
+        self.assertEqual((action["badge"], action["hint"]), (3, "3 waiting"))
+
+    def test_counts_only_this_trainers_notes_with_drafts_called_out(self):
+        self.make_note(self.alice)                                 # published
+        self.make_note(self.alice, published=False)                # draft
+        self.ensure_module("GENCP302", "C Programming", self.bob)
+        self.make_note(self.bob)                                   # someone else's
+        r = self.get()
+        notes = next(s for s in r.context["stats"] if s["label"] == "Notes published")
+        self.assertEqual(notes["value"], 1)
+        self.assertEqual(notes["sub"], "1 draft")
+        self.assertTrue(notes["warn"])
+
+    def test_recent_uploads_are_mine_with_a_status_badge_and_link_to_edit(self):
+        mine = self.make_note(self.alice, published=False)
+        self.ensure_module("GENCP302", "C Programming", self.bob)
+        theirs = self.make_note(self.bob)
+        html = self.get().content.decode()
+        self.assertIn(mine.title, html)
+        self.assertIn("nd-badge-draft", html)
+        self.assertIn(reverse("core:note_edit", args=[mine.pk]), html)
+        self.assertNotIn(reverse("core:note_edit", args=[theirs.pk]), html)
+
+    def test_lists_assigned_modules_or_explains_there_are_none(self):
+        self.assertContains(self.get(), "No modules are assigned to you yet")
+        self.ensure_module("GENCP302", "C Programming", self.alice)
+        r = self.get()
+        self.assertContains(r, "GENCP302")
+        self.assertNotContains(r, "No modules are assigned")
+
+    def test_empty_state_invites_the_first_upload(self):
+        r = self.get()
+        self.assertContains(r, "Add your first notes")
+        self.assertNotContains(r, "Choose your level")            # no student content here
+
+
+class AdminDashboard(BaseCase):
+    """Administrators see platform totals and only the things that need action."""
+
+    def get(self):
+        self.client.force_login(self.admin)
+        return self.client.get(reverse("core:dashboard"))
+
+    def test_shows_four_totals_and_four_quick_actions(self):
+        html = self.get().content.decode()
+        self.assertEqual(html.count('class="nd-stat is-'), 4)
+        self.assertEqual(html.count('class="nd-act is-'), 4)
+        for label in ("Trainers", "Modules", "Published content", "Assessments open"):
+            self.assertIn(label, html)
+        self.assertIn(reverse("accounts:create_trainer"), html)
+        self.assertIn(reverse("core:curriculum"), html)
+
+    def test_all_clear_when_nothing_needs_attention(self):
+        self.ensure_module("GENCP302", "C Programming", self.alice, self.bob)
+        r = self.get()
+        self.assertEqual(r.context["attention"], [])
+        self.assertContains(r, "Nothing needs attention right now")
+
+    def test_flags_trainers_without_modules_and_unpublished_drafts(self):
+        self.ensure_module("GENCP302", "C Programming", self.alice)       # bob has none
+        self.make_note(self.alice, published=False)
+        r = self.get()
+        texts = [a["text"] for a in r.context["attention"]]
+        self.assertIn("1 trainer without modules", texts)
+        self.assertIn("1 draft not yet published", texts)
+        self.assertContains(r, reverse("accounts:manage_trainers"))
+
+    def test_latest_uploads_span_all_trainers_and_name_the_author(self):
+        self.ensure_module("GENCP302", "C Programming", self.alice, self.bob)
+        a, b = self.make_note(self.alice), self.make_note(self.bob)
+        html = self.get().content.decode()
+        self.assertIn(reverse("core:note_edit", args=[a.pk]), html)
+        self.assertIn(reverse("core:note_edit", args=[b.pk]), html)
+        self.assertIn("Alice", html.split("Latest uploads", 1)[1])
+        self.assertIn("Bob", html.split("Latest uploads", 1)[1])
+
+    def test_never_links_to_the_retired_django_admin(self):
+        self.assertNotContains(self.get(), 'href="/admin/')
+
+
+class StudentSeesEveryOpenAssessment(BaseCase):
+    """No cap: every open assessment that is meant for the dashboard is listed."""
+
+    def test_all_open_assessments_are_listed_not_just_three(self):
+        for _ in range(5):
+            make_exam(self.alice)
+        self.client.logout()
+        html = self.client.get(reverse("core:dashboard")).content.decode()
+        self.assertEqual(html.count('class="nd-assess-card'), 5)
+        self.assertIn('<span class="nd-count is-violet">5</span>', html)
+
+    def test_closed_or_hidden_assessments_are_still_left_out(self):
+        make_exam(self.alice)
+        make_exam(self.alice, is_open=False)
+        make_exam(self.alice, show_on_dashboard=False)
+        self.client.logout()
+        html = self.client.get(reverse("core:dashboard")).content.decode()
+        self.assertEqual(html.count('class="nd-assess-card'), 1)
+
+
+class StaffAssessmentButtons(BaseCase):
+    """Trainer and administrator dashboards: one Marking guide button per assessment."""
+
+    def test_trainer_gets_a_button_for_each_of_their_assessments_only(self):
+        mine = [make_exam(self.alice)[0], make_exam(self.alice, is_open=False)[0]]
+        theirs = make_exam(self.bob)[0]
+        self.client.force_login(self.alice)
+        html = self.client.get(reverse("core:dashboard")).content.decode()
+        self.assertEqual(html.count("Marking guide</a>"), 2)
+        for e in mine:
+            self.assertIn(reverse("assessments:exam_guide", args=[e.pk]), html)
+            self.assertIn(reverse("assessments:exam_detail", args=[e.pk]), html)
+        self.assertNotIn(reverse("assessments:exam_guide", args=[theirs.pk]), html)
+
+    def test_admin_gets_a_button_for_every_assessment_with_the_owner(self):
+        a, b = make_exam(self.alice)[0], make_exam(self.bob)[0]
+        self.client.force_login(self.admin)
+        html = self.client.get(reverse("core:dashboard")).content.decode()
+        self.assertEqual(html.count("Marking guide</a>"), 2)
+        self.assertIn(reverse("assessments:exam_guide", args=[a.pk]), html)
+        self.assertIn(reverse("assessments:exam_guide", args=[b.pk]), html)
+        self.assertIn("by Alice", html)
+        self.assertIn("by Bob", html)
+
+    def test_shows_how_many_written_questions_lack_a_guide(self):
+        exam, qs = make_exam(self.alice)
+        AnswerKey.objects.filter(question=qs[("open", 1)]).update(data={"guide": ""})
+        self.client.force_login(self.alice)
+        self.assertContains(self.client.get(reverse("core:dashboard")), "1 without guide")
+
+    def test_empty_state_offers_a_new_assessment(self):
+        self.client.force_login(self.alice)
+        r = self.client.get(reverse("core:dashboard"))
+        self.assertContains(r, "No assessments have been created yet")
+        self.assertContains(r, reverse("assessments:exam_create"))
+
+
+class MarkingGuidePage(BaseCase):
+    """The page the dashboard button opens."""
+
+    def setUp(self):
+        super().setUp()
+        self.exam, self.qs = make_exam(self.alice)
+        self.url = reverse("assessments:exam_guide", args=[self.exam.pk])
+
+    def test_owner_sees_every_answer_and_the_written_guide(self):
+        self.client.force_login(self.alice)
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Mentions leases and automatic addressing.")   # written guide
+        self.assertContains(r, SECRET_FILL)                                   # fill-in answers
+        self.assertContains(r, "(correct answer)")                            # multiple choice
+        self.assertContains(r, "Connects networks")                           # matching pairs
+        self.assertContains(r, reverse("assessments:question_edit",
+                                       args=[self.exam.pk, self.qs[("open", 1)].pk]))
+
+    def test_answers_are_highlighted_and_the_choice_key_is_one_line(self):
+        self.client.force_login(self.alice)
+        html = self.client.get(self.url).content.decode()
+        self.assertEqual(html.count('class="mg-key-item"'), 2)           # both multiple-choice answers
+        self.assertIn('class="mg-chip is-answer"><b>B</b>Network', html)    # correct option highlighted
+        self.assertNotIn('class="mg-chip is-answer"><b>A</b>Physical', html)  # wrong options are not
+        self.assertIn(f'class="mg-chip is-answer">{SECRET_FILL}', html)     # fill-in answers
+        self.assertIn('class="mg-guide', html)                              # written guide, highlighted
+        self.assertEqual(html.count('class="mg-q"'), 5)                     # one compact card per question
+
+    def test_newer_list_format_answers_are_highlighted(self):
+        """Questions saved by the form or the importer store the answers as a list."""
+        q = self.qs[("mcq", 1)]
+        q.payload = {**q.payload, "multi": True}
+        q.save()
+        AnswerKey.objects.filter(question=q).update(data={"correct": [0, 2]})
+        self.client.force_login(self.alice)
+        html = self.client.get(self.url).content.decode()
+        self.assertIn('class="mg-chip is-answer"><b>A</b>Physical', html)
+        self.assertIn('class="mg-chip is-answer"><b>C</b>Session', html)
+        self.assertNotIn('class="mg-chip is-answer"><b>B</b>Network</li>', html.split("Default HTTP port")[0])
+        self.assertIn("Select all that apply", html)
+        self.assertIn("1<span aria-hidden=\"true\">·</span>A+C", html)         # the one-line key
+
+    def test_true_false_questions_show_their_answer(self):
+        tf = Question.objects.create(exam=self.exam, section="mcq", order=3, text="The sun is a star.",
+                                     payload={"options": ["True", "False"]})
+        AnswerKey.objects.create(question=tf, data={"correct": [0]})
+        self.client.force_login(self.alice)
+        r = self.client.get(self.url)
+        self.assertContains(r, "Multiple choice &amp; True/False")
+        self.assertContains(r, "True / False")
+        self.assertContains(r, 'class="mg-chip is-answer">True')
+        self.assertNotContains(r, 'class="mg-chip is-answer">False')
+        self.assertContains(r, "3<span aria-hidden=\"true\">·</span>T")           # key shows T
+
+    def test_assessment_page_shows_the_answers_under_every_question_type(self):
+        tf = Question.objects.create(exam=self.exam, section="mcq", order=3, text="The sun is a star.",
+                                     payload={"options": ["True", "False"]})
+        AnswerKey.objects.create(question=tf, data={"correct": [0]})
+        self.client.force_login(self.alice)
+        r = self.client.get(reverse("assessments:exam_detail", args=[self.exam.pk]))
+        self.assertContains(r, "css/answers.css")
+        self.assertContains(r, "Multiple choice &amp; True/False")
+        self.assertContains(r, 'class="mg-chip is-answer"><b>B</b>Network')       # multiple choice
+        self.assertContains(r, 'class="mg-chip is-answer">True')                  # true / false
+        self.assertContains(r, f'class="mg-chip is-answer">{SECRET_FILL}')        # fill in the blank
+        self.assertContains(r, "Connects networks")                               # matching
+        self.assertContains(r, "Mentions leases and automatic addressing.")       # open
+
+    def test_a_missing_guide_is_flagged_with_an_add_button(self):
+        AnswerKey.objects.filter(question=self.qs[("open", 1)]).update(data={"guide": ""})
+        self.client.force_login(self.alice)
+        r = self.client.get(self.url)
+        self.assertContains(r, "No marking guide yet")
+        self.assertContains(r, "Add guide")
+
+    def test_admin_can_open_any_guide(self):
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+
+    def test_another_trainer_students_and_visitors_are_kept_out(self):
+        self.client.force_login(self.bob)
+        self.assertEqual(self.client.get(self.url).status_code, 403)
+        self.client.force_login(self.student)
+        self.assertEqual(self.client.get(self.url).status_code, 403)
+        self.client.logout()
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("login", r["Location"])
+
+    def test_assessment_page_links_to_its_guide(self):
+        self.client.force_login(self.alice)
+        r = self.client.get(reverse("assessments:exam_detail", args=[self.exam.pk]))
+        self.assertContains(r, self.url)
+
+
+class DashboardExtras(BaseCase):
+    """Marking-queue links, the admin submissions chart and the student assessment filter."""
+
+    def submitted(self, exam, days_ago=0):
+        return Attempt.objects.create(exam=exam, candidate_name="Cand", reg_no=f"R{Attempt.objects.count()}", status=Attempt.SUBMITTED,
+                                      submitted_at=timezone.now() - timedelta(days=days_ago))
+
+    def test_awaiting_marking_tile_opens_the_queue(self):
+        self.client.force_login(self.alice)
+        r = self.client.get(reverse("core:dashboard"))
+        action = next(a for a in r.context["actions"] if a["label"] == "Marking queue")
+        self.assertEqual(action["url"], reverse("assessments:marking_queue"))
+
+    def test_admin_attention_row_for_marking_opens_the_queue(self):
+        exam, _ = make_exam(self.alice)
+        self.submitted(exam)
+        self.client.force_login(self.admin)
+        r = self.client.get(reverse("core:dashboard"))
+        row = next(a for a in r.context["attention"] if "awaiting marking" in a["text"])
+        self.assertEqual(row["url"], reverse("assessments:marking_queue"))
+
+    def test_admin_chart_counts_submissions_per_week(self):
+        exam, _ = make_exam(self.alice)
+        self.submitted(exam, 0), self.submitted(exam, 0), self.submitted(exam, 21)
+        self.submitted(exam, 200)                                  # too old for the chart
+        self.client.force_login(self.admin)
+        r = self.client.get(reverse("core:dashboard"))
+        weekly = r.context["weekly"]
+        self.assertEqual(len(weekly["bars"]), 8)
+        self.assertEqual(weekly["this_week"], 2)
+        self.assertEqual(weekly["total"], 3)
+        self.assertEqual(max(b["pct"] for b in weekly["bars"]), 100)
+        self.assertContains(r, "Submissions, last 8 weeks")
+        self.assertContains(r, 'class="nd-chart"')
+
+    def test_admin_chart_is_calm_when_there_is_no_data(self):
+        self.client.force_login(self.admin)
+        weekly = self.client.get(reverse("core:dashboard")).context["weekly"]
+        self.assertEqual((weekly["total"], max(b["pct"] for b in weekly["bars"])), (0, 0))
+
+    def test_trainers_do_not_get_the_platform_chart(self):
+        self.client.force_login(self.alice)
+        self.assertNotContains(self.client.get(reverse("core:dashboard")), "nd-chart")
+
+    def test_student_filter_appears_only_when_there_are_many_open_assessments(self):
+        for _ in range(2):
+            make_exam(self.alice)
+        self.client.logout()
+        self.assertNotContains(self.client.get(reverse("core:dashboard")), 'id="assess-filter"')
+        for _ in range(4):
+            make_exam(self.alice)
+        html = self.client.get(reverse("core:dashboard")).content.decode()
+        self.assertIn('id="assess-filter"', html)
+        self.assertEqual(html.count('type="search"'), 1)           # the site search stays the only search box
+        self.assertEqual(html.count('class="nd-assess-card'), 6)   # the filter hides cards, the page still lists all
 
 
 class SiteHeaderLayout(BaseCase):
@@ -143,7 +501,7 @@ class SiteHeaderLayout(BaseCase):
 
     def test_header_row_holds_only_brand_and_user_area(self):
         top = self.html(self.alice).split('class="app-topbar"', 1)[1].split("</header>", 1)[0]
-        self.assertIn("brand-mark", top)
+        self.assertIn("brand-logo", top)
         self.assertIn("user-toggle", top)
         self.assertNotIn("nav-link", top)
         self.assertNotIn('type="search"', top)
@@ -230,4 +588,5 @@ class MenuBarWidth(BaseCase):
         self.assertIn("max-width: 100%", menu)
         self.assertIn("border-radius: 999px", menu)
         bar = css.split(".app-menubar {", 1)[1].split("}", 1)[0]
-        self.assertNotIn("background", bar)       # no full-width band behind the pill
+        self.assertIn("var(--c-surface)", bar)    # the band uses the shared surface colour, no private one
+        self.assertNotIn("#", bar)

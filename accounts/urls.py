@@ -11,8 +11,7 @@ urlpatterns = [
     path("trainers/<int:user_id>/modules/", views.edit_trainer_modules, name="edit_trainer_modules"),
     path("trainers/<int:user_id>/toggle/", views.toggle_trainer_active, name="toggle_trainer_active"),
     path("profile/", views.profile, name="profile"),
-    path("login/", auth_views.LoginView.as_view(template_name="accounts/login.html"),
-         name="login"),
+    path("login/", views.ThrottledLoginView.as_view(), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("password-change/",
          auth_views.PasswordChangeView.as_view(

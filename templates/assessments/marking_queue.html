@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Marking queue{% endblock %}
+{% block site_search %}{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Marking queue</li>
+    </ol></nav>
+    <h1>Marking queue</h1>
+    <p class="lead">Submissions with written answers still to mark, oldest first.</p>
+  </div>
+
+  {% if not attempts %}
+  <div class="empty-state">
+    <span class="icon-chip"><i class="bi bi-check2-circle"></i></span>
+    <h3>All marked</h3>
+    <p>Nothing is waiting. New submissions with written answers will appear here.</p>
+  </div>
+  {% else %}
+  <div class="panel list-panel">
+    <div class="panel-head"><h2>{{ attempts|length }} waiting</h2></div>
+    <div class="table-responsive">
+      <table class="table grid-table align-middle">
+        <thead><tr>
+          <th scope="col">Candidate</th><th scope="col">Assessment</th><th scope="col">Submitted</th>
+          <th scope="col" class="text-end">Waiting</th><th scope="col" class="text-end"><span class="visually-hidden">Action</span></th>
+        </tr></thead>
+        <tbody>
+        {% for a in attempts %}
+          <tr>
+            <td>{{ a.candidate_name }}<div class="small text-muted-2">{{ a.reg_no_display|default:a.reg_no }}</div></td>
+            <td><a class="title-link" href="{% url 'assessments:exam_detail' a.exam.pk %}">{{ a.exam.title }}</a>
+              {% if a.exam.module %}<div class="small text-muted-2">{{ a.exam.module.code }}</div>{% endif %}</td>
+            <td>{{ a.submitted_at|date:"j M Y, H:i" }}</td>
+            <td class="text-end">{% if a.waiting_days %}<span class="pill pill--warning">{{ a.waiting_days }} day{{ a.waiting_days|pluralize }}</span>{% else %}<span class="text-muted-2">today</span>{% endif %}</td>
+            <td class="text-end"><a class="btn btn-primary btn-sm" href="{% url 'assessments:attempt_detail' a.exam.pk a.pk %}">Mark</a></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

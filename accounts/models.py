@@ -16,3 +16,14 @@ class Profile(models.Model):
 
     def __str__(self):
         return str(self.user)
+
+
+class LoginFailure(models.Model):
+    """One failed sign-in. Used only to pause sign-in after repeated failures (see accounts/throttle.py)."""
+
+    username = models.CharField(max_length=150, db_index=True)
+    ip = models.GenericIPAddressField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    def __str__(self):
+        return f"{self.username} @ {self.created_at:%Y-%m-%d %H:%M}"
