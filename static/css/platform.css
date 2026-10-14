@@ -727,3 +727,83 @@ main header.mb-4:not(.lesson-head) > h1 {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+
+/* =============================================================================
+   Light theme  (html[data-bs-theme="light"], switched by static/js/theme.js)
+   Only the tokens change; every component above already reads them. All text
+   pairs below were checked against WCAG AA (4.5:1 or better).
+   ========================================================================== */
+html[data-bs-theme="light"] {
+  color-scheme: light;
+  --c-bg:         #f4f6fb;
+  --c-surface:    #ffffff;
+  --c-surface-2:  #eef2f9;
+  --c-surface-3:  #e3e9f4;
+  --c-border:     rgba(30, 50, 95, .12);
+  --c-border-2:   rgba(30, 50, 95, .22);
+  --c-text:       #0f1a33;
+  --c-text-2:     #35435f;
+  --c-muted:      #56637f;
+  --c-faint:      #62708c;
+
+  --c-brand:      #2450c8;
+  --c-brand-2:    #1a3a9a;
+  --c-brand-solid:   #2f5fe0;
+  --c-brand-solid-2: #2450c8;
+  --c-brand-soft: rgba(47, 95, 224, .10);
+  --c-brand-line: rgba(47, 95, 224, .30);
+
+  --c-success:      #0f7a4a;  --c-success-soft: rgba(15, 140, 85, .11);  --c-success-line: rgba(15, 140, 85, .32);
+  --c-warning:      #8a5600;  --c-warning-soft: rgba(200, 130, 10, .13); --c-warning-line: rgba(200, 130, 10, .38);
+  --c-danger:       #c0392b;  --c-danger-soft:  rgba(196, 55, 44, .09);  --c-danger-line:  rgba(196, 55, 44, .30);
+
+  --c-bar-bg: rgba(244, 246, 251, .9);
+  --shadow-1: 0 1px 2px rgba(20, 35, 70, .08);
+  --shadow-2: 0 1px 2px rgba(20, 35, 70, .08), 0 18px 40px -24px rgba(20, 35, 70, .35);
+  --ring: 0 0 0 3px rgba(47, 95, 224, .35);
+
+  --bs-body-color-rgb: 53, 67, 95;
+  --bs-secondary-rgb: 86, 99, 127;
+  --bs-primary-rgb: 36, 80, 200;
+  --bs-link-color-rgb: 36, 80, 200;
+  --bs-link-hover-color-rgb: 26, 58, 154;
+  --bs-danger-rgb: 192, 57, 43;
+  --bs-success-rgb: 15, 122, 74;
+}
+html[data-bs-theme="light"] .app-menubar { background: var(--c-surface); }
+html[data-bs-theme="light"] .form-control::placeholder { color: var(--c-faint); }
+
+/* the sun / moon switch in the top bar: shows the theme you would switch TO */
+.theme-toggle {
+  display: inline-grid; place-items: center; flex: none; width: 38px; height: 38px; padding: 0; border-radius: 50%;
+  border: 1px solid var(--c-border-2); background: var(--c-surface); color: var(--c-text-2); font-size: 1.05rem; line-height: 1;
+  cursor: pointer; transition: background-color .15s, color .15s, border-color .15s;
+}
+.theme-toggle:hover { background: var(--c-surface-3); color: var(--c-text); border-color: var(--c-brand-line); }
+.theme-toggle:focus-visible { outline: 0; box-shadow: var(--ring); }
+.theme-toggle .icon-to-dark { display: none; }
+html[data-bs-theme="light"] .theme-toggle .icon-to-light { display: none; }
+html[data-bs-theme="light"] .theme-toggle .icon-to-dark { display: inline; }
+
+/* =============================================================================
+   One look across the system: the pages built on .page-head / .panel / .grid-table
+   (assessments, classes, results, notes, curriculum ...) now share the dashboards'
+   heading scale, corner radius and stat tiles.
+   ========================================================================== */
+.page-head { padding: clamp(1.5rem, 3.5vw, 2.5rem) 0 1.5rem; }
+.page-head h1 { font-weight: 700; font-size: clamp(1.65rem, 1.2rem + 1.6vw, 2.25rem); line-height: 1.15; letter-spacing: -.03em; text-wrap: balance; }
+.page-head .lead { color: var(--c-text-2); font-size: 1.0625rem; line-height: 1.5; max-width: 62ch; }
+.panel, .empty-state { border-radius: 16px; }
+.panel-head h2, .section-head h2 { font-family: var(--font-display); font-weight: 700; letter-spacing: -.015em; }
+.panel-head h2 { font-size: 1.05rem; }
+.list-row { min-height: 3.25rem; }
+
+/* the old stat tiles (analysis, attempt detail) get the dashboards' accent edge and bolder numbers */
+.panel.stat { position: relative; overflow: hidden; padding-left: 1.5rem; }
+.panel.stat::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--c-brand); }
+.stat .num { font-family: var(--font-display); font-weight: 800; font-size: 1.9rem; letter-spacing: -.035em; }
+.stat .label { color: var(--c-text-2); font-size: .85rem; font-weight: 600; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .panel, .nd-stat { transition: border-color .15s, background-color .15s, box-shadow .15s; }
+}

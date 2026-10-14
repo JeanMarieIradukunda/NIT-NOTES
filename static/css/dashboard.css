@@ -247,3 +247,36 @@ a.nd-row:hover .nd-row-title, .nd-row-link:hover { color: var(--nd-lamp); }
   .nd-act, .nd-stat, .nd-door, .nd-assess-card, .nd-resume, .nd-row, .nd-chip, .nd-cta { transition: none; }
 }
 @media (max-width: 575.98px) { .nd-chart { gap: .3rem; padding-inline: .6rem; } }
+
+/* ===================== light theme: tones that were pale pastels for dark ===================== */
+html[data-bs-theme="light"] body.night {
+  --nd-solid-2: #2450c8;                       /* hover on a cobalt button goes darker, not lighter */
+  --tone-teal:   #0d7468;  --tone-teal-soft:   rgba(13, 148, 136, .12);
+  --tone-violet: #6240c9;  --tone-violet-soft: rgba(98, 64, 201, .11);
+}
+html[data-bs-theme="light"] .nd-assess-card { border-color: rgba(98, 64, 201, .32); }
+
+/* ===================== summary cards: trend chip + two links ===================== */
+/* The card is a <div>. Its main link (number + label) stretches over the whole card; the small
+   footer link ("2 drafts") sits above it so both are clickable without nesting anchors. */
+.nd-stat { position: relative; }
+.nd-stat:focus-within { box-shadow: inset 0 0 0 2px var(--c-brand); }
+.nd-stat-link { display: grid; color: inherit; text-decoration: none; }
+.nd-stat-link::after { content: ""; position: absolute; inset: 0; }
+.nd-stat-link:focus-visible { outline: 0; }
+.nd-stat-foot { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .6rem; margin-top: .15rem; }
+.nd-stat-sub-link { position: relative; z-index: 1; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--c-border-2); }
+.nd-stat-sub-link:hover { color: var(--nd-text); text-decoration-color: currentColor; }
+.nd-stat-sub-link.is-warn:hover { color: var(--nd-amber); }
+.nd-trend {
+  display: inline-flex; align-items: center; gap: .25rem; padding: .05rem .5rem; border-radius: 999px;
+  font-size: .8125rem; font-weight: 650; line-height: 1.5; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.nd-trend.is-up   { background: var(--nd-green-soft); color: var(--nd-green); }
+.nd-trend.is-flat { background: var(--nd-raised); color: var(--nd-muted); }
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes nd-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .nd-stat { animation: nd-rise .4s ease both; }
+  .nd-stat:nth-child(2) { animation-delay: .05s; } .nd-stat:nth-child(3) { animation-delay: .1s; } .nd-stat:nth-child(4) { animation-delay: .15s; }
+}

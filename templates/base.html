@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
     <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
     <link rel="stylesheet" href="{% static 'css/platform.css' %}"> {% block extra_css %}{% endblock %}
+    <script src="{% static 'js/theme.js' %}"></script>
 </head>
 
 <body class="{% block body_class %}{% endblock %}">
@@ -26,6 +27,9 @@
                     <span class="brand-text"><strong>{{ BRAND.institution|upper }}</strong></span>
                 </a>
                 <div class="d-flex align-items-center gap-2">
+                    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to light theme" title="Switch to light theme" aria-pressed="false">
+                        <i class="bi bi-sun icon-to-light" aria-hidden="true"></i><i class="bi bi-moon-stars icon-to-dark" aria-hidden="true"></i>
+                    </button>
                     {% if user.is_authenticated %}
                     <div class="dropdown">
                         <button class="user-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">

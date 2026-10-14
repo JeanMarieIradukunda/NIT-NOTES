@@ -14,11 +14,13 @@ dashboard has to earn its place; anything else belongs on the page it links to.
 """
 
 import re
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.db import DatabaseError
 from django.db.models import Count, Q
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.roles import TRAINER, is_admin, is_trainer
 from .models import Activity, Module, ModuleNote, StudentActivity, Trade
@@ -35,10 +37,36 @@ def _plural(n, word, plural=None):
     return f"{n} {word if n == 1 else (plural or word + 's')}"
 
 
-def _stat(url_name, icon, label, value, sub, warn=False, tone="blue"):
-    """One headline number. ``warn`` tints the sub-line amber (only when it is non-zero)."""
-    return {"url": reverse(url_name), "icon": icon, "label": label,
-            "value": value, "sub": sub, "warn": bool(warn), "tone": tone}
+def _stat(url_name, icon, label, value, sub, warn=False, tone="blue", *, query="", sub_url="", trend=None):
+    """One headline number.
+
+    ``warn`` tints the sub-line amber (only when it is non-zero). ``query`` (e.g. "?status=published")
+    makes the card open the matching filtered list; ``sub_url`` turns the sub-line into its own link
+    (e.g. "2 drafts" -> the drafts); ``trend`` is a ``_trend()`` chip, or None for no chip.
+    """
+    return {"url": reverse(url_name) + query, "icon": icon, "label": label,
+            "value": value, "sub": sub, "warn": bool(warn), "tone": tone,
+            "sub_url": sub_url, "trend": trend}
+
+
+def _since():
+    """The start of the 'this week' window used by the trend chips (the last 7 days)."""
+    return timezone.now() - timedelta(days=7)
+
+
+def _trend(n):
+    """A small 'what changed this week' chip for a summary card."""
+    if n:
+        return {"dir": "up", "icon": "bi-arrow-up-right", "n": n, "text": f"+{n} new this week"}
+    return {"dir": "flat", "icon": "bi-dash", "n": 0, "text": "nothing new this week"}
+
+
+def _new_exams(exams):
+    """Assessments created in the last 7 days. Never raises (see _assessment_counts)."""
+    try:
+        return exams.filter(created_at__gte=_since()).count()
+    except DatabaseError:
+        return 0
 
 
 def _act(label, hint, icon, tone, url_name, badge=0):
@@ -284,11 +312,16 @@ def _trainer(request):
         ],
         "stats": [
             _stat("core:notes_manage", "bi-journal-text", "Notes published", notes["published"],
-                  _plural(notes["drafts"], "draft"), notes["drafts"], "blue"),
+                  _plural(notes["drafts"], "draft"), notes["drafts"], "blue", query="?status=published",
+                  sub_url=reverse("core:notes_manage") + "?status=draft" if notes["drafts"] else "",
+                  trend=_trend(my_notes.filter(is_published=True, published_at__gte=_since()).count())),
             _stat("core:activities_manage", "bi-clipboard2-check", "Activities published", acts["published"],
-                  _plural(acts["drafts"], "draft"), acts["drafts"], "teal"),
+                  _plural(acts["drafts"], "draft"), acts["drafts"], "teal", query="?status=published",
+                  sub_url=reverse("core:activities_manage") + "?status=draft" if acts["drafts"] else "",
+                  trend=_trend(my_acts.filter(is_published=True, created_at__gte=_since()).count())),
             _stat("assessments:exam_list", "bi-shield-check", "Assessments open", exams["open"],
-                  f"{exams['total']} in total", False, "violet"),
+                  f"{exams['total']} in total", False, "violet",
+                  trend=_trend(_new_exams(Exam.objects.filter(created_by=user)))),
         ],
         "exams": exam_rows,
         "recent": _merged(my_notes.order_by("-updated_at"),
@@ -342,13 +375,19 @@ def _admin(request):
         ],
         "stats": [
             _stat("accounts:manage_trainers", "bi-people", "Trainers", n_trainers,
-                  f"{unassigned} without modules" if unassigned else "all have modules", unassigned, "blue"),
+                  f"{unassigned} without modules" if unassigned else "all have modules", unassigned, "blue",
+                  trend=_trend(trainers.filter(date_joined__gte=_since()).count())),
             _stat("core:curriculum", "bi-diagram-3", "Modules", Module.objects.count(),
                   _plural(levels, "level"), False, "teal"),
             _stat("core:notes_manage", "bi-journal-text", "Published content", published,
-                  _plural(drafts, "draft"), drafts, "blue"),
+                  _plural(drafts, "draft"), drafts, "blue", query="?status=published",
+                  sub_url=(reverse("core:notes_manage" if notes["drafts"] else "core:activities_manage")
+                           + "?status=draft") if drafts else "",
+                  trend=_trend(ModuleNote.objects.filter(is_published=True, published_at__gte=_since()).count()
+                               + Activity.objects.filter(is_published=True, created_at__gte=_since()).count())),
             _stat("assessments:exam_list", "bi-shield-check", "Assessments open",
-                  assessments["open"], f"{assessments['total']} in total", False, "violet"),
+                  assessments["open"], f"{assessments['total']} in total", False, "violet",
+                  trend=_trend(_new_exams(Exam.objects.all()))),
         ],
         "weekly": _weekly_submissions(),
         "exams": _exam_rows(Exam.objects.all()),
