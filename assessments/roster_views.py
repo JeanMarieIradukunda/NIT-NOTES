@@ -65,10 +65,11 @@ def roster_page(request, pk):
 
     attempts = {a.reg_no: a for a in exam.attempts.all()}
     entries = list(exam.roster.all())
+    just_added = set(request.session.pop(f"roster_new_{exam.pk}", []))
     rows = []
     for e in entries:
         a = attempts.get(e.reg_no)
-        rows.append({"e": e, "status": ("submitted" if a and a.is_submitted else "in_progress" if a and a.end_at
+        rows.append({"e": e, "is_new": e.pk in just_added, "status": ("submitted" if a and a.is_submitted else "in_progress" if a and a.end_at
                                         else "opened" if a else "not_started")})
     listed = {e.reg_no for e in entries}
     unlisted = [a for a in attempts.values() if a.reg_no not in listed] if entries else []
@@ -89,7 +90,8 @@ def roster_page(request, pk):
     return render(request, "assessments/roster.html", {
         "exam": exam, "rows": rows, "counts": counts, "unlisted": unlisted, "total": len(entries),
         "classes": classes, "picker_class": chosen, "picker": picker,
-        "picker_new": sum(1 for r in picker if not r["on_list"])})
+        "picker_new": sum(1 for r in picker if not r["on_list"]),
+        "just_added": sum(1 for r in rows if r["is_new"])})
 
 
 @require_POST
@@ -154,15 +156,21 @@ def roster_add_members(request, pk):
 
     had_list = exam.roster.exists()
     added = already = 0
+    new_ids = []
     with transaction.atomic():
-        existing = {e.reg_no for e in exam.roster.all()}
         for m in chosen:
-            if m.reg_no in existing:
+            # get_or_create is safe against a double click or two tabs adding the same student at once:
+            # the unique (exam, reg_no) constraint decides, and the loser is simply counted as "already on it".
+            entry, created = RosterEntry.objects.get_or_create(
+                exam=exam, reg_no=m.reg_no,
+                defaults={"reg_no_display": m.reg_no_display, "name": m.name})
+            if created:
+                added += 1
+                new_ids.append(entry.pk)
+            else:
                 already += 1
-                continue
-            RosterEntry.objects.create(exam=exam, reg_no=m.reg_no, reg_no_display=m.reg_no_display, name=m.name)
-            existing.add(m.reg_no)
-            added += 1
+    if new_ids:
+        request.session[f"roster_new_{exam.pk}"] = new_ids        # highlighted once on the next page view
     parts = [f"Added {added} student{'s' if added != 1 else ''} to the class list"]
     if already:
         parts.append(f"{already} {'was' if already == 1 else 'were'} already on it")

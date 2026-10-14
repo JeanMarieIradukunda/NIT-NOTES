@@ -10,6 +10,7 @@
   .pick-row.is-listed { cursor: default; opacity: .65; }
   .pick-row[hidden] { display: none; }
   .pick-name { display: block; font-weight: 600; }
+  tr.row-new > td { background: var(--c-surface-2); box-shadow: inset 0 0 0 9999px rgba(25,135,84,.08); }
   .pick-no { display: block; font-size: .85rem; color: var(--c-text-2); }
 </style>
 {% endblock %}
@@ -61,7 +62,7 @@
               {% endfor %}
             </div>
             {% if picker_new %}
-            <button class="btn btn-primary" type="submit" id="pick_submit" disabled><i class="bi bi-person-plus me-1"></i>Add selected to this assessment</button>
+            <button class="btn btn-primary" type="submit" id="pick_submit" disabled><i class="bi bi-person-plus me-1"></i>Add to List</button>
             <span class="small text-muted-2 ms-2" id="pick_count" aria-live="polite"></span>
             {% else %}
             <p class="small text-muted-2 mb-0"><i class="bi bi-check-circle me-1"></i>Everyone in this class is already on the list.</p>
@@ -116,16 +117,18 @@
     </div>
     <div class="col-lg-7">
       {% if total %}
+      <h2 class="fs-6 mb-2">Students required to take this assessment ({{ total }})</h2>
       <div class="d-flex flex-wrap gap-2 small mb-2">
         <span class="pill pill--muted">{{ counts.not_started|add:counts.opened }} not started</span>
         <span class="pill pill--warning">{{ counts.in_progress }} in progress</span>
         <span class="pill pill--success">{{ counts.submitted }} submitted</span>
+        {% if just_added %}<span class="pill pill--success">{{ just_added }} just added</span>{% endif %}
       </div>
       <div class="panel list-panel mb-5"><div class="table-responsive">
         <table class="table grid-table align-middle">
           <thead><tr><th scope="col">Candidate</th><th scope="col">Number</th><th scope="col">Status</th><th scope="col"></th></tr></thead>
-          <tbody>{% for r in rows %}<tr>
-            <td>{{ r.e.name|default:"—" }}</td><td class="mono">{{ r.e.reg_no_display|default:r.e.reg_no }}</td>
+          <tbody>{% for r in rows %}<tr{% if r.is_new %} class="row-new"{% endif %}>
+            <td>{{ r.e.name|default:"—" }}{% if r.is_new %} <span class="pill pill--success ms-1">Just added</span>{% endif %}</td><td class="mono">{{ r.e.reg_no_display|default:r.e.reg_no }}</td>
             <td>{% if r.status == "submitted" %}<span class="pill pill--success">Submitted</span>{% elif r.status == "in_progress" %}<span class="pill pill--warning">In progress</span>{% elif r.status == "opened" %}<span class="pill pill--muted">Opened</span>{% else %}<span class="pill pill--muted">Not started</span>{% endif %}</td>
             <td class="text-end"><form method="post" action="{% url 'assessments:roster_delete' exam.pk r.e.pk %}">{% csrf_token %}<button class="btn btn-outline-secondary btn-sm" type="submit" aria-label="Remove {{ r.e.name }}">Remove</button></form></td>
           </tr>{% endfor %}</tbody>

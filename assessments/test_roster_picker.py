@@ -139,3 +139,34 @@ class PickStudentsFromAClass(BaseCase):
         r = self.client.post(reverse("assessments:roster_assign", args=[self.exam.pk]),
                              {"classes": [self.y2.pk], "mode": "add"}, follow=True)
         self.assertEqual(self.listed(), {self.ann.reg_no, self.ben.reg_no, self.cleo.reg_no})
+
+    # ---- feedback after adding
+    def test_button_is_labelled_add_to_list(self):
+        self.assertContains(self.client.get(self.url, {"from": self.y2.pk}), "Add to List")
+
+    def test_newly_added_students_are_highlighted_once_in_the_required_list(self):
+        r = self.client.post(self.add_url, {"members": [self.ann.pk, self.ben.pk], "from": self.y2.pk}, follow=True)
+        self.assertContains(r, "Students required to take this assessment (2)")
+        self.assertEqual({row["e"].reg_no for row in r.context["rows"] if row["is_new"]}, {self.ann.reg_no, self.ben.reg_no})
+        self.assertContains(r, "Just added")
+        r = self.client.get(self.url, {"from": self.y2.pk})                 # a refresh no longer highlights them
+        self.assertNotContains(r, "Just added")
+        self.assertEqual(r.context["just_added"], 0)
+
+    def test_already_listed_students_are_not_marked_as_new(self):
+        RosterEntry.objects.create(exam=self.exam, reg_no=self.ann.reg_no, name="Ann")
+        r = self.client.post(self.add_url, {"members": [self.ann.pk, self.ben.pk]}, follow=True)
+        flags = {row["e"].reg_no: row["is_new"] for row in r.context["rows"]}
+        self.assertEqual(flags, {self.ann.reg_no: False, self.ben.reg_no: True})
+
+    def test_same_number_in_two_classes_is_added_only_once(self):
+        twin = member(self.y3, "nit-001", "Ann M. (other class)")           # differs only by case: same number once normalised
+        r = self.client.post(self.add_url, {"members": [self.ann.pk, twin.pk]}, follow=True)
+        self.assertEqual(self.exam.roster.filter(reg_no=self.ann.reg_no).count(), 1)
+        self.assertContains(r, "Added 1 student to the class list, 1 was already on it.")
+
+    def test_submitting_twice_does_not_duplicate_or_crash(self):
+        for _ in range(2):
+            r = self.client.post(self.add_url, {"members": [self.ann.pk]}, follow=True)
+            self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.exam.roster.count(), 1)
