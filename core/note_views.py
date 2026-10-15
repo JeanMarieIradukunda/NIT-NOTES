@@ -55,6 +55,18 @@ READER_CSP = (
 # under `object-src 'none'`, so PDF pages allow same-origin objects.
 READER_CSP_PDF = READER_CSP.replace("object-src 'none'", "object-src 'self'")
 
+# Policy for an HTML note shown *inside* the reader page's frame (?view=1), so it
+# keeps the exact look the author gave it. Same policy as HTML activities: the
+# `sandbox` directive gives the document an opaque origin (it can't read our
+# cookies or touch the surrounding site even though its own inline styles and
+# scripts run) and `default-src 'none'` blocks every network request, so a note
+# can only use what is inside its own file.
+NOTE_INLINE_CSP = (
+    "sandbox allow-scripts allow-forms allow-modals allow-popups; "
+    "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+    "img-src data: blob:; font-src data:; media-src data:; frame-ancestors 'self'"
+)
+
 
 # --------------------------------------------------------------------------- #
 # Helpers
@@ -287,9 +299,10 @@ def note_detail(request, pk):
 @xframe_options_sameorigin
 def note_file(request, pk):
     """
-    Deliver a note's file. PDFs open inline (or download with ?download=1);
-    HTML is only ever offered as a download — never rendered as a live page
-    from our own origin.
+    Deliver a note's file. PDFs open inline (or download with ?download=1).
+    HTML is offered as a download by default; with ?view=1 (what the reader
+    page's frame requests) the author's original file is shown inline, untouched,
+    inside a sandbox (see NOTE_INLINE_CSP) — never as a live page of our own origin.
     """
     note = _visible_note_or_none(request, pk)
     if note is None:
@@ -315,13 +328,15 @@ def note_file(request, pk):
                       "if it keeps happening, tell an administrator.",
         }, status=502)
 
-    as_attachment = note.is_html or request.GET.get("download") == "1"
+    inline_view = note.is_html and request.GET.get("view") == "1"
+    as_attachment = (note.is_html and not inline_view) or request.GET.get("download") == "1"
     response = FileResponse(
         handle, as_attachment=as_attachment, filename=note.download_filename(),
         content_type="application/pdf" if note.is_pdf else "text/html; charset=utf-8")
     response["X-Content-Type-Options"] = "nosniff"
     if note.is_html:
-        response["Content-Security-Policy"] = "sandbox; default-src 'none'"
+        response["Content-Security-Policy"] = (
+            NOTE_INLINE_CSP if inline_view else "sandbox; default-src 'none'")
     response["Cache-Control"] = ("private, max-age=300" if note.is_published
                                  else "private, no-store")
     return response

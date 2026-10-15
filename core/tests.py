@@ -324,6 +324,40 @@ class Visibility(BaseCase):
         self.assertNotIn("unsafe-inline'", csp.split("style-src")[0])
         self.assertNotIn(b"<script>alert", page.content)
 
+    def test_html_note_reader_shows_the_original_file_in_a_sandboxed_frame(self):
+        """Uploaded HTML keeps its own styles: the reader frames the untouched file."""
+        n = self.make_note(kind="html")
+        self.client.logout()
+        page = self.client.get(n.get_absolute_url())
+        self.assertEqual(page.status_code, 200)
+        html = page.content.decode()
+        self.assertIn(f'src="{n.get_file_url()}?view=1"', html)
+        self.assertIn('sandbox="allow-scripts allow-forms allow-modals allow-popups"', html)
+        self.assertNotIn('id="note-prose"', html)          # no re-styled copy on the page
+        self.assertNotIn("alert(", html)                    # author markup never inlined
+
+        f = self.client.get(n.get_file_url() + "?view=1")
+        self.assertEqual(f.status_code, 200)
+        self.assertTrue(f["Content-Disposition"].startswith("inline"))
+        csp = f["Content-Security-Policy"]
+        self.assertIn("sandbox allow-scripts", csp)         # opaque origin
+        self.assertNotIn("allow-same-origin", csp)
+        self.assertIn("default-src 'none'", csp)            # no network access
+        self.assertIn("style-src 'unsafe-inline'", csp)     # the author's own CSS runs
+        self.assertEqual(f["X-Content-Type-Options"], "nosniff")
+        self.assertEqual(b"".join(f.streaming_content), HTML_OK)   # byte-for-byte original
+
+    def test_html_note_without_view_flag_is_still_a_download(self):
+        n = self.make_note(kind="html")
+        f = self.client.get(n.get_file_url())
+        self.assertTrue(f["Content-Disposition"].startswith("attachment"))
+        self.assertEqual(f["Content-Security-Policy"], "sandbox; default-src 'none'")
+
+    def test_view_flag_does_not_expose_drafts(self):
+        n = self.make_note(kind="html", published=False)
+        self.client.logout()
+        self.assertEqual(self.client.get(n.get_file_url() + "?view=1").status_code, 404)
+
     def test_files_are_not_reachable_under_media_url(self):
         n = self.make_note()
         name = Path(n.file.name).name

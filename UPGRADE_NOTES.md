@@ -1,3 +1,25 @@
+# Upgrade notes — HTML notes keep their original styles
+
+HTML module notes are now shown exactly as the author uploaded them, the same
+way HTML activities already were. Nothing in `settings.py`, `platform.css` or
+any other platform styling was changed or removed.
+
+- `core/note_views.py`: `note_file` accepts `?view=1` for HTML notes and serves
+  the original, untouched file inline under `NOTE_INLINE_CSP` (sandboxed opaque
+  origin, no network access). Without `?view=1` it is still a plain download.
+- `templates/core/note_detail.html`: HTML notes are displayed in a sandboxed
+  frame of that file instead of the re-styled, sanitised copy. The Print button
+  became "Open in new tab" + "Download HTML"; the "On this page" rail is gone
+  for HTML notes (it listed headings of the sanitised copy, not the original).
+- Unchanged: upload validation, the sanitised copy (`content_html`) still feeds
+  search, word counts and the module page; PDF notes; publish/draft rules.
+- Because the file must be self-contained, remote stylesheets, web fonts and
+  images are still blocked by the policy; inline `<style>` and `data:` assets work.
+- The old "Notebook look" CSS stays in `platform.css` but no longer applies to
+  anything on screen, since `#note-prose` is no longer rendered for HTML notes.
+
+---
+
 # Upgrade notes — Vercel deployment, Neon Postgres, Vercel Blob storage
 
 This upgrade completes and fixes the platform's Vercel deployment setup —
