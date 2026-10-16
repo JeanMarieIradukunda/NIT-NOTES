@@ -6,6 +6,7 @@ Candidate-facing pages: entry (password), the exam page, result and answer sheet
 JSON endpoints used by the exam page live in api.py.
 """
 
+import logging
 import secrets
 
 from django.conf import settings
@@ -22,6 +23,8 @@ from .marking import (SECTION_ORDER, is_answered, option_order, ordered_question
 from .models import (ALL_VIOLATION_LABELS, SECTION_LABELS, Attempt, DeviceOpen, Exam,
                      normalise_reg_no)
 from . import evidence, services
+
+logger = logging.getLogger(__name__)
 
 DEVICE_COOKIE = "nit_dev"
 TICKET_SESSION_KEY = "assessment_ticket"
@@ -279,8 +282,10 @@ def evidence_response(request, attempt, *, trainer):
     try:
         pdf = evidence.render_sheet(ctx).write_pdf()
     except Exception:
-        # No PDF engine on this server: show the sheet on screen (to print or save as PDF
-        # from the browser). It is never offered as an HTML file download.
+        # No working PDF engine on this server: show the sheet on screen (to print or save as PDF
+        # from the browser). It is never offered as an HTML file download. The real reason goes to
+        # the server log only; a candidate is never shown technical details.
+        logger.warning("Evidence sheet PDF could not be made; showing the print page instead.", exc_info=True)
         return render(request, "assessments/answer_sheet.html",
                       {**evidence.apply_density(ctx, evidence.DENSITIES[1]), "on_screen": True})
     response = HttpResponse(pdf, content_type="application/pdf")

@@ -7,6 +7,7 @@ results, mark open questions, reset a candidate's opens after a crash.
 """
 
 import csv
+import logging
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
@@ -28,6 +29,8 @@ from .models import (ALL_VIOLATION_LABELS, SECTION_LABELS, SECTION_ORDER, Answer
                      Question)
 from .permissions import can_manage_exam, deny, trainer_required
 from .views import _sheet_rows, evidence_response
+
+logger = logging.getLogger(__name__)
 
 
 def _exam_or_deny(request, pk):
@@ -524,8 +527,12 @@ def exam_evidence(request, pk):
     skipped = len(everyone) - len(submitted)
     try:
         pdf = evidence.bundle_pdf(exam, submitted, skipped)
-    except Exception:
-        return render(request, "assessments/evidence_bundle.html", evidence.bundle_html_context(exam, submitted, skipped))
+    except Exception as exc:
+        logger.warning("Evidence pack PDF for exam %s could not be made; showing the print page instead.",
+                       exam.pk, exc_info=True)
+        ctx = evidence.bundle_html_context(exam, submitted, skipped)
+        return render(request, "assessments/evidence_bundle.html",
+                      {**ctx, "pdf_problem": evidence.describe_pdf_error(exc)})
     response = HttpResponse(pdf, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="evidence-{exam.public_id}-all-candidates.pdf"'
     return response

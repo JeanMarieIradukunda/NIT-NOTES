@@ -3,6 +3,7 @@
   Trainer dashboard. Order: what needs doing > quick actions > numbers > assessments > recent work.
 {% endcomment %}
 
+{% block dash_eyebrow %}Trainer desk{% endblock %}
 {% block dash_title %}Welcome back, {{ user.first_name|default:user.username }}{% endblock %}
 {% block dash_lead %}Here is what needs you today, and the quickest way to do your usual work.{% endblock %}
 

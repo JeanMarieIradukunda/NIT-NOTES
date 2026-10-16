@@ -1,7 +1,9 @@
-{# The big numbers as ONE panel (not separate boxes). Arg: stats.
-   Each card: number + label (one link over the whole card), a "this week" trend chip, and an
-   optional second link on the sub-line (e.g. "2 drafts"). #}
-<section class="nd-block" aria-labelledby="sum-title">
+{% comment %}
+  The big numbers as a row of tiles. Arg: stats.
+  Each card: number + label (one link over the whole card), a "this week" trend chip, and an
+  optional second link on the sub-line (e.g. "2 drafts").
+{% endcomment %}
+<section class="nd-block nd-b-sum" aria-labelledby="sum-title">
   <h2 class="nd-h" id="sum-title">At a glance</h2>
   <div class="nd-summary">
     {% for s in stats %}

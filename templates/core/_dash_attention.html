@@ -1,5 +1,5 @@
 {# What needs doing, most urgent first, each with one button. Args: attention, title. #}
-<section class="nd-block" aria-labelledby="attn-title">
+<section class="nd-block nd-b-attn" aria-labelledby="attn-title">
   <h2 class="nd-h" id="attn-title">{{ title }}{% if attention %} <span class="nd-count is-amber">{{ attention|length }}</span>{% endif %}</h2>
   {% if attention %}
   <div class="nd-attn" role="list">

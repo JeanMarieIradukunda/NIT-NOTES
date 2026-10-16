@@ -1,15 +1,21 @@
-{% extends "base.html" %} {% load static %} {% block title %}Sign in{% endblock %} {% block content %}
-<div class="container-xxl d-flex align-items-center justify-content-center min-vh-100 py-3">
-    <div class="auth-wrap w-100" style="max-width: 400px;">
-        <div class="panel panel-body auth-card text-center p-4 p-sm-5 shadow-sm rounded-4">
+{% extends "base.html" %} {% load static %} {% block title %}Sign in{% endblock %} {% block site_search %}{% endblock %} {% block content %}
+<div class="login-stage">
+    <section class="login-art" aria-hidden="true">
+        <span class="login-eyebrow">{{ BRAND.platform }}</span>
+        <p class="login-statement">Notes, practice and assessments, <em>all in one place</em>.</p>
+        <ul class="login-points">
+            <li><i class="bi bi-journal-richtext"></i>Publish notes and activities for every module</li>
+            <li><i class="bi bi-shield-check"></i>Set timed assessments with their own exam password</li>
+            <li><i class="bi bi-patch-check"></i>Mark written answers and keep an evidence pack</li>
+        </ul>
+    </section>
 
-            <!-- Directly styled Elliptical / Long-Height Logo (No Background Box) -->
-            <div class="mb-3">
-                <img class="brand-logo" src="{% static 'img/school.png' %}" alt="Padri Vjeko Centre TSS" style="width: 55px; height: 95px; object-fit: cover; border-radius: 50% / 50%;">
-            </div>
+    <section class="login-card">
+        <div class="login-card-in">
+            <img class="login-logo" src="{% static 'img/school.png' %}" alt="Padri Vjeko Centre TSS" width="64" height="64">
 
-            <h1 class="fs-4 fw-bold mb-1">Sign in</h1>
-            <p class="text-muted-2 small mb-3">For trainers and administrators.</p>
+            <h1 class="login-title">Sign in</h1>
+            <p class="text-muted-2 mb-4">For trainers and administrators.</p>
 
             {% if locked %}
             <div class="alert alert-warning py-2 small" role="alert">Too many failed sign-in attempts. Please wait {{ lock_minutes }} minutes and try again.</div>
@@ -17,22 +23,22 @@
             <div class="alert alert-danger py-2 small" role="alert">Your username and password didn't match. Please try again.</div>
             {% endif %}
 
-            <form method="post" class="text-start">
+            <form method="post">
                 {% csrf_token %}
-                <div class="mb-2">
-                    <label class="form-label small fw-semibold" for="id_username">Username</label>
-                    <input type="text" name="username" class="form-control form-control-sm py-2" id="id_username" autocomplete="username" autofocus required>
-                </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-semibold" for="id_password">Password</label>
-                    <input type="password" name="password" class="form-control form-control-sm py-2" id="id_password" autocomplete="current-password" required>
+                    <label class="form-label" for="id_username">Username</label>
+                    <input type="text" name="username" class="form-control form-control-lg" id="id_username" autocomplete="username" autofocus required>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label" for="id_password">Password</label>
+                    <input type="password" name="password" class="form-control form-control-lg" id="id_password" autocomplete="current-password" required>
                 </div>
                 <input type="hidden" name="next" value="{{ next }}">
-                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">Sign in</button>
+                <button type="submit" class="btn btn-primary btn-lg w-100">Sign in</button>
             </form>
 
-            <p class="small text-muted-2 mt-3 mb-0" style="font-size: 0.8rem;">Students don't need an account — <a href="{% url 'core:dashboard' %}">browse the library</a>.</p>
+            <p class="small text-muted-2 mt-4 mb-0">Students don't need an account — <a href="{% url 'core:dashboard' %}">browse the library</a>.</p>
         </div>
-    </div>
+    </section>
 </div>
 {% endblock %}

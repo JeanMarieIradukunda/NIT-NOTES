@@ -3,6 +3,7 @@
   Administrator dashboard. Order: what needs doing > quick actions > numbers > assessments > latest work > trend.
 {% endcomment %}
 
+{% block dash_eyebrow %}Administration{% endblock %}
 {% block dash_title %}Platform overview{% endblock %}
 {% block dash_lead %}What needs an administrator today, and how the platform is doing.{% endblock %}
 
@@ -12,7 +13,7 @@
 {% include "core/_dash_summary.html" with stats=stats %}
 {% include "core/_dash_exams.html" with exams=exams title="Assessments" show_owner=True %}
 
-<section class="nd-block" aria-labelledby="recent-title">
+<section class="nd-block nd-b-recent" aria-labelledby="recent-title">
   <h2 class="nd-h" id="recent-title">Latest uploads</h2>
   {% if recent %}
   <div class="nd-list" role="list">
@@ -23,7 +24,7 @@
   {% endif %}
 </section>
 
-<section class="nd-block" aria-labelledby="weekly-title">
+<section class="nd-block nd-b-weekly" aria-labelledby="weekly-title">
   <div class="nd-block-head">
     <h2 class="nd-h" id="weekly-title">Submissions, last 8 weeks</h2>
     <span class="nd-note nd-note--inline">{{ weekly.total }} in total, {{ weekly.this_week }} this week</span>

@@ -257,6 +257,21 @@ def bundle_document(exam, attempts, skipped=0):
     return cover.copy(pages)
 
 
+def describe_pdf_error(exc):
+    """A short, plain-words reason a PDF could not be made, for the on-screen fallback page.
+
+    Only shown to trainers. The commonest cause is not a missing package but WeasyPrint's native
+    libraries (Pango/Cairo; GTK on Windows) failing to load, which Python reports as an OSError.
+    """
+    detail = " ".join(str(exc).split())[:240]
+    if isinstance(exc, ModuleNotFoundError) and "weasyprint" in str(exc).lower():
+        return "the WeasyPrint package is not installed in this environment (pip install weasyprint)"
+    if isinstance(exc, OSError):
+        return ("WeasyPrint is installed, but its system libraries (Pango and Cairo; on Windows, "
+                "Pango from MSYS2) could not be loaded" + (f": {detail}" if detail else ""))
+    return f"the PDF engine failed ({type(exc).__name__}" + (f": {detail}" if detail else "") + ")"
+
+
 def bundle_html_context(exam, attempts, skipped=0):
     """On-screen fallback (print to PDF from the browser) when no PDF engine is installed."""
     generated = timezone.now()

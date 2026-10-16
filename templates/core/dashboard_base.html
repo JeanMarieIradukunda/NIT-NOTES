@@ -15,10 +15,14 @@
 {% block content %}
 <div class="nd-wrap nd-page">
   <header class="nd-head">
+    <p class="nd-eyebrow">{% block dash_eyebrow %}Dashboard{% endblock %}</p>
     <h1 id="dash-title">{% block dash_title %}{% endblock %}</h1>
     <p class="nd-lead">{% block dash_lead %}{% endblock %}</p>
   </header>
 
-  {% block dash_body %}{% endblock %}
+  {# the bento grid: on wide screens the blocks below sit side by side (see dashboard.css) #}
+  <div class="nd-bento">
+    {% block dash_body %}{% endblock %}
+  </div>
 </div>
 {% endblock %}

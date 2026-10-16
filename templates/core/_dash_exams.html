@@ -1,5 +1,5 @@
 {# Assessment list with a Marking guide button per row. Args: exams, title, show_owner. #}
-<section class="nd-block" aria-labelledby="exams-title">
+<section class="nd-block nd-b-exams" aria-labelledby="exams-title">
   <div class="nd-block-head">
     <h2 class="nd-h" id="exams-title">{{ title }}{% if exams %} <span class="nd-count is-violet">{{ exams|length }}</span>{% endif %}</h2>
     <a class="nd-link" href="{% url 'assessments:exam_list' %}">All assessments</a>

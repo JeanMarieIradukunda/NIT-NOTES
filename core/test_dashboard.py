@@ -23,7 +23,8 @@ class DashboardPage(BaseCase):
         self.assertIn('<body class="night">', html)
         self.assertIn("css/dashboard.css", html)
         self.assertIn("css/platform.css", html)
-        self.assertIn("plus-jakarta-sans-latin-wght-normal.woff2", html)
+        self.assertIn("manrope-latin-wght-normal.woff2", html)         # Google Fonts, bundled
+        self.assertIn("fraunces-latin-opsz-normal.woff2", html)
         self.assertIn('data-bs-theme="dark"', html)           # one dark theme, site-wide
         self.assertNotIn("fonts.googleapis", html)            # fonts stay self-hosted
         self.assertNotIn("cdn.jsdelivr", html)
@@ -484,7 +485,7 @@ class DashboardExtras(BaseCase):
 
 
 class SiteHeaderLayout(BaseCase):
-    """Header = logo + user menu; then one menu bar; then the search field."""
+    """Left rail (logo + navigation) and a command deck (search, theme, account) in the main column."""
 
     def html(self, who=None):
         self.client.logout()
@@ -492,24 +493,33 @@ class SiteHeaderLayout(BaseCase):
             self.client.force_login(who)
         return self.client.get(reverse("core:dashboard")).content.decode()
 
-    def test_three_rows_in_order(self):
+    def test_rail_comes_before_the_deck_and_the_page(self):
         html = self.html()
-        top, menu, search = (html.index(x) for x in
-                             ("app-topbar", "app-menubar", "app-searchbar"))
-        self.assertLess(top, menu)
-        self.assertLess(menu, search)
+        rail, deck, main = (html.index(x) for x in ('class="rail ', 'class="deck"', '<main id="main"'))
+        self.assertLess(rail, deck)
+        self.assertLess(deck, main)
 
-    def test_header_row_holds_only_brand_and_user_area(self):
-        top = self.html(self.alice).split('class="app-topbar"', 1)[1].split("</header>", 1)[0]
-        self.assertIn("brand-logo", top)
-        self.assertIn("user-toggle", top)
-        self.assertNotIn("nav-link", top)
-        self.assertNotIn('type="search"', top)
+    def test_rail_holds_the_brand_and_navigation_and_the_deck_holds_the_account(self):
+        html = self.html(self.alice)
+        rail = html.split('class="rail ', 1)[1].split("</aside>", 1)[0]
+        deck = html.split('class="deck"', 1)[1].split("</header>", 1)[0]
+        self.assertIn("brand-logo", rail)
+        self.assertIn("rail-link", rail)
+        self.assertNotIn('type="search"', rail)
+        self.assertIn("user-toggle", deck)
+        self.assertIn('id="themeToggle"', deck)
+        self.assertNotIn("rail-link", deck)
 
-    def test_menu_bar_is_role_aware(self):
+    def test_rail_is_a_slide_in_drawer_on_phones(self):
+        html = self.html()
+        self.assertIn("offcanvas-lg", html.split('class="rail ', 1)[1].split(">", 1)[0])
+        self.assertIn('data-bs-target="#rail"', html)             # the deck's menu button opens it
+        self.assertIn('aria-label="Open menu"', html)
+
+    def test_menu_is_role_aware(self):
         def menu(who):
             h = self.html(who)
-            return h.split('class="app-menubar"', 1)[1].split("</nav>", 1)[0]
+            return h.split('class="rail-nav"', 1)[1].split("</nav>", 1)[0]
         anon, trainer, admin = menu(None), menu(self.alice), menu(self.admin)
         for text in ("Dashboard", "Browse"):
             self.assertIn(text, anon)
@@ -520,10 +530,15 @@ class SiteHeaderLayout(BaseCase):
         for text in ("All notes", "All activities", "Curriculum", "Trainers"):
             self.assertIn(text, admin)
 
-    def test_search_lives_under_the_menu_and_is_not_duplicated_in_the_hero(self):
+    def test_current_page_is_marked_in_the_rail(self):
+        rail = self.html(self.alice).split('class="rail-nav"', 1)[1].split("</nav>", 1)[0]
+        self.assertIn('aria-current="page"', rail)
+        self.assertEqual(rail.count("rail-link active"), 1)
+
+    def test_search_lives_in_the_deck_and_is_not_duplicated_in_the_hero(self):
         html = self.html()
         self.assertEqual(html.count('type="search"'), 1)
-        self.assertIn(reverse("core:search"), html.split("app-searchbar", 1)[1])
+        self.assertIn(reverse("core:search"), html.split('class="deck"', 1)[1])
 
     def test_dashboard_uses_the_shared_palette_not_a_private_dark_one(self):
         css = open("static/css/dashboard.css", encoding="utf-8").read()
@@ -554,7 +569,7 @@ class DarkTheme(BaseCase):
     def test_shared_tokens_are_dark(self):
         css = self.css("static/css/platform.css")
         self.assertIn("color-scheme: dark;", css)
-        self.assertIn("--c-bg:         #0a101d;", css)
+        self.assertIn("--c-bg:         #0b0d1f;", css)
         self.assertNotIn("rgba(255, 255, 255, .94)", css)    # no white header bar left
 
     def test_white_text_only_sits_on_solid_cobalt(self):
@@ -570,7 +585,7 @@ class DarkTheme(BaseCase):
 
     def test_admin_uses_the_same_dark_palette_in_every_theme_mode(self):
         css = self.css("static/css/admin-theme.css")
-        self.assertIn("--page-bg: #0a101d;", css)
+        self.assertIn("--page-bg: #0b0d1f;", css)
         self.assertNotIn("--page-bg: #eef1f4", css)
         self.assertNotIn("prefers-color-scheme: light", css)
         self.assertIn(".theme-toggle { display: none !important; }", css)
@@ -580,13 +595,56 @@ class DarkTheme(BaseCase):
         self.assertIn("var(--c-brand-solid)", css)
 
 
-class MenuBarWidth(BaseCase):
-    def test_menu_bar_is_a_compact_pill_not_a_full_width_strip(self):
+class RailLayoutCss(BaseCase):
+    """The rail is a fixed column on desktop and a drawer on phones; it uses shared tokens only."""
+
+    def css(self):
+        return open("static/css/platform.css", encoding="utf-8").read()
+
+    def test_rail_is_sticky_full_height_from_992px(self):
+        css = self.css()
+        self.assertIn("@media (min-width: 992px)", css)
+        block = css.split(".shell > .rail.offcanvas-lg {", 1)[1].split("}", 1)[0]
+        for rule in ("position: sticky", "height: 100vh", "var(--rail-w)"):
+            self.assertIn(rule, block)
+
+    def test_rail_and_deck_use_shared_colours_not_private_ones(self):
+        css = self.css()
+        for sel in (".rail {", ".deck {"):
+            block = css.split(sel, 1)[1].split("}", 1)[0]
+            self.assertNotIn("#", block, sel)
+
+    def test_deck_is_sticky_so_reader_bars_can_sit_under_it(self):
+        css = self.css()
+        self.assertIn("--nav-h: 68px;", css)
+        deck = css.split(".deck {", 1)[1].split("}", 1)[0]
+        self.assertIn("position: sticky", deck)
+        self.assertIn("height: var(--nav-h)", deck)
+
+
+class GoogleFontsBundled(BaseCase):
+    """Fraunces, Manrope and JetBrains Mono (all Google Fonts) ship with the project: no calls to Google."""
+
+    def test_font_files_and_licences_are_in_the_project(self):
+        import os
+        for path in ("static/vendor/fraunces/fraunces-latin-opsz-normal.woff2",
+                     "static/vendor/fraunces/fraunces-latin-opsz-italic.woff2",
+                     "static/vendor/manrope/manrope-latin-wght-normal.woff2",
+                     "static/vendor/jetbrains-mono/jetbrains-mono-latin-wght-normal.woff2",
+                     "static/vendor/fraunces/OFL-LICENSE.txt", "static/vendor/manrope/OFL-LICENSE.txt",
+                     "static/vendor/jetbrains-mono/OFL-LICENSE.txt"):
+            self.assertTrue(os.path.getsize(path) > 1000, path)
+
+    def test_stylesheet_declares_all_three_families_from_local_files(self):
         css = open("static/css/platform.css", encoding="utf-8").read()
-        menu = css.split(".app-menu {", 1)[1].split("}", 1)[0]
-        self.assertIn("width: fit-content", menu)
-        self.assertIn("max-width: 100%", menu)
-        self.assertIn("border-radius: 999px", menu)
-        bar = css.split(".app-menubar {", 1)[1].split("}", 1)[0]
-        self.assertIn("var(--c-surface)", bar)    # the band uses the shared surface colour, no private one
-        self.assertNotIn("#", bar)
+        for family in ("Fraunces", "Manrope", "JetBrains Mono"):
+            self.assertIn(f'font-family: "{family}";', css)
+        self.assertNotIn("fonts.googleapis", css)
+        self.assertNotIn("fonts.gstatic", css)
+        self.assertIn("--font-serif:", css)
+
+    def test_pages_never_link_to_google(self):
+        for name in ("core:dashboard", "core:browse", "accounts:login"):
+            html = self.client.get(reverse(name)).content.decode()
+            self.assertNotIn("fonts.googleapis", html, name)
+            self.assertNotIn("fonts.gstatic", html, name)

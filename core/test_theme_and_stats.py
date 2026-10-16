@@ -114,3 +114,25 @@ class SummaryCards(BaseCase):
         self.assertEqual({n.pk for n in r.context["page"]}, {draft.pk})
         r = self.client.get(reverse("core:notes_manage"), {"status": "published"})
         self.assertEqual({n.pk for n in r.context["page"]}, {pub.pk})
+
+
+class TemplateHygiene(BaseCase):
+    """Django's {# ... #} comment must close on the SAME line, or it prints as visible text on the page."""
+
+    def test_no_template_has_a_comment_that_spans_lines(self):
+        import pathlib
+        bad = []
+        for path in pathlib.Path("templates").rglob("*.html"):
+            for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if "{#" in line and "#}" not in line.split("{#", 1)[1]:
+                    bad.append(f"{path}:{n}")
+        self.assertEqual(bad, [], "use {% comment %}...{% endcomment %} for multi-line comments")
+
+    def test_dashboards_never_show_template_syntax(self):
+        for who in (None, self.alice, self.admin):
+            self.client.logout()
+            if who:
+                self.client.force_login(who)
+            html = self.client.get(reverse("core:dashboard")).content.decode()
+            self.assertNotIn("{#", html)
+            self.assertNotIn("{%", html)

@@ -13,6 +13,21 @@ CDN or Google Fonts.
 
 ---
 
+## Design system ("Kivu Night" and "Kigali Dawn")
+
+- **Layout.** A left navigation rail (a slide-in drawer on phones) plus a slim command deck at the top of
+  the page: search (press `/` to jump to it), today's date, the theme switch and the account menu.
+  The dashboards use a bento grid: a hero header, then tiles that sit side by side on wide screens.
+- **Fonts (all Google Fonts, bundled).** Fraunces for headlines and big numbers, Manrope for the interface
+  and reading, JetBrains Mono for codes. The font files live in `static/vendor/` with their SIL Open Font
+  licences, so the site works offline and never calls out to Google. To change a font, edit the
+  `--font-*` tokens and the `@font-face` rules at the top of `static/css/platform.css`.
+- **Colour.** Dark "Kivu Night" is the default (ink-indigo canvas, iris brand, sun-gold for things that need
+  action). Light "Kigali Dawn" (warm paper) is one click away in the top bar and is remembered per browser.
+  Every colour is a token in `platform.css`; every text pair is WCAG AA.
+- **Files.** `templates/base.html` (shell), `static/css/platform.css` (tokens, shell, components),
+  `static/css/dashboard.css` (dashboards), `static/js/theme.js` and `static/js/shell.js`.
+
 ## Quick start
 
 ```bash
@@ -215,6 +230,27 @@ brew install pango
 
 Without them, the **Download PDF** button shows a clear in-app message
 explaining what's missing rather than a 500 error.
+
+**Windows.** `pip install weasyprint` is not enough: Pango has to be installed
+separately, and the weasyprint package then imports fine but fails when it
+tries to load the native DLLs. The assessment **evidence pack** page says so
+("WeasyPrint is installed, but its system libraries ... could not be loaded").
+Fix (from the [WeasyPrint docs](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html)):
+
+1. Install [MSYS2](https://www.msys2.org/) with the default options.
+2. In the MSYS2 shell run `pacman -S mingw-w64-x86_64-pango`, then close it.
+3. In the Windows command prompt that starts the server, point WeasyPrint at
+   the DLLs, then start Django from the same prompt:
+
+   ```bat
+   set WEASYPRINT_DLL_DIRECTORIES=C:\msys64\mingw64\bin
+   python manage.py runserver
+   ```
+
+To check the engine on its own, run `python -m weasyprint --info` in the
+virtual environment. Until it works, **evidence packs** still open as a print
+page: use the browser's **Print or save as PDF** (each candidate starts on a
+new page), so nothing is blocked while you sort the libraries out.
 
 ---
 

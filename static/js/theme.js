@@ -9,7 +9,7 @@
   function apply(theme) {
     root.setAttribute("data-bs-theme", theme);
     var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", theme === "light" ? "#f4f6fb" : "#0a101d");
+    if (meta) meta.setAttribute("content", theme === "light" ? "#faf6ee" : "#0b0d1f");
     var btn = document.getElementById("themeToggle");
     if (btn) {
       btn.setAttribute("aria-pressed", theme === "light" ? "true" : "false");

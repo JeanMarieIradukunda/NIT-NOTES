@@ -27,7 +27,7 @@ body.night {
   --nd-lamp-2: var(--c-brand-2);
   --nd-lamp-soft: var(--c-brand-soft);
   --nd-solid:  var(--c-brand-solid);   /* fill behind white text */
-  --nd-solid-2: #4472ee;
+  --nd-solid-2: var(--c-brand-solid-2);
   --nd-amber:  var(--c-warning);
   --nd-amber-soft: var(--c-warning-soft);
   --nd-green:  var(--c-success);
@@ -36,8 +36,8 @@ body.night {
 
   /* functional colours: each has a text/icon shade and a soft tint */
   --tone-blue:   var(--c-brand);   --tone-blue-soft:   var(--c-brand-soft);
-  --tone-teal:   #6fdccd;          --tone-teal-soft:   rgba(111, 220, 205, .14);
-  --tone-violet: #c1b2ff;          --tone-violet-soft: rgba(193, 178, 255, .15);
+  --tone-teal:   #5fe3d0;          --tone-teal-soft:   rgba(95, 227, 208, .14);      /* lagoon */
+  --tone-violet: #f3a6ff;          --tone-violet-soft: rgba(243, 166, 255, .14);     /* orchid */
   --tone-amber:  var(--c-warning); --tone-amber-soft:  var(--c-warning-soft);
   --tone-green:  var(--c-success); --tone-green-soft:  var(--c-success-soft);
   --tone-rose:   var(--c-danger);  --tone-rose-soft:   var(--c-danger-soft);
@@ -188,7 +188,7 @@ a.nd-row:hover .nd-row-title, .nd-row-link:hover { color: var(--nd-lamp); }
 .nd-assess { display: grid; gap: .85rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); }
 .nd-assess-card, .nd-resume {
   display: grid; align-items: center; gap: .75rem 1rem; padding: 1.05rem 1.25rem; border-radius: 18px; color: inherit; text-decoration: none;
-  background: var(--nd-panel); border: 1px solid rgba(193, 178, 255, .38); transition: border-color .15s, background-color .15s;
+  background: var(--nd-panel); border: 1px solid color-mix(in srgb, var(--tone-violet) 40%, transparent); transition: border-color .15s, background-color .15s;
 }
 .nd-assess-card { grid-template-columns: minmax(0, 1fr) auto; }
 .nd-assess-card.is-new { border-color: var(--tone-violet); background: linear-gradient(0deg, var(--tone-violet-soft), var(--tone-violet-soft)), var(--nd-panel); }
@@ -250,11 +250,9 @@ a.nd-row:hover .nd-row-title, .nd-row-link:hover { color: var(--nd-lamp); }
 
 /* ===================== light theme: tones that were pale pastels for dark ===================== */
 html[data-bs-theme="light"] body.night {
-  --nd-solid-2: #2450c8;                       /* hover on a cobalt button goes darker, not lighter */
-  --tone-teal:   #0d7468;  --tone-teal-soft:   rgba(13, 148, 136, .12);
-  --tone-violet: #6240c9;  --tone-violet-soft: rgba(98, 64, 201, .11);
+  --tone-teal:   #0a766e;  --tone-teal-soft:   rgba(10, 150, 140, .12);
+  --tone-violet: #9b2db0;  --tone-violet-soft: rgba(155, 45, 176, .10);
 }
-html[data-bs-theme="light"] .nd-assess-card { border-color: rgba(98, 64, 201, .32); }
 
 /* ===================== summary cards: trend chip + two links ===================== */
 /* The card is a <div>. Its main link (number + label) stretches over the whole card; the small
@@ -280,3 +278,89 @@ html[data-bs-theme="light"] .nd-assess-card { border-color: rgba(98, 64, 201, .3
   .nd-stat { animation: nd-rise .4s ease both; }
   .nd-stat:nth-child(2) { animation-delay: .05s; } .nd-stat:nth-child(3) { animation-delay: .1s; } .nd-stat:nth-child(4) { animation-delay: .15s; }
 }
+
+
+/* =============================================================================
+   v2 "bento" layout: hero header, tiles that sit side by side, serif numerals.
+   Same classes as before; this block only restyles and arranges them.
+   ========================================================================== */
+.nd-page { gap: clamp(1.25rem, 2.4vw, 1.75rem); }
+
+/* the hero */
+.nd-head {
+  position: relative; overflow: hidden; isolation: isolate; border-radius: 28px;
+  padding: clamp(1.5rem, 3.2vw, 2.6rem) clamp(1.4rem, 3.4vw, 2.8rem);
+  color: #e2defa; border: 1px solid rgba(255, 255, 255, .1); box-shadow: var(--shadow-2);
+  background: radial-gradient(120% 170% at 100% 0%, #6a4df0 0%, var(--c-navy-2) 40%, var(--c-navy) 100%);
+}
+.nd-head::before, .nd-head::after { content: ""; position: absolute; z-index: -1; border-radius: 50%; pointer-events: none; }
+.nd-head::before { right: -70px; top: -90px; width: 320px; height: 320px; border: 1px solid rgba(255, 255, 255, .14); box-shadow: 0 0 0 44px rgba(255, 255, 255, .035), 0 0 0 100px rgba(255, 255, 255, .02); }
+.nd-head::after { right: 16%; bottom: -110px; width: 220px; height: 220px; background: radial-gradient(circle, rgba(255, 197, 82, .55), transparent 68%); filter: blur(6px); }
+.nd-eyebrow { margin: 0 0 .7rem; color: #ffd98a; font-size: .75rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.nd-head h1 {
+  color: #fff; font-family: var(--font-serif); font-optical-sizing: auto; font-weight: 600;
+  font-size: clamp(2rem, 1.3rem + 2.6vw, 3.2rem); line-height: 1.08; letter-spacing: -.03em; max-width: 18ch;
+}
+.nd-head .nd-lead { color: #d6d0f2; max-width: 56ch; margin-top: .8rem; }
+
+/* the grid */
+.nd-bento { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(1.25rem, 2.4vw, 1.75rem); }
+@media (min-width: 992px) {
+  .nd-bento { grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
+  .nd-bento > * { grid-column: span 12; }
+  .nd-bento > .nd-b-attn, .nd-bento > .nd-b-recent { grid-column: span 7; }
+  .nd-bento > .nd-b-acts, .nd-bento > .nd-b-weekly { grid-column: span 5; }
+  .nd-b-acts .nd-acts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.nd-cols { gap: clamp(1.25rem, 2.4vw, 1.75rem); }
+
+/* serif headlines + numerals */
+.nd-h { font-family: var(--font-serif); font-optical-sizing: auto; font-size: 1.4rem; font-weight: 600; letter-spacing: -.02em; }
+.nd-count, .nd-door-num { font-family: var(--font-serif); }
+.nd-door-num { font-weight: 600; }
+.nd-empty h2 { font-family: var(--font-serif); font-weight: 600; }
+
+/* cards: rounder, glassier, with a coloured edge that wakes up on hover */
+.nd-attn, .nd-list, .nd-chart, .nd-empty, .nd-act, .nd-chip { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.nd-attn, .nd-list, .nd-chart, .nd-empty { border-radius: 22px; border-color: var(--nd-line); box-shadow: var(--shadow-1); }
+.nd-act { border-radius: 20px; min-height: 84px; position: relative; overflow: hidden; background: linear-gradient(135deg, var(--acc-soft), transparent 60%), var(--nd-panel); border-color: var(--nd-line); }
+.nd-act:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.nd-act-ic { border-radius: 16px; }
+.nd-attn-row { border-left-width: 0; position: relative; }
+.nd-attn-row::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px; border-radius: 0 4px 4px 0; background: var(--acc); }
+.nd-attn-ic { border-radius: 16px; }
+.nd-row { min-height: 72px; }
+.nd-tile { border-radius: 14px; }
+
+/* the numbers: a row of separate tiles with a soft glow in the corner */
+.nd-summary { background: none; border: 0; border-radius: 0; overflow: visible; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); }
+.nd-stat {
+  flex-direction: column; align-items: flex-start; gap: .35rem; padding: 1.25rem 1.35rem 1.15rem; overflow: hidden; border-radius: 22px;
+  background: radial-gradient(130% 100% at 100% 0%, var(--acc-soft), transparent 62%), var(--nd-panel);
+  border: 1px solid var(--nd-line); box-shadow: var(--shadow-1);
+}
+.nd-stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); border-color: var(--acc); background: radial-gradient(130% 100% at 100% 0%, var(--acc-soft), transparent 62%), var(--nd-panel); }
+.nd-stat-ic { position: absolute; right: 1rem; top: 1rem; width: 42px; height: 42px; border-radius: 14px; font-size: 1.2rem; }
+.nd-stat-body { width: 100%; }
+.nd-stat-value { font-family: var(--font-serif); font-optical-sizing: auto; font-weight: 600; font-size: 3.1rem; line-height: 1; letter-spacing: -.04em; }
+.nd-stat-label { margin-top: .35rem; font-size: .9375rem; color: var(--nd-text-2); font-weight: 700; }
+.nd-stat-foot { margin-top: .5rem; }
+
+/* assessment cards (student) */
+.nd-assess-card, .nd-resume { border-radius: 22px; }
+.nd-door { border-radius: 24px; background: linear-gradient(135deg, var(--acc-soft), transparent 62%), var(--nd-panel); border-color: var(--nd-line); }
+.nd-door:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); background: linear-gradient(135deg, var(--acc-soft), transparent 62%), var(--nd-raised); }
+.nd-cta { background-image: var(--grad-brand); }
+
+/* chart: gradient bars */
+.nd-chart-track { background: var(--c-surface-2); }
+.nd-chart-fill { background: linear-gradient(180deg, var(--tone-violet), var(--c-brand)); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .nd-act, .nd-door { transition: transform .18s, box-shadow .18s, border-color .15s, background-color .15s; }
+  .nd-stat { transition: transform .18s, box-shadow .18s, border-color .15s; }
+}
+@media (prefers-reduced-motion: reduce) { .nd-act:hover, .nd-stat:hover, .nd-door:hover { transform: none; } }
+
+/* the light theme: the hero stays a deep violet card (it is the page's one dark anchor) */
+html[data-bs-theme="light"] .nd-attn, html[data-bs-theme="light"] .nd-list, html[data-bs-theme="light"] .nd-chart { box-shadow: var(--shadow-1); }
