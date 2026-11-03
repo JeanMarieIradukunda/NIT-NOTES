@@ -119,6 +119,13 @@ class QuestionForm(forms.Form):
         label="Extra wrong choices", required=False, widget=forms.Textarea(attrs={"rows": 2, "class": "form-control"}),
         help_text="Optional distractors, one per line.")
 
+    marks = forms.DecimalField(
+        label="Marks for this question", required=False, min_value=0, max_digits=6, decimal_places=2,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.5", "min": "0",
+                                        "placeholder": "Share by weight"}),
+        help_text="Exact marks this question is worth. Leave empty to share the section's marks by weight, "
+                  "as before. Questions with their own marks are taken off the section first.")
+
     open_guide = forms.CharField(
         label="Marking guide (trainers only)", required=False,
         widget=forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
@@ -177,6 +184,8 @@ class QuestionForm(forms.Form):
         elif s == OPEN:
             d["_payload"] = {}
             d["_key"] = {"guide": (d.get("open_guide") or "").strip()}
+        else:
+            d["marks"] = None           # exact marks only apply to open questions
         return d
 
     def save_to(self, exam, question=None):
@@ -185,6 +194,7 @@ class QuestionForm(forms.Form):
             question = Question(exam=exam)
         question.section, question.text = d["section"], d["text"].strip()
         question.weight, question.order = d["weight"], d["order"]
+        question.marks = d.get("marks") if d["section"] == OPEN else None
         question.payload = d["_payload"]
         question.save()
         AnswerKey.objects.update_or_create(question=question, defaults={"data": d["_key"]})
@@ -193,7 +203,8 @@ class QuestionForm(forms.Form):
     @classmethod
     def initial_for(cls, q):
         key = q.key.data if hasattr(q, "key") else {}
-        init = {"section": q.section, "text": q.text, "weight": q.weight, "order": q.order}
+        init = {"section": q.section, "text": q.text, "weight": q.weight, "order": q.order,
+                "marks": q.marks if q.section == OPEN else None}
         if q.section == MCQ:
             init["mcq_options"] = "\n".join(q.payload.get("options", []))
             init["mcq_correct"] = ", ".join(str(i + 1) for i in sorted(correct_set(key)))

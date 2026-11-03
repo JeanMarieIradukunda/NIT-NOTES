@@ -14,7 +14,8 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from django.utils.crypto import salted_hmac
 
-from .models import FILL, MATCH, MCQ, OBJECTIVE_SECTIONS, OPEN, SECTION_LABELS, SECTION_ORDER
+from .models import (FILL, MATCH, MCQ, OBJECTIVE_SECTIONS, OPEN, SECTION_LABELS, SECTION_ORDER,
+                     allocate_open_marks)
 
 TWO = Decimal("0.01")
 # Auto-marked sections where a trainer may overrule the automatic mark (e.g. accept a spelling variant).
@@ -32,15 +33,26 @@ def q2(value):
 # --------------------------------------------------------------------------- #
 
 def question_max_marks(exam, questions=None):
-    """{question id: Decimal}. A section's marks are shared between its questions by weight."""
+    """
+    {question id: Decimal}.
+
+    A section's marks are shared between its questions by weight. Open questions can
+    also carry their own exact marks (Question.marks); those are taken off the section
+    first and the rest is shared by weight between the open questions without their own.
+    """
     questions = list(questions if questions is not None else exam.questions.all())
     weight_sum = {}
     for q in questions:
         weight_sum[q.section] = weight_sum.get(q.section, 0) + max(q.weight, 1)
     out = {}
     for q in questions:
+        if q.section == OPEN:
+            continue
         total = Decimal(weight_sum[q.section])
         out[q.id] = q2(exam.section_marks(q.section) * Decimal(max(q.weight, 1)) / total)
+    open_items = [(q.id, q.marks, q.weight) for q in questions if q.section == OPEN]
+    if open_items:
+        out.update(allocate_open_marks(exam.marks_open, open_items)[0])
     return out
 
 
@@ -293,13 +305,42 @@ def has_open_questions(exam):
     return exam.questions.filter(section=OPEN).exists()
 
 
-def review_questions(exam, attempt):
+def feedback_visible(exam, attempt):
+    """
+    May the candidate see the trainer's comments on individual questions?
+
+    Yes once their marking is finished and the trainer has released results. Releasing the answers
+    also shows them, as it always has. A comment is feedback, not the answer key, so it no longer
+    needs "show answers" to be switched on. (The overall comment kept with the attempt is never
+    shown to candidates.)
+    """
+    if not attempt.is_submitted:
+        return False
+    return bool(exam.show_answers or (attempt.marking_complete and exam.show_results))
+
+
+def candidate_feedback(exam, attempt):
+    """[{n, label, text, comment}] for every commented question, in the order the candidate saw. [] until visible."""
+    if not feedback_visible(exam, attempt):
+        return []
+    comments = attempt.question_comments or {}
+    out = []
+    for n, q in enumerate(ordered_questions(exam, attempt), start=1):
+        text = (comments.get(str(q.id)) or "").strip()
+        if text:
+            out.append({"n": n, "label": SECTION_LABELS[q.section], "text": q.text, "comment": text})
+    return out
+
+
+def review_questions(exam, attempt, comments=None):
     """
     Per-question review for a SUBMITTED attempt: the candidate's answer, the
     correct answer and the marks, in the order the candidate saw. Only called
     when the trainer has enabled show_answers; the answer key is read here and
-    nowhere on the candidate's exam page.
+    nowhere on the candidate's exam page. Trainer comments are included only when the
+    candidate may see them (see feedback_visible) unless ``comments=True`` forces them in.
     """
+    show_comments = feedback_visible(exam, attempt) if comments is None else comments
     qs = ordered_questions(exam, attempt)
     maxima = question_max_marks(exam, qs)
     rows = []
@@ -308,7 +349,8 @@ def review_questions(exam, attempt):
         ans = clean_answer(q, (attempt.answers or {}).get(str(q.id)))
         row = {"n": n, "section": q.section, "label": SECTION_LABELS[q.section], "text": q.text,
                "max": maxima[q.id], "answered": ans is not None, "earned": None, "status": "blank",
-               "comment": (attempt.question_comments or {}).get(str(q.id), ""), "adjusted": False}
+               "comment": (attempt.question_comments or {}).get(str(q.id), "") if show_comments else "",
+               "adjusted": False}
         if q.section == MCQ:
             chosen = set(ans) if isinstance(ans, list) else ({ans} if ans is not None else set())
             correct = correct_set(key)

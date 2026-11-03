@@ -96,6 +96,10 @@ def exam_detail(request, pk):
             warnings.append(f"{g['label']} has questions but 0 marks.")
         if not g["questions"] and g["marks"] > 0:
             warnings.append(f"{g['label']} has {g['marks']} marks but no questions.")
+    if exam.open_pool_overspent:
+        warnings.append("Open questions with their own marks add up to more than the open section's "
+                        f"{exam.marks_open:g} marks, so the open questions without their own marks get 0. "
+                        "Raise the section marks or give those questions their own marks.")
     return render(request, "assessments/exam_detail.html", {
         "exam": exam, "groups": groups, "warnings": warnings,
         "entry_url": request.build_absolute_uri(reverse("assessments:entry", args=[exam.public_id])),

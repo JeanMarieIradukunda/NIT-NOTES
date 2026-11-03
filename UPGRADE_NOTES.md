@@ -1,3 +1,23 @@
+# Upgrade notes — per-question marks, trainer feedback, redesigned answer sheet
+
+Run `python manage.py migrate` (adds `assessments.0008_question_marks`; no data is changed).
+
+1. **Marks on each open question.** `Question.marks` (optional). Leave it empty and nothing changes: the open
+   section's marks are shared by weight. Set it and that question is worth exactly that; custom marks are taken
+   off the section first and the rest is shared by weight between the open questions without their own. If every
+   open question has its own marks, the section total is their sum. Exams, results, the marking screen (each
+   mark is limited to its question's own maximum), duplicates and the Word import all follow it. The assessment
+   page warns when custom marks add up to more than the section marks while other open questions still share it.
+2. **Candidates see the trainer's comment on each question** once every open question is marked and results are
+   released (or as soon as answers are released, as before). No longer requires "show answers". Shown on the
+   result page, the answer review and the answer sheet. The overall comment stays private to trainers.
+3. **Answer sheet redesign** (`_evidence_sheet.html`, `_evidence_css.html`, `_evidence_head.html`): header band,
+   candidate and final-result cards, progress bars per section, colour-coded question cards with feedback
+   callouts, redesigned class register. Still one A4 page per candidate; one extra two-column level keeps
+   type larger on mid-sized papers.
+
+---
+
 # Upgrade notes — HTML notes keep their original styles
 
 HTML module notes are now shown exactly as the author uploaded them, the same

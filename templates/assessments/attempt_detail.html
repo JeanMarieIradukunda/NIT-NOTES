@@ -50,7 +50,7 @@
         <div class="answer-box mt-2{% if not r.answered %} text-muted-2{% endif %}">{% if r.answered %}{{ r.answer }}{% else %}No answer{% endif %}</div>
         {% if r.guide %}<div class="small text-muted-2 mt-2"><strong>Marking guide:</strong> {{ r.guide }}</div>{% endif %}
         {% if attempt.is_submitted %}
-        <div class="mt-2"><label class="form-label small mb-1" for="comment_{{ r.q.id }}">Comment on this question <span class="text-muted-2">(shown to the candidate in their answer review once you release the answers)</span></label>
+        <div class="mt-2"><label class="form-label small mb-1" for="comment_{{ r.q.id }}">Comment on this question <span class="text-muted-2">(shown to the candidate on their result page, answer review and answer sheet once all open questions are marked and results are released, or as soon as you release the answers)</span></label>
           <textarea class="form-control form-control-sm" id="comment_{{ r.q.id }}" name="comment_{{ r.q.id }}" rows="2" maxlength="1000">{{ r.comment }}</textarea></div>
         {% endif %}
       </div>

@@ -1,43 +1,141 @@
 <style>
-  @page { size: A4; margin: 9mm 10mm; }
+  /* Answer sheet / evidence record. Print-first (A4 via WeasyPrint) and readable on screen as the fallback.
+     Tables and floats only (no grid/flex), so the PDF engine and every browser draw it the same way. */
+  @page { size: A4; margin: 8mm 9mm; }
   * { box-sizing: border-box; }
-  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #111; margin: 0; line-height: 1.28; }
+  body { font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif; color: #1a2233; margin: 0; line-height: 1.3; }
   table { width: 100%; border-collapse: collapse; }
   .sheet { font-size: 9pt; }
   .sheet.d1 { font-size: 8.2pt; } .sheet.d2 { font-size: 7.3pt; } .sheet.d3 { font-size: 6.5pt; } .sheet.d4 { font-size: 5.7pt; }
   .sheet + .sheet { page-break-before: always; }
-  .muted { color: #555; } .na { color: #888; font-style: italic; } .r { text-align: right; } .c { text-align: center; }
-  .head td { vertical-align: middle; padding: 0 0 1.6mm; border-bottom: 1.4pt solid #1b3a6b; }
-  .head img { height: 12mm; width: auto; display: block; }
-  .head .logo { width: 14mm; } .head .org { padding-left: 2.5mm; font-size: 1.05em; line-height: 1.25; }
-  .head .doc { text-align: right; font-size: .85em; color: #1b3a6b; font-weight: 700; letter-spacing: .04em; }
-  .head .doc small { display: block; font-weight: 400; color: #444; letter-spacing: 0; }
-  h1 { font-size: 1.65em; margin: 2.2mm 0 .4mm; color: #111; }
-  .sub { color: #444; font-size: .92em; margin-bottom: 2mm; }
-  .kv { margin-bottom: 1.8mm; } .kv th, .kv td { border: .5pt solid #b9bfc9; padding: .9mm 1.6mm; vertical-align: top; text-align: left; }
-  .kv th { background: #eef1f6; font-weight: 600; width: 15%; color: #29323f; } .kv td { width: 18.3%; }
-  .score { margin-bottom: 2mm; } .score th, .score td { border: .5pt solid #b9bfc9; padding: .9mm 1.6mm; text-align: center; }
-  .score th { background: #eef1f6; font-weight: 600; font-size: .92em; } .score td { font-size: 1.12em; font-weight: 600; }
-  .score .final { background: #1b3a6b; color: #fff; } .score th.final { background: #1b3a6b; color: #fff; }
-  .score .pen { color: #a1260f; }
-  h2 { font-size: 1em; margin: 2mm 0 .8mm; padding-bottom: .5mm; border-bottom: .6pt solid #1b3a6b; color: #1b3a6b; text-transform: uppercase; letter-spacing: .04em; }
-  .cols { table-layout: fixed; } .cols > tbody > tr > td { vertical-align: top; padding: 0; } .cols > tbody > tr > td + td { padding-left: 2mm; }
-  .ans th, .ans td { border: .5pt solid #c8ccd4; padding: .55mm 1.1mm; vertical-align: top; text-align: left; }
-  .ans th { background: #eef1f6; font-size: .92em; }
-  .ans .n { width: 5.5mm; text-align: center; } .ans .m { width: 11mm; text-align: center; white-space: nowrap; }
-  .ans .t { width: 9mm; color: #666; font-size: .88em; white-space: nowrap; } .ans .a { word-break: break-word; }
-  .ok { color: #17653a; font-weight: 600; } .part { color: #8a5a00; font-weight: 600; } .bad { color: #a1260f; font-weight: 600; }
+  .muted { color: #5b6577; } .na { color: #8a93a3; font-style: italic; } .r { text-align: right; } .c { text-align: center; }
+
+  /* ---- header band (also used by the class register) ---- */
+  .band { background: #14315f; color: #fff; border-radius: 3mm; padding: 2.4mm 4mm; }
+  .band .head td { vertical-align: middle; }
+  .head .logo { width: 14mm; }
+  .logo-chip { display: block; width: 11.5mm; height: 13.5mm; background: #fff; border-radius: 2.2mm; padding: .9mm; text-align: center; }
+  .logo-chip img { height: 11.7mm; width: auto; max-width: 9.6mm; display: inline-block; }
+  .head .org { padding-left: 2.5mm; line-height: 1.3; }
+  .head .org b { font-size: 1.1em; letter-spacing: .01em; }
+  .head .org span { color: #b9c8e6; font-size: .86em; }
+  .head .doc { text-align: right; }
+  .head .doc .t { display: block; font-size: .76em; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+  .head .doc .r { display: block; font-size: .8em; color: #b9c8e6; margin-top: .5mm; }
+
+  /* ---- title ---- */
+  h1 { font-size: 1.75em; margin: 3.2mm 0 1mm; color: #14315f; letter-spacing: -.01em; line-height: 1.15; }
+  .sub { color: #44506a; font-size: .92em; margin-bottom: 2.4mm; }
+  .chips { margin-bottom: 2.2mm; }
+  .chip { display: inline-block; background: #edf1f8; color: #33415c; border-radius: 10mm; padding: .5mm 2.5mm; margin: 0 1.2mm 1mm 0; font-size: .86em; }
+  .chip b { color: #14315f; }
+
+  /* ---- candidate card + final result ---- */
+  .summary { border-collapse: separate; border-spacing: 1.2mm 0; table-layout: fixed; margin-bottom: 1.4mm; }
+  .summary > tbody > tr > td { vertical-align: top; }
+  td.whoc { border: .6pt solid #dde3ed; border-radius: 2.6mm; padding: 2mm 3mm; background: #fff; }
+  td.fin { width: 46mm; padding: 2.4mm 3mm; }
+  .who td { padding: .45mm 0; vertical-align: top; }
+  .who .k { color: #6a7487; font-size: .8em; text-transform: uppercase; letter-spacing: .06em; width: 24%; padding-top: .8mm; }
+  .who .v { font-weight: 600; }
+  .who .v.big { font-size: 1.22em; color: #14315f; }
+  .final-card { background: #14315f; color: #fff; border-radius: 2.6mm; text-align: center; vertical-align: middle !important; }
+  .final-card .lbl { color: #b9c8e6; }
+  .final-card .big { font-size: 2.5em; font-weight: 700; line-height: 1.08; margin: .6mm 0; }
+  .final-card .big small { font-size: .4em; font-weight: 500; color: #b9c8e6; }
+  .final-card .pct { font-weight: 700; font-size: 1.05em; margin-bottom: 1.2mm; }
+  .final-card .note { color: #ffd98a; font-size: .8em; margin-top: 1mm; }
+  .final-card .bar { background: rgba(255, 255, 255, .22); }
+  .final-card .bar i { background: #72d6a4; }
+  .lbl { color: #7a8497; font-size: .76em; text-transform: uppercase; letter-spacing: .09em; font-weight: 700; }
+
+  .bar { height: 1.5mm; background: #e5e9f1; border-radius: 1mm; overflow: hidden; }
+  .bar i { display: block; height: 1.5mm; border-radius: 1mm; background: #3b6fd4; }
+
+  /* ---- section scores ---- */
+  .tilewrap { margin: 0 -1.2mm 1.4mm; }
+  .tilewrap > .summary { margin-bottom: 0; } .tilewrap + .tilewrap { margin-top: 1.2mm; }
+  .tiles { border-collapse: separate; border-spacing: 1.2mm 0; table-layout: fixed; }
+  .tiles td { padding: 0; vertical-align: top; }
+  .tile { border: .6pt solid #dde3ed; border-radius: 2.2mm; padding: 1.5mm 2.2mm 1.7mm; background: #fff; }
+  .tile .val { font-size: 1.28em; font-weight: 700; color: #14315f; margin: .3mm 0 1mm; }
+  .tile .val small { font-size: .62em; font-weight: 500; color: #6a7487; }
+  .tile .tag { font-size: .72em; color: #8a5a00; font-weight: 600; }
+  .tile.pen { border-color: #f3cfc9; background: #fff7f6; }
+  .tile.pen .val { color: #a1260f; }
+
+  /* ---- section headings ---- */
+  h2 { font-size: .86em; margin: 2.6mm 0 1.5mm; padding-left: 2mm; border-left: 1.2mm solid #3b6fd4; color: #14315f; text-transform: uppercase; letter-spacing: .12em; line-height: 1.1; }
+
+  /* ---- questions ---- */
+  .cols { table-layout: fixed; } .cols > tbody > tr > td { vertical-align: top; padding: 0; } .cols > tbody > tr > td + td { padding-left: 2.2mm; }
+  .q { border: .5pt solid #e0e5ee; border-left: 1.1mm solid #b8c1d1; border-radius: 1.8mm; background: #fbfcfe; padding: 1.3mm 2.2mm 1.4mm 2mm; margin-bottom: 1.2mm; page-break-inside: avoid; }
+  .q.ok { border-left-color: #17803d; } .q.part { border-left-color: #d08a00; } .q.bad { border-left-color: #c0392b; }
+  .q .top { margin-bottom: .6mm; }
+  .q .top:after { content: ""; display: block; clear: both; }
+  .q .num { display: inline-block; width: 4.6mm; height: 4.6mm; line-height: 4.6mm; text-align: center; border-radius: 50%; background: #14315f; color: #fff; font-weight: 700; font-size: .86em; margin-right: 1.4mm; }
+  .q .type { color: #6a7487; font-size: .76em; letter-spacing: .09em; text-transform: uppercase; font-weight: 700; }
+  .mk { float: right; display: inline-block; border-radius: 10mm; padding: .35mm 2.2mm; font-weight: 700; font-size: .92em; background: #edf1f8; color: #33415c; white-space: nowrap; }
+  .mk small { font-weight: 600; font-size: .82em; margin-left: .8mm; }
+  .mk.ok { background: #e2f3e9; color: #17653a; } .mk.part { background: #fcefd0; color: #8a5a00; }
+  .mk.bad { background: #fce6e3; color: #a1260f; } .mk.idle { background: #edf1f8; color: #5b6577; }
+  .q .qt { font-weight: 600; color: #1a2233; margin: .3mm 0 .7mm; word-break: break-word; }
+  .q .at { color: #33415c; word-break: break-word; }
+  .q .at .lbl { margin-right: 1mm; }
+  .q .cm { margin-top: 1mm; background: #eef1ff; border-left: .9mm solid #5b6cf0; border-radius: 1.2mm; padding: .9mm 2mm 1mm; color: #23305c; word-break: break-word; }
+  .q .cm .lbl { color: #4453c4; margin-right: 1mm; }
+
+  /* ---- conduct ---- */
+  .conduct { border: .5pt solid #e0e5ee; border-radius: 2.2mm; padding: 1.5mm 2.8mm; background: #fbfcfe; }
+  .conduct .good { color: #17653a; font-weight: 600; }
   .viol { font-size: .95em; margin: 0; padding-left: 4mm; } .viol li { margin: 0; }
-  .comment { border: .5pt solid #b9bfc9; padding: 1mm 1.6mm; margin-top: 1.4mm; background: #fafbfc; }
-  .sign { margin-top: 3mm; } .sign td { padding: 0 2mm 0 0; vertical-align: bottom; width: 33%; font-size: .9em; }
-  .sign .line { border-bottom: .6pt solid #333; height: 7mm; margin-bottom: .6mm; }
-  .foot { margin-top: 2mm; padding-top: 1mm; border-top: .5pt solid #b9bfc9; font-size: .82em; color: #444; }
-  .foot b { color: #111; font-family: "Courier New", Courier, monospace; letter-spacing: .03em; }
-  .toolbar { margin: 4mm 0; } .toolbar button { padding: 2mm 4mm; font-size: 11pt; cursor: pointer; }
-  @media print { .toolbar { display: none; } }
-  /* register page */
-  .reg { font-size: 9pt; } .reg th, .reg td { border: .5pt solid #b9bfc9; padding: 1.2mm 1.8mm; text-align: left; vertical-align: top; }
-  .reg th { background: #eef1f6; } .reg .r { text-align: right; } .reg tr { page-break-inside: avoid; } .reg thead { display: table-header-group; }
-  .stats { table-layout: fixed; } .stats td { border: .5pt solid #b9bfc9; padding: 1.4mm 2mm; text-align: center; } .stats b { display: block; font-size: 1.3em; }
+  .tech { color: #5b6577; font-size: .88em; margin-top: 1mm; }
+  .comment { border: .5pt solid #f0d9a0; border-left: 1mm solid #e0a100; border-radius: 1.6mm; padding: 1.1mm 2.2mm; margin-top: 1.6mm; background: #fffaf0; }
+  .sign { margin-top: 3.2mm; } .sign td { padding: 0 2.4mm 0 0; vertical-align: bottom; width: 33%; font-size: .88em; color: #44506a; }
+  .sign .line { border-bottom: .6pt solid #33415c; height: 7mm; margin-bottom: .6mm; }
+  .foot { margin-top: 2.2mm; padding-top: 1.2mm; border-top: .5pt solid #dde3ed; font-size: .8em; color: #5b6577; }
+  .foot b { color: #1a2233; font-family: "Courier New", Courier, monospace; letter-spacing: .03em; }
+
+  /* ---- tighter layouts, used when a long paper has to fit one page ---- */
+  .d1 .q { padding: 1mm 2mm 1.1mm 1.8mm; margin-bottom: 1mm; } .d1 h1 { font-size: 1.6em; margin-top: 2.4mm; }
+  .d2 .q { padding: .7mm 1.6mm .8mm 1.5mm; margin-bottom: .8mm; border-radius: 1.4mm; } .d2 .num { width: 3.9mm; height: 3.9mm; line-height: 3.9mm; }
+  .d2 .band { padding: 1.8mm 3.4mm; } .d2 .logo-chip { width: 9.5mm; height: 11mm; } .d2 .logo-chip img { height: 9mm; max-width: 7.5mm; } .d2 .head .logo { width: 11.5mm; }
+  .d2 h1 { font-size: 1.45em; margin: 2mm 0 .6mm; } .d2 .chips, .d2 .sub { margin-bottom: 1.4mm; }
+  .d2 .final-card .big { font-size: 2em; }
+  .d3 .band, .d4 .band { padding: 1.3mm 3mm; } .d3 .logo-chip, .d4 .logo-chip { width: 7.5mm; height: 8.8mm; padding: .6mm; } .d3 .logo-chip img, .d4 .logo-chip img { height: 7.4mm; max-width: 6mm; }
+  .d3 .head .logo, .d4 .head .logo { width: 9.5mm; }
+  .d3 h1, .d4 h1 { font-size: 1.3em; margin: 1.4mm 0 .4mm; } .d3 .chips, .d4 .chips { display: none; } .d3 .sub, .d4 .sub { margin-bottom: 1mm; }
+  .d3 td.whoc, .d4 td.whoc { padding: 1mm 2mm; } .d3 .who .k, .d4 .who .k { padding-top: .3mm; } .d3 .who td, .d4 .who td { padding: .15mm 0; }
+  .d3 td.fin, .d4 td.fin { width: 34mm; padding: 1.2mm 2mm; }
+  .d3 .final-card .big, .d4 .final-card .big { font-size: 1.55em; margin: 0; } .d3 .final-card .pct, .d4 .final-card .pct { margin-bottom: .6mm; }
+  .d3 .tile, .d4 .tile { padding: .7mm 1.6mm 1mm; } .d3 .tile .val, .d4 .tile .val { margin: 0 0 .5mm; }
+  .d3 h2, .d4 h2 { margin: 1.4mm 0 .9mm; }
+  .d3 .q, .d4 .q { padding: .35mm 1.2mm .45mm 1.2mm; margin-bottom: .5mm; border-radius: 1mm; border-left-width: .8mm; }
+  .d3 .q .top, .d4 .q .top { display: inline; margin: 0; } .d3 .q .top:after, .d4 .q .top:after { display: none; }
+  .d3 .num, .d4 .num { width: 3.3mm; height: 3.3mm; line-height: 3.3mm; margin-right: .8mm; } .d3 .type, .d4 .type { display: none; }
+  .d3 .qt, .d4 .qt, .d3 .at, .d4 .at { display: inline; margin: 0; } .d3 .at:before, .d4 .at:before { content: " \2192 "; color: #8a93a3; }
+  .d3 .mk, .d4 .mk { padding: 0 1.2mm; } .d3 .at .lbl, .d4 .at .lbl { display: none; }
+  .d3 .q .cm, .d4 .q .cm { margin-top: .5mm; padding: .3mm 1.2mm .4mm; } .d3 .cm .lbl, .d4 .cm .lbl { display: none; }
+  .d3 .conduct, .d4 .conduct { padding: .8mm 2mm; } .d3 .sign, .d4 .sign { margin-top: 1.6mm; } .d3 .sign .line, .d4 .sign .line { height: 4.5mm; }
+  .d3 .foot, .d4 .foot { margin-top: 1mm; padding-top: .6mm; }
+
+  /* ---- class register page ---- */
+  .reg { font-size: 9pt; border-collapse: separate; border-spacing: 0; }
+  .reg th, .reg td { border-bottom: .5pt solid #e0e5ee; padding: 1.4mm 2mm; text-align: left; vertical-align: top; }
+  .reg th { background: #14315f; color: #fff; font-size: .82em; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+  .reg tbody tr:nth-child(even) td { background: #f6f8fc; }
+  .reg .r { text-align: right; } .reg tr { page-break-inside: avoid; } .reg thead { display: table-header-group; }
+  .stats { table-layout: fixed; border-collapse: separate; border-spacing: 1.2mm 0; }
+  .stats td { border: .6pt solid #dde3ed; border-radius: 2.2mm; padding: 1.8mm 2mm; text-align: center; background: #fff; color: #5b6577; font-size: .86em; }
+  .stats b { display: block; font-size: 1.5em; color: #14315f; }
   .cover-break { page-break-after: always; }
+
+  /* ---- on screen (the fallback when no PDF can be made): a sheet of paper on a soft background ---- */
+  .toolbar { margin: 4mm 0; } .toolbar button { padding: 2mm 4mm; font-size: 11pt; cursor: pointer; border: 0; border-radius: 6px; background: #14315f; color: #fff; }
+  @media screen {
+    body { background: #e8ecf3; padding: 8mm 4mm; }
+    .sheet, .cover-break { background: #fff; max-width: 210mm; margin: 0 auto 8mm; padding: 9mm 10mm; border-radius: 3mm; box-shadow: 0 2px 16px rgba(20, 49, 95, .16); }
+    .toolbar { max-width: 210mm; margin: 0 auto 5mm; }
+  }
+  @media print { .toolbar { display: none; } body { background: #fff; } }
 </style>

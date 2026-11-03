@@ -19,7 +19,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from .marking import (SECTION_ORDER, is_answered, option_order, ordered_questions, persist_layout,
-                      public_questions, question_max_marks, review_questions)
+                      public_questions, question_max_marks, review_questions, candidate_feedback)
 from .models import (ALL_VIOLATION_LABELS, SECTION_LABELS, Attempt, DeviceOpen, Exam,
                      normalise_reg_no)
 from . import evidence, services
@@ -255,6 +255,7 @@ def result(request, access_key):
                      for s in SECTION_ORDER if exam.section_marks(s) > 0],
         "violations": attempt.violations.filter(counted=True),
         "open_pending": exam.questions.filter(section="open").exists() and not attempt.marking_complete,
+        "feedback": candidate_feedback(exam, attempt),
     }
     return render(request, "assessments/result.html", ctx)
 

@@ -17,7 +17,7 @@ Design rules that the rest of the app relies on:
 
 import re
 import secrets
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
@@ -68,6 +68,35 @@ ALL_VIOLATION_LABELS = {
     **{k: v.label for k, v in VIOLATION_TYPES.items()},
     **SERVER_ONLY_LABELS,
 }
+
+
+TWO_PLACES = Decimal("0.01")
+
+
+def allocate_open_marks(pool, items):
+    """
+    Split the open-questions section between its questions.
+
+    ``items`` is a list of ``(question id, custom marks or None, weight)``.
+    A question with custom marks is worth exactly that. The rest of the section's
+    marks (the pool minus the custom ones, never below zero) is shared between the
+    questions without custom marks, by weight, as it always was.
+
+    Returns ``({question id: marks}, section total)``. With no custom marks the total is
+    the pool, exactly as before. If every question has custom marks the total is simply
+    their sum, so the pool does not need to be filled in at all.
+    """
+    pool = Decimal(str(pool or 0))
+    custom = {qid: Decimal(str(m)) for qid, m, _w in items if m is not None}
+    rest = [(qid, max(w or 1, 1)) for qid, m, w in items if m is None]
+    custom_sum = sum(custom.values(), Decimal("0"))
+    remaining = max(pool - custom_sum, Decimal("0"))
+    weight_sum = sum(w for _qid, w in rest)
+    out = {qid: m.quantize(TWO_PLACES) for qid, m in custom.items()}
+    for qid, w in rest:
+        out[qid] = (remaining * Decimal(w) / Decimal(weight_sum)).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    total = custom_sum + (remaining if rest else Decimal("0"))
+    return out, total.quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
 
 
 def default_penalties():
@@ -178,7 +207,22 @@ class Exam(models.Model):
 
     # -- marks ------------------------------------------------------------- #
     def section_marks(self, section):
-        return getattr(self, f"marks_{section}")
+        """Marks for a section. For open questions this is the pool adjusted by any per-question marks."""
+        base = getattr(self, f"marks_{section}")
+        if section != OPEN or self.pk is None:
+            return base
+        rows = list(self.questions.filter(section=OPEN).values_list("id", "marks", "weight"))
+        if not any(m is not None for _i, m, _w in rows):
+            return base
+        return allocate_open_marks(base, rows)[1]
+
+    @property
+    def open_pool_overspent(self):
+        """True when custom marks on open questions use up more than the open section's marks
+        while other open questions are still waiting to share what is left (they would get 0)."""
+        rows = list(self.questions.filter(section=OPEN).values_list("marks", flat=True))
+        custom = [m for m in rows if m is not None]
+        return bool(custom) and len(custom) < len(rows) and sum(custom, Decimal("0")) > self.marks_open
 
     @property
     def total_marks(self):
@@ -209,6 +253,10 @@ class Question(models.Model):
     order = models.PositiveSmallIntegerField(default=1)
     text = models.TextField()
     weight = models.PositiveSmallIntegerField(default=1, help_text="Relative weight inside its section.")
+    # Open questions only: exact marks for this question. Empty = share the section's marks by weight.
+    marks = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True,
+                                help_text="Open questions: exact marks for this question. Leave empty to share "
+                                          "the section marks by weight.")
     # Candidate-visible structure: mcq {"options": [...]}, match {"left": [...], "right": [...]}.
     payload = models.JSONField(default=dict, blank=True)
 

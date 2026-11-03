@@ -24,7 +24,10 @@
         <div class="form-check mb-3">{{ form.mcq_multi }}<label class="form-check-label" for="{{ form.mcq_multi.id_for_label }}">{{ form.mcq_multi.label }}</label>{% for e in form.mcq_multi.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}<div class="form-text">{{ form.mcq_multi.help_text }}</div></div></div>
       <div class="type-fields" data-for="fill" hidden>{% include "assessments/_field.html" with f=form.fill_accepted %}<div class="form-check mb-3">{{ form.fill_case }}<label class="form-check-label" for="{{ form.fill_case.id_for_label }}">{{ form.fill_case.label }}</label></div></div>
       <div class="type-fields" data-for="match" hidden>{% include "assessments/_field.html" with f=form.match_pairs %}{% include "assessments/_field.html" with f=form.match_extra %}</div>
-      <div class="type-fields" data-for="open" hidden>{% include "assessments/_field.html" with f=form.open_guide %}</div>
+      <div class="type-fields" data-for="open" hidden>
+        <div class="row"><div class="col-sm-6">{% include "assessments/_field.html" with f=form.marks %}</div></div>
+        <div class="form-text mb-3" style="margin-top:-.5rem">The open-questions section is set to <strong>{{ exam.marks_open|floatformat:"-2" }}</strong> mark{{ exam.marks_open|pluralize }} in the assessment settings. Questions with their own marks may add up to more or less than that; the assessment total follows what you enter here.</div>
+        {% include "assessments/_field.html" with f=form.open_guide %}</div>
 
       <button class="btn btn-primary" type="submit"><i class="bi bi-check2 me-1"></i>Save question</button>
       <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_detail' exam.pk %}">Cancel</a>

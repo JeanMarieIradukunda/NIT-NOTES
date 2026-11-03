@@ -60,7 +60,7 @@
           {% for f in form %}{% if f.name == "marks_mcq" or f.name == "marks_fill" or f.name == "marks_open" or f.name == "marks_match" %}
           <div class="mb-3"><label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{% for e in f.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}</div>
           {% endif %}{% endfor %}
-          <div class="form-text">Each section's marks are shared between its questions by weight.</div>
+          <div class="form-text">Each section's marks are shared between its questions by weight. For open questions you can instead give each question its own marks when you add or edit it; those are taken off the open section first, and the rest is shared by weight.</div>
         </div>
       </div>
     </div>

@@ -30,7 +30,7 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils import timezone
 
-from .marking import SECTION_ORDER, review_questions
+from .marking import SECTION_ORDER, feedback_visible, review_questions
 from .models import SECTION_LABELS
 
 SECTION_CODES = {"mcq": "MCQ", "fill": "Fill", "match": "Match", "open": "Open"}
@@ -38,21 +38,27 @@ SECTION_CODES = {"mcq": "MCQ", "fill": "Fill", "match": "Match", "open": "Open"}
 BRAND = {"institution": "Padri Vjeko Centre TSS", "department": "Department of Information Technology"}
 
 # Tighter and tighter layouts. The first level that fits on one page wins.
+# q / a / o / c = characters kept of the question, the answer, an open answer and the trainer's comment.
+# "css" picks the type size and spacing (the .dN classes in _evidence_css.html); "level" is just the position.
 DENSITIES = [
-    {"level": 0, "cols": 1, "q": 110, "a": 220, "o": 500, "v": 8},
-    {"level": 1, "cols": 1, "q": 90, "a": 140, "o": 260, "v": 6},
-    {"level": 2, "cols": 2, "q": 60, "a": 80, "o": 150, "v": 5},
-    {"level": 3, "cols": 2, "q": 42, "a": 52, "o": 90, "v": 4},
-    {"level": 4, "cols": 2, "q": 28, "a": 34, "o": 54, "v": 3},
+    {"level": 0, "css": 0, "cols": 1, "q": 110, "a": 220, "o": 500, "c": 320, "v": 8},
+    {"level": 1, "css": 1, "cols": 1, "q": 90, "a": 140, "o": 260, "c": 200, "v": 6},
+    {"level": 2, "css": 1, "cols": 2, "q": 80, "a": 110, "o": 220, "c": 170, "v": 6},
+    {"level": 3, "css": 2, "cols": 2, "q": 60, "a": 80, "o": 150, "c": 120, "v": 5},
+    {"level": 4, "css": 3, "cols": 2, "q": 42, "a": 52, "o": 90, "c": 70, "v": 4},
+    {"level": 5, "css": 4, "cols": 2, "q": 28, "a": 34, "o": 54, "c": 44, "v": 3},
 ]
+
+STATUS_LABELS = {"correct": "Correct", "partial": "Partly correct", "wrong": "Incorrect",
+                 "marked": "Marked", "pending": "Awaiting marking", "blank": "No answer"}
 
 
 def _start_level(n_questions):
     """Skip levels that obviously cannot fit so a big class does not render everything twice."""
-    for limit, level in ((12, 0), (22, 1), (40, 2), (70, 3)):
+    for limit, level in ((8, 0), (14, 1), (26, 2), (40, 3), (70, 4)):
         if n_questions <= limit:
             return level
-    return 4
+    return len(DENSITIES) - 1
 
 
 # --------------------------------------------------------------------------- #
@@ -115,6 +121,27 @@ def integrity_code(attempt):
     return "-".join(digest[i:i + 4] for i in range(0, 16, 4))
 
 
+def _pct(score, top):
+    """Whole-number percentage (0-100) for a progress bar."""
+    try:
+        return min(max(int(Decimal(str(score or 0)) * 100 / Decimal(str(top))), 0), 100)
+    except Exception:
+        return 0
+
+
+def _tone(status, earned, top):
+    """ok / part / bad / idle: the colour a question's marks are drawn in. Empty when marks are hidden."""
+    if status == "correct":
+        return "ok"
+    if status == "partial":
+        return "part"
+    if status == "wrong":
+        return "bad"
+    if status == "marked" and earned is not None:
+        return "ok" if earned >= top else "part" if earned > 0 else "bad"
+    return "idle" if status else ""
+
+
 def safe_name(value):
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", str(value or "")).strip("_") or "candidate"
 
@@ -130,22 +157,32 @@ def build_context(attempt, *, trainer, generated=None):
     exam = attempt.exam
     generated = generated or timezone.now()
     text_rows = {r["n"]: r for r in _sheet_rows(attempt)}
-    review = {r["n"]: r for r in review_questions(exam, attempt)}
+    review = {r["n"]: r for r in review_questions(exam, attempt, comments=True)}
     show_score = trainer or exam.show_results
     show_marks = trainer or (exam.show_results and exam.show_answers)
+    # Trainers always see the comments; a candidate sees them once marked (and results are released).
+    show_comments = trainer or feedback_visible(exam, attempt)
     open_pending = exam.questions.filter(section="open").exists() and not attempt.marking_complete
 
     rows = []
     for n in sorted(text_rows):
         t, r = text_rows[n], review.get(n, {})
-        rows.append({"n": n, "section": t["section"], "code": SECTION_CODES.get(r.get("section"), t["section"]), "question": t["question"], "answer": t["answer"],
-                     "answered": t["answered"], "max": t["max"], "is_open": r.get("section") == "open",
-                     "earned": r.get("earned") if show_marks else None,
-                     "status": r.get("status", "") if show_marks else ""})
+        status = r.get("status", "") if show_marks else ""
+        earned = r.get("earned") if show_marks else None
+        rows.append({"n": n, "section": t["section"], "code": SECTION_CODES.get(r.get("section"), t["section"]),
+                     "question": t["question"], "answer": t["answer"], "answered": t["answered"], "max": t["max"],
+                     "is_open": r.get("section") == "open", "earned": earned, "status": status,
+                     "status_label": STATUS_LABELS.get(status, ""), "tone": _tone(status, earned, t["max"]),
+                     "comment": (r.get("comment") or "") if show_comments else ""})
 
-    sections = [{"label": SECTION_LABELS[s], "max": exam.section_marks(s),
-                 "score": attempt.section_scores.get(s) if s != "open" else attempt.open_total}
-                for s in SECTION_ORDER if exam.section_marks(s) > 0]
+    sections = []
+    for s_key in SECTION_ORDER:
+        top = exam.section_marks(s_key)
+        if top <= 0:
+            continue
+        score = attempt.section_scores.get(s_key) if s_key != "open" else attempt.open_total
+        sections.append({"label": SECTION_LABELS[s_key], "max": top, "score": score,
+                         "pct": _pct(score, top) if show_score else 0})
 
     total = exam.total_marks
     percent = None
@@ -162,6 +199,8 @@ def build_context(attempt, *, trainer, generated=None):
         "integrity": integrity_code(attempt),
         "show_score": show_score, "show_marks": show_marks, "trainer": trainer,
         "open_pending": open_pending, "percent": percent, "total": total,
+        "percent_bar": min(max(int(percent), 0), 100) if percent is not None else 0,
+        "has_comments": any(r["comment"] for r in rows),
         "sections": sections, "rows": rows,
         "time_used": _duration(used),
         "opens": sum(d.opens for d in devices), "n_devices": len(devices),
@@ -187,7 +226,9 @@ def apply_density(ctx, density, sheet_no=None, sheet_total=None):
         a = clip(r["answer"], density["o"] if r["is_open"] else density["a"])
         clipped = clipped or len(re.sub(r"\s+", " ", r["question"]).strip()) > len(q) \
             or len(re.sub(r"\s+", " ", r["answer"]).strip()) > len(a)
-        r["question"], r["answer"] = q, a
+        c = clip(r.get("comment", ""), density["c"])
+        clipped = clipped or len(re.sub(r"\s+", " ", r.get("comment", "")).strip()) > len(c)
+        r["question"], r["answer"], r["comment"] = q, a, c
         rows.append(r)
     per_col = -(-len(rows) // density["cols"]) if rows else 0
     ev["columns"] = [rows[i:i + per_col] for i in range(0, len(rows), per_col)] if rows else []
@@ -195,6 +236,8 @@ def apply_density(ctx, density, sheet_no=None, sheet_total=None):
     ev["violations_shown"] = ev["violations"][: density["v"]]
     ev["violations_more"] = max(len(ev["violations"]) - density["v"], 0)
     ev["sheet_no"], ev["sheet_total"] = sheet_no, sheet_total
+    ev["doc_title"] = "Assessment evidence record" if ev["trainer"] else "Assessment answer sheet"
+    ev["doc_sub"] = f"Ref. {ev['ref']}" + (f" · Sheet {sheet_no} of {sheet_total}" if sheet_no else "")
     return {**ctx, "ev": ev, "d": density}
 
 
@@ -278,6 +321,6 @@ def bundle_html_context(exam, attempts, skipped=0):
     sheets = []
     for i, attempt in enumerate(attempts, start=1):
         ctx = build_context(attempt, trainer=True, generated=generated)
-        sheets.append(apply_density(ctx, DENSITIES[min(_start_level(len(ctx["ev"]["rows"])) + 1, 4)], i, len(attempts)))
+        sheets.append(apply_density(ctx, DENSITIES[min(_start_level(len(ctx["ev"]["rows"])) + 1, len(DENSITIES) - 1)], i, len(attempts)))
     return {"exam": exam, "brand": BRAND, "sheets": sheets, "d": sheets[0]["d"] if sheets else DENSITIES[1],
             "cover": _cover_context(exam, attempts, skipped, generated), "on_screen": True}

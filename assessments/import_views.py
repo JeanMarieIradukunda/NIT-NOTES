@@ -158,8 +158,11 @@ def import_preview(request, pk, draft_id):
                     right = [q["right"][q["pairs"][str(i)]] for i in left_idx]
                     right += [t for j, t in enumerate(q["right"]) if j not in used]
                     payload, key = {"left": left, "right": right}, {"pairs": {str(n): n for n in range(len(left))}}
+                # An open question written as "(5 marks)" keeps exactly those marks.
+                exact = (Decimal(str(q["marks"])).quantize(Decimal("0.01"))
+                         if q["section"] == OPEN and q.get("marks") and apply else None)
                 obj = Question.objects.create(exam=exam, section=q["section"], order=order[q["section"]],
-                                              text=q["text"], weight=weight, payload=payload)
+                                              text=q["text"], weight=weight, marks=exact, payload=payload)
                 AnswerKey.objects.create(question=obj, data=key)
             changed = []
             if apply:

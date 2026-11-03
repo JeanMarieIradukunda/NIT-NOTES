@@ -78,3 +78,9 @@
 .opt-bar span { display: block; height: 100%; background: var(--c-muted); }
 .opt-bar span.ok { background: var(--c-success); }
 .opt-n { text-align: right; color: var(--c-muted); font-variant-numeric: tabular-nums; }
+
+/* ---- Trainer feedback on the result page ---- */
+.feedback-list { display: grid; gap: .6rem; }
+.feedback-item { padding: .7rem .85rem; border: 1px solid var(--c-border); border-left: 3px solid var(--c-brand); border-radius: var(--r-md); background: var(--c-surface-2); }
+.feedback-q { font-size: .85rem; color: var(--c-muted); overflow-wrap: anywhere; white-space: pre-wrap; margin-bottom: .35rem; }
+.feedback-c { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--c-text); }

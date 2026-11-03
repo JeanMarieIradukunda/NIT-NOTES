@@ -222,7 +222,7 @@ def exam_duplicate(request, pk):
         copy.save()
         for q in source.questions.select_related("key"):
             new_q = Question.objects.create(exam=copy, section=q.section, order=q.order, text=q.text,
-                                            weight=q.weight, payload=q.payload)
+                                            weight=q.weight, marks=q.marks, payload=q.payload)
             try:
                 AnswerKey.objects.create(question=new_q, data=q.key.data)
             except AnswerKey.DoesNotExist:
