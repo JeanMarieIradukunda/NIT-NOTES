@@ -190,6 +190,13 @@ a { text-underline-offset: 3px; }
   }
   .rail-in { padding: 1.5rem 1.1rem 1.1rem; }
 }
+/* hide / show the menu column on desktop (js/shell.js; saved in this browser). Phones keep their slide-in drawer. */
+@media (min-width: 992px) {
+  html.rail-hidden .shell { grid-template-columns: minmax(0, 1fr); }
+  html.rail-hidden .shell > .rail.offcanvas-lg { display: none !important; }
+}
+.deck-rail-toggle { flex: none; }
+
 .rail-brand { display: flex; align-items: center; gap: .75rem; padding: .25rem .4rem; text-decoration: none; color: inherit; }
 .rail-brand:hover { color: inherit; }
 .rail-close { margin-left: auto; }

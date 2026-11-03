@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
     <link rel="stylesheet" href="{% static 'css/platform.css' %}"> {% block extra_css %}{% endblock %}
     <script src="{% static 'js/theme.js' %}"></script>
+    <script>try { if (localStorage.getItem("nit-rail") === "hidden") document.documentElement.classList.add("rail-hidden"); } catch (e) {}</script>
 </head>
 
 <body class="{% block body_class %}{% endblock %}">
@@ -69,6 +70,7 @@
         <div class="shell-main">
             {# ---- the command deck: search, today's date, theme, account ---- #}
             <header class="deck">
+                <button class="theme-toggle deck-rail-toggle d-none d-lg-inline-flex" id="railToggle" type="button" aria-controls="rail" aria-expanded="true" aria-label="Hide menu" title="Hide menu"><i class="bi bi-layout-sidebar-inset" aria-hidden="true"></i></button>
                 <button class="theme-toggle deck-menu d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#rail" aria-controls="rail" aria-label="Open menu"><i class="bi bi-list" aria-hidden="true"></i></button>
                 <a class="deck-brand d-lg-none" href="{% url 'core:dashboard' %}"><img src="{% static 'img/school.png' %}" alt="" width="32" height="32"><span>{{ BRAND.platform }}</span></a>
                 {% block site_search %}
