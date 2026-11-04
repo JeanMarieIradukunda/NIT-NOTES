@@ -146,7 +146,7 @@ N.B.: Remarking aims to give constructive feedback, recognize correct small poin
 
 1. Follow the marking guide: Award marks only for answers that demonstrate the expected knowledge or understanding.
 2. Award partial marks: Recognize every correct command, concept, step, or key point, even if the answer is incomplete. Do not give zero when part of the answer is correct.
-3. Ignore minor errors: Do not deduct marks for spelling, typing, grammar, or poor English when the technical meaning is correct.
+3. Ignore minor errors: Do not deduct marks for spelling, typing, grammar, misspelled commands, wrong added symbols like commas, or poor English when the technical meaning is correct.
 4. Check technical accuracy: Verify commands, syntax, paths, options, explanations, and outputs carefully.
 5. Avoid unsupported marks: Do not reward incorrect, irrelevant, or missing answers.
 6. Respect maximum marks: Ensure awarded marks do not exceed the available marks.
