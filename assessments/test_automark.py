@@ -18,7 +18,7 @@ class KeywordMarkerTests(ExamTestBase):
     def test_marks_follow_the_key_points_found(self):
         full, note = automark.keyword_mark(GUIDE, GOOD, Decimal("6"))
         self.assertEqual(full, Decimal("6.00"))
-        self.assertIn("Matched 3 of 3", note)
+        self.assertIn("covers 3 of 3", note)
         some, _ = automark.keyword_mark(GUIDE, "It hands out IP addresses automatically.", Decimal("6"))
         self.assertTrue(Decimal("0") < some < Decimal("6"))
         self.assertEqual(automark.keyword_mark(GUIDE, "Cats are nice.", Decimal("6"))[0], Decimal("0.00"))
@@ -226,8 +226,8 @@ class AutoMarkFlowTests(ExamTestBase):
         automark.automark_attempt(self.fresh())
         page = self.client_a.get(reverse("assessments:result", args=[self.fresh().access_key])).content.decode()
         self.assertIn("marked automatically", page)
-        self.assertNotIn("Matched", page)
-        self.assertNotIn("Not found", page)
+        self.assertNotIn("key points", page)
+        self.assertNotIn("Missing:", page)
 
     def test_the_assessment_list_shows_how_many_wait_for_marking(self):
         a = self.fresh()
