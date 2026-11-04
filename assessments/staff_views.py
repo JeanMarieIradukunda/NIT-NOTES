@@ -12,7 +12,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.db.models import Count, Q
-from django.http import HttpResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -361,6 +361,8 @@ def exam_results(request, pk):
     return render(request, "assessments/results.html", {
         "exam": exam, "attempts": attempts, "stats": exam_stats(exam, attempts),
         "has_open": has_open_questions(exam), "ai_available": automark.ai_available(),
+        "ai_counts": automark.count_eligible(exam) if has_open_questions(exam) else None,
+        "ai_counts_all": automark.count_eligible(exam, include_ai=True) if has_open_questions(exam) else None,
         "next_to_mark": next((a for a in attempts if a.state in ("to_mark", "auto")), None),
         "counts": {k: sum(1 for a in attempts if a.state == k) for k in STATE_LABELS}})
 
@@ -540,11 +542,41 @@ def attempt_automark(request, pk, aid):
     if not attempt.is_submitted:
         messages.error(request, "Written answers can be marked once the candidate has submitted.")
         return redirect("assessments:attempt_detail", pk=exam.pk, aid=attempt.pk)
-    budget = [automark.AI_CALLS_PER_REQUEST] if _method(request) == automark.METHOD_AI else None
-    res = automark.automark_attempt(attempt, method=_method(request), overwrite=request.POST.get("overwrite") == "1",
-                                    ai_budget=budget)
+    method = _method(request)
+    budget = [automark.AI_CALLS_PER_REQUEST] if method == automark.METHOD_AI else None
+    # AI re-marking never replaces a trainer's own marks, whatever the box says.
+    overwrite = request.POST.get("overwrite") == "1" and method != automark.METHOD_AI
+    res = automark.automark_attempt(attempt, method=method, overwrite=overwrite, ai_budget=budget)
     _automark_message(request, res, scope="")
     return redirect("assessments:attempt_detail", pk=exam.pk, aid=attempt.pk)
+
+
+@require_POST
+@trainer_required
+def exam_remark_ai(request, pk):
+    """
+    Re-mark, with AI, the written answers no trainer has marked. One batch per request; the page repeats the
+    call (passing ``since`` back) until nothing is left. A trainer's own marks are never changed.
+    """
+    exam, denied = _exam_or_deny(request, pk)
+    wants_json = "application/json" in request.headers.get("Accept", "")
+    if denied:
+        return JsonResponse({"error": "You do not have access to this assessment."}, status=403) if wants_json else denied
+    if not automark.ai_available():
+        msg = "AI marking is not set up. Add GROQ_API_KEY to the server settings."
+        if wants_json:
+            return JsonResponse({"error": msg}, status=400)
+        messages.error(request, msg)
+        return redirect("assessments:exam_results", pk=exam.pk)
+    services.sweep_expired(exam)
+    include_ai = request.POST.get("include_ai") == "1"
+    res = automark.remark_with_ai(exam, include_ai=include_ai, since=request.POST.get("since") or None)
+    if wants_json:
+        return JsonResponse(res)
+    _automark_message(request, {**res, "kept": 0, "ai_limit": 0}, scope="")
+    if res["remaining"]:
+        messages.info(request, f"{res['remaining']} answer{'s' if res['remaining'] != 1 else ''} still to re-mark. Run it again to continue.")
+    return redirect("assessments:exam_results", pk=exam.pk)
 
 
 @require_POST

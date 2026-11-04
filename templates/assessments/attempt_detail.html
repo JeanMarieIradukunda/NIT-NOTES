@@ -35,11 +35,10 @@
         <div class="fw-semibold"><i class="bi bi-magic me-1"></i>Automatic marking</div>
         <div class="small text-muted-2">{{ n_marked }} of {{ written|length }} written answer{{ written|length|pluralize }} marked{% if n_auto %} · {{ n_auto }} automatically{% endif %}. Compares each answer with its marking guide; you can change any mark.</div>
       </div>
-      {% if ai_available %}
-      <select class="form-select form-select-sm w-auto" name="method" aria-label="Method"><option value="keywords">Key points (offline)</option><option value="ai">AI assisted</option></select>
-      {% else %}<input type="hidden" name="method" value="keywords">{% endif %}
-      <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="overwrite" id="ow" value="1"><label class="form-check-label small" for="ow">Also replace my marks</label></div>
-      <button class="btn btn-outline-primary btn-sm" type="submit">{% if n_marked %}Re-run auto-mark{% else %}Auto-mark{% endif %}</button>
+      <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="overwrite" id="ow" value="1"><label class="form-check-label small" for="ow">Also replace my marks <span class="text-muted-2">(key points only)</span></label></div>
+      <button class="btn btn-outline-primary btn-sm" type="submit" name="method" value="keywords">{% if n_marked %}Re-run key points{% else %}Auto-mark (key points){% endif %}</button>
+      {% if ai_available %}<button class="btn btn-primary btn-sm" type="submit" name="method" value="ai" title="Re-marks only answers a trainer has not marked"><i class="bi bi-stars me-1"></i>Re-mark with AI</button>
+      {% else %}<button class="btn btn-outline-secondary btn-sm" type="button" disabled title="Add GROQ_API_KEY to the server settings to turn on AI marking"><i class="bi bi-stars me-1"></i>Re-mark with AI</button>{% endif %}
     </form>
   </div>
   {% endif %}

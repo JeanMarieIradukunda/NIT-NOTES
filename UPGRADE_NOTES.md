@@ -1,3 +1,15 @@
+# Upgrade notes — Re-mark with AI (only answers no trainer has marked)
+
+No migration. Results page: "Re-mark with AI" opens a window that shows how many answers will be re-marked, how many
+trainer-marked answers are kept, and how many questions are skipped for having no marking guide. It then works through
+the answers 20 at a time with a progress bar (`exam_remark_ai`, JSON; `automark.remark_with_ai`, `count_eligible`).
+Marking screen: separate "Auto-mark (key points)" and "Re-mark with AI" buttons. AI re-marking never replaces a
+trainer's marks, whatever options are ticked. Blank answers get 0 without using the AI. If the AI service is
+unavailable the run stops and says so. Each automatic mark now records when it was made (`at`), so one run never
+marks the same answer twice.
+
+---
+
 # Upgrade notes — item analysis redesigned for presentations
 
 No migration. New: `assessments/charts.py`, `static/css/analysis.css`, tests in `test_analysis_charts.py`.

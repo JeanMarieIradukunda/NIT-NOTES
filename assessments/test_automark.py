@@ -210,10 +210,10 @@ class AutoMarkFlowTests(ExamTestBase):
     def test_pages_show_the_new_organisation(self):
         automark.automark_attempt(self.fresh())
         results = self.staff.get(reverse("assessments:exam_results", args=[self.exam.pk]))
-        for needle in ("Results &amp; marking", "Auto-mark written answers", "Auto-marked · check", 'id="rtable"', "auto</span>"):
+        for needle in ("Results &amp; marking", "Auto-mark (key points)", "Auto-marked · check", 'id="rtable"', "auto</span>"):
             self.assertContains(results, needle)
         detail = self.staff.get(reverse("assessments:attempt_detail", args=[self.exam.pk, self.fresh().pk]))
-        for needle in ("Why this mark", "Re-run auto-mark", "I have checked the automatic marks", "Marking guide", 'id="liveFinal"'):
+        for needle in ("Why this mark", "Re-run key points", "I have checked the automatic marks", "Marking guide", 'id="liveFinal"'):
             self.assertContains(detail, needle)
         overview = self.staff.get(reverse("assessments:exam_detail", args=[self.exam.pk]))
         for needle in ("Candidates entered", "Release and marking", "Rules and penalties"):
@@ -235,3 +235,126 @@ class AutoMarkFlowTests(ExamTestBase):
         a.save()
         page = self.staff.get(reverse("assessments:exam_list"))
         self.assertContains(page, "To mark")
+
+
+class AiRemarkTests(ExamTestBase):
+    """"Re-mark with AI": only answers no trainer has marked, in batches, never twice in one run."""
+
+    def setUp(self):
+        super().setUp()
+        self.staff = Client()
+        self.staff.login(username="trainer1", password="pw12345!")
+        self.open1 = self.qs[("open", 1)]
+        self.open1.key.data = {"guide": GUIDE}
+        self.open1.key.save()
+        self.submit("S1", GOOD)
+
+    def submit(self, reg, answer):
+        c = Client()
+        _, cfg = self.open_page(c, reg_no=reg, name=f"Cand {reg}")
+        self.call(c, cfg, "start")
+        self.call(c, cfg, "submit", answers={str(self.open1.id): answer})
+
+    def attempts(self):
+        return list(self.exam.attempts.order_by("pk"))
+
+    def ai(self, value="3"):
+        return mock.patch.object(automark, "ai_mark", return_value=(Decimal(value), "AI: You covered the main points."))
+
+    def test_trainer_marks_are_never_changed_but_everything_else_is(self):
+        a1 = self.attempts()[0]
+        a1.open_marks = {str(self.open1.id): "1.5"}                      # a trainer's mark
+        a1.save()
+        self.submit("S2", GOOD)                                          # unmarked
+        self.submit("S3", GOOD)
+        a3 = self.attempts()[2]
+        automark.automark_attempt(a3)                                    # marked by key points
+        with self.ai() as m:
+            res = automark.remark_with_ai(self.exam, include_ai=True)
+        a1, a2, a3 = self.attempts()
+        self.assertEqual(Decimal(a1.open_marks[str(self.open1.id)]), Decimal("1.5"))
+        self.assertEqual(a1.open_marking, {})
+        for a in (a2, a3):
+            self.assertEqual(Decimal(a.open_marks[str(self.open1.id)]), Decimal("3.00"))
+            self.assertEqual(a.open_marking[str(self.open1.id)]["method"], "ai")
+            self.assertIn("at", a.open_marking[str(self.open1.id)])
+        self.assertEqual((m.call_count, res["marked"], res["remaining"]), (2, 2, 0))
+
+    def test_ai_marks_are_skipped_next_time_unless_asked_for(self):
+        with self.ai() as m:
+            automark.remark_with_ai(self.exam)
+            automark.remark_with_ai(self.exam)                           # nothing left to do
+        self.assertEqual(m.call_count, 1)
+        with self.ai("2") as m:
+            automark.remark_with_ai(self.exam, include_ai=True)
+        self.assertEqual(m.call_count, 1)
+        self.assertEqual(Decimal(self.attempts()[0].open_marks[str(self.open1.id)]), Decimal("2.00"))
+
+    def test_batches_finish_and_never_mark_the_same_answer_twice_in_a_run(self):
+        for i in range(2, 6):
+            self.submit(f"S{i}", GOOD)                                   # five candidates
+        with self.ai() as m:
+            first = automark.remark_with_ai(self.exam, include_ai=True, limit=2)
+            self.assertEqual((first["marked"], first["remaining"]), (2, 3))
+            second = automark.remark_with_ai(self.exam, include_ai=True, since=first["since"], limit=2)
+            third = automark.remark_with_ai(self.exam, include_ai=True, since=first["since"], limit=2)
+        self.assertEqual((second["marked"], second["remaining"]), (2, 1))
+        self.assertEqual((third["marked"], third["remaining"]), (1, 0))
+        self.assertEqual(m.call_count, 5)
+
+    def test_blank_answers_get_zero_without_using_the_ai(self):
+        self.submit("S2", "")
+        with self.ai() as m:
+            res = automark.remark_with_ai(self.exam)
+        self.assertEqual(m.call_count, 1)
+        blank = self.attempts()[1]
+        self.assertEqual(Decimal(blank.open_marks[str(self.open1.id)]), Decimal("0"))
+        self.assertEqual(res["remaining"], 0)
+
+    def test_an_unavailable_ai_stops_the_run_and_says_so(self):
+        self.submit("S2", GOOD)
+        with mock.patch.object(automark, "ai_mark", side_effect=RuntimeError("down")):
+            res = automark.remark_with_ai(self.exam)
+        self.assertEqual(res["ai_fallback"], 1)
+        self.assertEqual(res["marked"], 1)                               # only the first answer, then it stopped
+
+    def test_counts_for_the_confirmation_window(self):
+        a1 = self.attempts()[0]
+        a1.open_marks = {str(self.open1.id): "2"}
+        a1.save()
+        self.submit("S2", GOOD)
+        counts = automark.count_eligible(self.exam)
+        self.assertEqual((counts["eligible"], counts["trainer"], counts["ai_done"], counts["no_guide"]), (1, 1, 0, 0))
+
+    def test_the_endpoint_returns_progress_as_json_and_needs_ai_to_be_set_up(self):
+        url = reverse("assessments:exam_remark_ai", args=[self.exam.pk])
+        r = self.staff.post(url, HTTP_ACCEPT="application/json")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("not set up", r.json()["error"])
+        with mock.patch.object(automark, "ai_available", return_value=True), self.ai():
+            r = self.staff.post(url, HTTP_ACCEPT="application/json")
+        data = r.json()
+        self.assertEqual((r.status_code, data["marked"], data["remaining"]), (200, 1, 0))
+        self.assertTrue(data["since"])
+        other = Client()
+        other.login(username="trainer2", password="pw12345!")
+        self.assertIn(other.post(url, HTTP_ACCEPT="application/json").status_code, (302, 403))
+
+    def test_results_page_offers_the_button_and_explains_what_will_happen(self):
+        page = reverse("assessments:exam_results", args=[self.exam.pk])
+        html = self.staff.get(page).content.decode()
+        self.assertIn("Re-mark with AI", html)
+        self.assertNotIn('id="aiRemarkModal"', html)                     # disabled until a key is set
+        with mock.patch.object(automark, "ai_available", return_value=True):
+            html = self.staff.get(page).content.decode()
+        for needle in ('id="aiRemarkModal"', "no trainer has marked", "kept as they are", "Start re-marking"):
+            self.assertIn(needle, html)
+
+    def test_the_marking_screen_ai_button_never_replaces_a_trainers_mark(self):
+        a = self.attempts()[0]
+        a.open_marks = {str(self.open1.id): "1"}
+        a.save()
+        url = reverse("assessments:attempt_automark", args=[self.exam.pk, a.pk])
+        with mock.patch.object(automark, "ai_available", return_value=True), self.ai("4"):
+            self.staff.post(url, {"method": "ai", "overwrite": "1"})
+        self.assertEqual(Decimal(self.attempts()[0].open_marks[str(self.open1.id)]), Decimal("1"))

@@ -23,6 +23,8 @@ import logging
 import re
 from decimal import Decimal
 
+from django.utils import timezone
+
 from .marking import clean_answer, q2, question_max_marks, recompute_final
 from .models import OPEN
 
@@ -190,12 +192,14 @@ def ai_available():
         return False
 
 
-def automark_attempt(attempt, *, method=METHOD_KEYWORDS, overwrite=False, ai_budget=None):
+def automark_attempt(attempt, *, method=METHOD_KEYWORDS, overwrite=False, ai_budget=None, skip_ai_done=False, since=None):
     """
     Auto-mark the open questions of one SUBMITTED attempt and save it.
 
     Unmarked and automatically marked questions are (re)marked. A trainer's own marks are kept unless
     ``overwrite`` is true. ``ai_budget`` is a one-item list holding the AI calls still allowed for this request.
+    ``skip_ai_done`` leaves answers the AI has already marked alone; ``since`` (ISO time) leaves any automatic mark
+    made at or after it alone, which is how a multi-request run never marks the same answer twice.
     Returns {"marked", "kept", "no_guide", "ai_fallback", "ai_limit"}.
     """
     out = {"marked": 0, "kept": 0, "no_guide": 0, "ai_fallback": 0, "ai_limit": 0}
@@ -209,14 +213,21 @@ def automark_attempt(attempt, *, method=METHOD_KEYWORDS, overwrite=False, ai_bud
     marks, meta = dict(attempt.open_marks or {}), dict(attempt.open_marking or {})
     for q in questions:
         qid = str(q.id)
-        if qid in marks and (meta.get(qid) or {}).get("by", "trainer") == "trainer" and not overwrite:
+        m = meta.get(qid) or {}
+        if qid in marks and m.get("by", "trainer") == "trainer" and not overwrite:
+            out["kept"] += 1
+            continue
+        if qid in marks and m.get("by") == "auto" and (
+                (skip_ai_done and m.get("method") == METHOD_AI) or (since and (m.get("at") or "") >= since)):
             out["kept"] += 1
             continue
         guide = (q.key.data.get("guide") if hasattr(q, "key") else "") or ""
         answer = clean_answer(q, (attempt.answers or {}).get(qid)) or ""
         top = maxima[q.id]
         used = method
-        if method == METHOD_AI:
+        if method == METHOD_AI and not answer.strip():
+            value, note = Decimal("0"), "No answer."          # nothing to read, so no AI call is used
+        elif method == METHOD_AI:
             if ai_budget is not None and ai_budget[0] <= 0:
                 out["ai_limit"] += 1
                 continue
@@ -236,7 +247,7 @@ def automark_attempt(attempt, *, method=METHOD_KEYWORDS, overwrite=False, ai_bud
             out["no_guide"] += 1
             continue
         marks[qid] = str(q2(min(value, top)))
-        meta[qid] = {"by": "auto", "method": used, "note": note}
+        meta[qid] = {"by": "auto", "method": used, "note": note, "at": timezone.now().isoformat()}
         out["marked"] += 1
     attempt.open_marks, attempt.open_marking = marks, meta
     open_ids = [str(q.id) for q in questions]
@@ -255,4 +266,51 @@ def automark_exam(exam, *, method=METHOD_KEYWORDS, overwrite=False):
         total["attempts"] += 1 if res["marked"] else 0
         for k in ("marked", "kept", "no_guide", "ai_fallback", "ai_limit"):
             total[k] += res[k]
+    return total
+
+
+# --- re-marking with AI: only what a trainer has not marked ------------------------------------------------ #
+
+def count_eligible(exam, *, include_ai=False, since=None):
+    """
+    What "Re-mark with AI" would touch. Answers a trainer marked are never included.
+    {"eligible", "trainer", "ai_done", "no_guide"} (answers, answers, answers, questions).
+    """
+    qs = list(exam.questions.filter(section=OPEN).select_related("key"))
+    guided = [q for q in qs if ((q.key.data.get("guide") if hasattr(q, "key") else "") or "").strip()]
+    out = {"eligible": 0, "trainer": 0, "ai_done": 0, "no_guide": len(qs) - len(guided)}
+    for a in exam.attempts.filter(status="submitted"):
+        marks, meta = a.open_marks or {}, a.open_marking or {}
+        for q in guided:
+            qid = str(q.id)
+            m = meta.get(qid) or {}
+            if qid in marks and m.get("by", "trainer") == "trainer":
+                out["trainer"] += 1
+                continue
+            done_now = qid in marks and since and (m.get("at") or "") >= since
+            ai_done = qid in marks and m.get("by") == "auto" and m.get("method") == METHOD_AI
+            out["ai_done"] += 1 if ai_done else 0
+            if done_now or (ai_done and not include_ai):
+                continue
+            out["eligible"] += 1
+    return out
+
+
+def remark_with_ai(exam, *, include_ai=False, since=None, limit=AI_CALLS_PER_REQUEST):
+    """
+    One batch of AI re-marking (up to ``limit`` AI calls). Trainer marks are never changed.
+    Returns the totals plus ``remaining`` and the ``since`` stamp to send with the next batch.
+    """
+    since = since or timezone.now().isoformat()
+    budget = [limit]
+    total = {"marked": 0, "ai_fallback": 0, "no_guide": 0, "attempts": 0}
+    for attempt in exam.attempts.filter(status="submitted").select_related("exam"):
+        res = automark_attempt(attempt, method=METHOD_AI, ai_budget=budget, skip_ai_done=not include_ai, since=since)
+        total["attempts"] += 1 if res["marked"] else 0
+        for k in ("marked", "ai_fallback", "no_guide"):
+            total[k] += res[k]
+        if budget[0] <= 0 or res["ai_fallback"]:
+            break
+    total["remaining"] = count_eligible(exam, include_ai=include_ai, since=since)["eligible"]
+    total["since"] = since
     return total

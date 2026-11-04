@@ -15,7 +15,9 @@
       <div><h1>Results &amp; marking</h1><p class="lead mb-0">Marked out of {{ exam.total_marks|floatformat:"-2" }}. Final = objective + marked open questions − penalty, never below 0.</p></div>
       <div class="d-flex flex-wrap gap-2">
         {% if next_to_mark %}<a class="btn btn-primary" href="{% url 'assessments:attempt_detail' exam.pk next_to_mark.pk %}"><i class="bi bi-pencil-square me-1"></i>Mark next ({{ next_to_mark.candidate_name }})</a>{% endif %}
-        {% if has_open and stats.submitted %}<button class="btn btn-outline-primary" type="button" id="automark" data-bs-toggle="modal" data-bs-target="#automarkModal"><i class="bi bi-magic me-1"></i>Auto-mark written answers</button>{% endif %}
+        {% if has_open and stats.submitted %}<button class="btn btn-outline-primary" type="button" id="automark" data-bs-toggle="modal" data-bs-target="#automarkModal"><i class="bi bi-magic me-1"></i>Auto-mark (key points)</button>
+        {% if ai_available %}<button class="btn btn-outline-primary" type="button" id="remarkAi" data-bs-toggle="modal" data-bs-target="#aiRemarkModal"><i class="bi bi-stars me-1"></i>Re-mark with AI</button>
+        {% else %}<button class="btn btn-outline-secondary" type="button" disabled title="Add GROQ_API_KEY to the server settings to turn on AI marking"><i class="bi bi-stars me-1"></i>Re-mark with AI</button>{% endif %}{% endif %}
         <a class="btn btn-outline-secondary" href="?format=csv"><i class="bi bi-download me-1"></i>Export CSV</a>
         <div class="dropdown">
           <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">More</button>
@@ -117,18 +119,36 @@
 <div class="modal fade" id="automarkModal" tabindex="-1" aria-labelledby="automarkTitle" aria-hidden="true">
   <div class="modal-dialog"><form method="post" action="{% url 'assessments:exam_automark' exam.pk %}" class="modal-content">
     {% csrf_token %}
-    <div class="modal-header"><h2 class="modal-title fs-5" id="automarkTitle">Auto-mark written answers</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-header"><h2 class="modal-title fs-5" id="automarkTitle">Auto-mark with key points</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
     <div class="modal-body">
       <p class="small">Every submitted candidate's written answers are compared with the question's marking guide. You can check and change any mark afterwards. Questions without a marking guide are skipped.</p>
-      {% if ai_available %}
-      <div class="form-check"><input class="form-check-input" type="radio" name="method" id="m_kw" value="keywords" checked><label class="form-check-label" for="m_kw"><strong>Key points</strong>: matches the points in the guide. Works offline.</label></div>
-      <div class="form-check mb-2"><input class="form-check-input" type="radio" name="method" id="m_ai" value="ai"><label class="form-check-label" for="m_ai"><strong>AI assisted</strong>: reads the answer against the guide. Answer text (never names) is sent to the AI service, up to 20 answers at a time.</label></div>
-      {% else %}<input type="hidden" name="method" value="keywords">{% endif %}
+      <input type="hidden" name="method" value="keywords">
       <div class="form-check"><input class="form-check-input" type="checkbox" name="overwrite" id="ow" value="1"><label class="form-check-label" for="ow">Also replace marks I gave myself</label></div>
       <p class="small text-muted-2 mt-2 mb-0">Marks already given automatically are refreshed. Your own marks are kept unless you tick the box.</p>
     </div>
     <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><i class="bi bi-magic me-1"></i>Auto-mark</button></div>
   </form></div>
+</div>
+{% endif %}
+{% if has_open and stats.submitted and ai_available and ai_counts %}
+<div class="modal fade" id="aiRemarkModal" tabindex="-1" aria-labelledby="aiRemarkTitle" aria-hidden="true"
+     data-url="{% url 'assessments:exam_remark_ai' exam.pk %}" data-eligible="{{ ai_counts.eligible }}" data-eligible-all="{{ ai_counts_all.eligible }}">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h2 class="modal-title fs-5" id="aiRemarkTitle">Re-mark with AI</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body">
+      <p class="small">The AI re-marks written answers that <strong>no trainer has marked</strong>. Marks you gave yourself are never changed. Each answer is compared with its marking guide, and “Why this mark” is saved for you to check.</p>
+      <ul class="small ps-3">
+        <li><strong id="aiCount">{{ ai_counts.eligible }}</strong> answer<span id="aiPlural">{{ ai_counts.eligible|pluralize }}</span> will be re-marked</li>
+        <li>{{ ai_counts.trainer }} marked by a trainer: kept as they are</li>
+        {% if ai_counts.no_guide %}<li>{{ ai_counts.no_guide }} question{{ ai_counts.no_guide|pluralize }} without a marking guide: skipped</li>{% endif %}
+      </ul>
+      {% if ai_counts.ai_done %}<div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="aiInclude"><label class="form-check-label small" for="aiInclude">Also re-mark the {{ ai_counts.ai_done }} answer{{ ai_counts.ai_done|pluralize }} the AI has already marked</label></div>{% endif %}
+      <p class="small text-muted-2 mb-2">Answer text (never names) is sent to the AI service, {{ 20 }} answers at a time. Keep this window open until it finishes.</p>
+      <div class="progress mb-2" role="progressbar" aria-label="AI re-marking progress" hidden id="aiProgress"><div class="progress-bar" id="aiBar" style="width:0%"></div></div>
+      <div class="small" id="aiStatus" aria-live="polite"></div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="aiCancel">Cancel</button><button type="button" class="btn btn-primary" id="aiStart"><i class="bi bi-stars me-1"></i>Start re-marking</button></div>
+  </div></div>
 </div>
 {% endif %}
 {% endif %}
@@ -164,6 +184,43 @@
     rows.forEach(function (r) { table.tBodies[0].appendChild(r); });
   }); });
   apply();
+})();
+</script>
+
+<script>
+(function () {
+  var modal = document.getElementById("aiRemarkModal"); if (!modal) return;
+  var start = document.getElementById("aiStart"), bar = document.getElementById("aiBar"), prog = document.getElementById("aiProgress"),
+      status = document.getElementById("aiStatus"), incl = document.getElementById("aiInclude"), count = document.getElementById("aiCount"),
+      cancel = document.getElementById("aiCancel"), csrf = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || "";
+  var running = false, stop = false, finished = false, changed = false;
+  function total() { return parseInt(modal.dataset[incl && incl.checked ? "eligibleAll" : "eligible"], 10) || 0; }
+  function refresh() { count.textContent = total(); document.getElementById("aiPlural").textContent = total() === 1 ? "" : "s"; start.disabled = total() === 0; }
+  if (incl) incl.addEventListener("change", refresh);
+  refresh();
+  modal.addEventListener("hidden.bs.modal", function () { stop = true; if (changed) location.reload(); });
+  start.addEventListener("click", async function () {
+    if (finished) { location.reload(); return; }
+    if (running) return;
+    running = true; stop = false; start.disabled = true; if (incl) incl.disabled = true; prog.hidden = false;
+    var goal = total(), done = 0, since = "", fallback = 0;
+    status.textContent = "Starting…";
+    try {
+      while (!stop) {
+        var body = new FormData(); body.append("include_ai", incl && incl.checked ? "1" : ""); if (since) body.append("since", since);
+        var r = await fetch(modal.dataset.url, { method: "POST", body: body, headers: { "Accept": "application/json", "X-CSRFToken": csrf } });
+        var d = await r.json();
+        if (!r.ok) { status.textContent = d.error || "Something went wrong. Nothing more was changed."; break; }
+        since = d.since; done += d.marked; fallback += d.ai_fallback; if (d.marked) changed = true;
+        var pct = goal ? Math.min(100, Math.round(100 * done / goal)) : 100;
+        bar.style.width = pct + "%";
+        status.textContent = done + " of " + goal + " answers re-marked" + (d.remaining ? "…" : ".");
+        if (d.ai_fallback) { status.textContent += " The AI service was not available for some answers, so key points were compared instead. Try again later."; break; }
+        if (!d.remaining || !d.marked) { bar.style.width = "100%"; status.textContent = "Done. " + done + " answer" + (done === 1 ? "" : "s") + " re-marked. Check the marks marked “auto · AI”."; finished = true; break; }
+      }
+    } catch (e) { status.textContent = "Could not reach the server. Marks already saved are kept."; }
+    running = false; if (!finished) { start.disabled = false; start.textContent = "Continue"; } else { start.disabled = false; start.textContent = "Show updated results"; cancel.textContent = "Close"; }
+  });
 })();
 </script>
 {% endblock %}
