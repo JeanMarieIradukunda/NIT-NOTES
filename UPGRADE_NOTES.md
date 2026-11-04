@@ -1,3 +1,34 @@
+# Upgrade notes — item analysis redesigned for presentations
+
+No migration. New: `assessments/charts.py`, `static/css/analysis.css`, tests in `test_analysis_charts.py`.
+The page (`templates/assessments/analysis.html`) now has: an overall verdict and key figures, "What this tells you"
+(plain-English findings), score distribution histogram with mean and median, performance by question type,
+difficulty mix, every question at a glance, a difficulty-vs-discrimination chart (10+ candidates), a "questions to
+review" list, question cards with verdict badges and filters, a how-to-read guide, and Print / save as PDF.
+Charts are plain HTML/CSS (no chart library, no SVG), so they print and follow the light/dark theme.
+The old page used bar styles that were only defined in a stylesheet this page never loaded; they are now included.
+
+---
+
+# Upgrade notes — automatic marking of open questions, reorganised assessment / results / marking pages
+
+Run `python manage.py migrate` (adds `assessments.0009_automark`: `Exam.auto_mark_on_submit`, `Attempt.open_marking`).
+
+1. **Automatic marking** (`assessments/automark.py`). Marks written answers against each question's marking guide.
+   Key points method (default, offline): the guide is split into points and each is looked for in the answer.
+   AI method (only if a Groq key is configured, and chosen by the trainer): answer text is sent, never names.
+   Run per candidate (marking screen), for the class (Results > Auto-mark written answers) or automatically on
+   submit (Settings > Written answers). Marks are tagged `auto` or `trainer`. A re-run refreshes automatic marks and
+   keeps a trainer's own unless "also replace my marks" is ticked. Questions with no guide are skipped. The
+   "why this mark" note is for trainers only. An automatic mark stays "to check" until a trainer changes it or ticks
+   "I have checked the automatic marks".
+2. **Assessment page**: stats strip, access / release / marking cards, questions (with "no guide" flags), rules,
+   danger zone. **Results**: stats, status chips, search, sortable columns, bulk auto-mark, Mark next.
+   **Marking screen**: previous / next candidate, live total, written answers first, comments, Save & next to mark.
+3. The assessment list shows how many submissions wait for marking.
+
+---
+
 # Upgrade notes — per-question marks, trainer feedback, redesigned answer sheet
 
 Run `python manage.py migrate` (adds `assessments.0008_question_marks`; no data is changed).

@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Item analysis · {{ exam.title }}{% endblock %}
 {% block site_search %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/trainer.css' %}"><link rel="stylesheet" href="{% static 'css/analysis.css' %}">{% endblock %}
 {% block content %}
 <div class="container-xxl">
   <div class="page-head">
@@ -11,7 +13,10 @@
     </ol></nav>
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
       <div><h1>Item analysis</h1><p class="lead">How each question performed across the {{ summary.n }} submitted attempt{{ summary.n|pluralize }}. Use it to spot questions that are too hard, too easy, mis-keyed or that don’t separate strong from weak candidates.</p></div>
-      <a class="btn btn-outline-secondary" href="?format=csv"><i class="bi bi-download me-1"></i>Export CSV</a>
+      <div class="d-flex gap-2 no-print">
+        <button class="btn btn-outline-secondary" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print / save as PDF</button>
+        <a class="btn btn-outline-secondary" href="?format=csv"><i class="bi bi-download me-1"></i>Export CSV</a>
+      </div>
     </div>
   </div>
 
@@ -22,34 +27,148 @@
   {% if summary.in_progress %}<div class="alert alert-warning py-2 small">{{ summary.in_progress }} candidate{{ summary.in_progress|pluralize }} still in progress are not counted yet.</div>{% endif %}
   {% if summary.pending_open %}<div class="alert alert-warning py-2 small">{{ summary.pending_open }} attempt{{ summary.pending_open|pluralize }} still have open questions to mark, so scores and open-question averages are provisional.</div>{% endif %}
 
-  <div class="stat-grid mb-4" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
-    <div class="panel stat"><div><div class="num">{{ summary.mean|floatformat:"-1" }}</div><div class="label">Mean / {{ summary.total|floatformat:"-2" }}</div></div></div>
-    <div class="panel stat"><div><div class="num">{{ summary.median|floatformat:"-1" }}</div><div class="label">Median</div></div></div>
-    <div class="panel stat"><div><div class="num">{{ summary.high|floatformat:"-1" }}</div><div class="label">Highest</div></div></div>
-    <div class="panel stat"><div><div class="num">{{ summary.low|floatformat:"-1" }}</div><div class="label">Lowest</div></div></div>
+  <!-- 1. The headline -->
+  <div class="row g-3 mb-4">
+    {% if summary.overall %}
+    <div class="col-lg-4"><div class="an-verdict h-100">
+      <span class="dot dot-{{ summary.overall.kind }}"></span>
+      <div><div class="small text-muted-2">Overall</div><div class="big">{{ summary.overall.label }}</div><div class="small text-muted-2">{{ summary.overall.text }}</div></div>
+    </div></div>
+    {% endif %}
+    <div class="col-lg-8"><div class="an-kpis h-100">
+      <div class="panel stat"><div><div class="num">{{ summary.n }}</div><div class="label">Candidates</div></div></div>
+      <div class="panel stat"><div><div class="num">{{ summary.mean_pct|floatformat:"-1" }}%</div><div class="label">Average · {{ summary.mean|floatformat:"-1" }} / {{ summary.total|floatformat:"-2" }}</div></div></div>
+      <div class="panel stat"><div><div class="num">{{ summary.median_pct|floatformat:"-1" }}%</div><div class="label">Median · {{ summary.median|floatformat:"-1" }}</div></div></div>
+      <div class="panel stat"><div><div class="num">{{ summary.high_pct|floatformat:"-1" }}%</div><div class="label">Highest · {{ summary.high|floatformat:"-1" }}</div></div></div>
+      <div class="panel stat"><div><div class="num">{{ summary.low_pct|floatformat:"-1" }}%</div><div class="label">Lowest · {{ summary.low|floatformat:"-1" }}</div></div></div>
+      {% if summary.std_pct is not None %}<div class="panel stat"><div><div class="num">±{{ summary.std_pct|floatformat:"-1" }}</div><div class="label">Spread (std. dev., % points)</div></div></div>{% endif %}
+    </div></div>
   </div>
 
-  {% if summary.bins %}
+  <!-- 2. What it means -->
+  {% if summary.insights %}
   <div class="panel panel-body mb-4">
-    <h2 class="fs-6">Score distribution</h2>
-    <div class="dist" role="img" aria-label="Number of candidates in each score band">
-      {% for b in summary.bins %}<div class="dist-col"><div class="dist-count">{{ b.count }}</div><div class="dist-bar" style="height:{{ b.height }}%"></div><div class="dist-label">{{ b.label }}</div></div>{% endfor %}
-    </div>
+    <h2 class="fs-6 mb-3">What this tells you</h2>
+    <ul class="insights">
+      {% for kind, text in summary.insights %}<li class="k-{{ kind }}"><i class="bi bi-{% if kind == 'danger' %}exclamation-octagon{% elif kind == 'warning' %}exclamation-triangle{% elif kind == 'good' %}check-circle{% else %}info-circle{% endif %}" aria-hidden="true"></i><span>{{ text }}</span></li>{% endfor %}
+    </ul>
   </div>
   {% endif %}
 
+  <!-- 3. Score distribution + by type + mix -->
+  <div class="row g-3 mb-4">
+    {% with h=summary.hist %}{% if h %}
+    <div class="col-lg-7"><div class="panel panel-body h-100">
+      <h2 class="fs-6">Score distribution</h2>
+      <p class="small text-muted-2">How many candidates fell in each score band, as a share of the {{ summary.total|floatformat:"-2" }} marks.</p>
+      <div class="plot-wrap" role="img" aria-label="Histogram of candidate scores. Average {{ summary.mean_pct }} percent, median {{ summary.median_pct }} percent.">
+        <div class="plot hist-plot">
+          {% for t in h.yticks %}<div class="gridline" style="bottom:{{ t.bottom }}%"><span>{{ t.label }}</span></div>{% endfor %}
+          {% for b in h.bars %}<div class="hbar" style="left:{{ b.left }}%;width:{{ b.width }}%;height:{{ b.h }}%" title="{{ b.count }} candidate{{ b.count|pluralize }} scored {{ b.pct_lo }}–{{ b.pct_hi }}% ({{ b.label }} marks)">{% if b.count %}<em>{{ b.count }}</em>{% endif %}</div>{% endfor %}
+          {% if h.median %}<div class="vmark median" style="left:{{ h.median.left }}%"><span class="{% if h.median.flip %}flip{% endif %}" style="top:1.4rem">Median {{ summary.median_pct|floatformat:"-1" }}%</span></div>{% endif %}
+          {% if h.mean %}<div class="vmark mean" style="left:{{ h.mean.left }}%"><span class="{% if h.mean.flip %}flip{% endif %}">Mean {{ summary.mean_pct|floatformat:"-1" }}%</span></div>{% endif %}
+        </div>
+        <div class="xaxis">{% for t in h.xticks %}<span style="left:{{ t.left }}%">{{ t.label }}</span>{% endfor %}</div>
+        <div class="axis-title">Score as % of total marks</div>
+      </div>
+      <details class="mt-2 no-print"><summary class="small text-muted-2" style="cursor:pointer">Show as a table</summary>
+        <table class="table table-sm mt-2 mb-0"><thead><tr><th>Score band</th><th>Marks</th><th class="text-end">Candidates</th></tr></thead>
+        <tbody>{% for b in h.bars %}<tr><td>{{ b.pct_lo }}–{{ b.pct_hi }}%</td><td>{{ b.label }}</td><td class="text-end">{{ b.count }}</td></tr>{% endfor %}</tbody></table></details>
+    </div></div>
+    {% endif %}{% endwith %}
+    <div class="col-lg-5">
+      <div class="panel panel-body mb-3">
+        <h2 class="fs-6">Performance by question type</h2>
+        <p class="small text-muted-2">Marks earned as a share of marks available.</p>
+        {% for s in summary.sections %}
+        <div class="hb"><span class="hb-label" title="{{ s.questions }} question{{ s.questions|pluralize }}">{{ s.label }}</span><span class="hb-track"><span class="hb-fill b-{{ s.band }}" style="width:{{ s.pct }}%"></span></span><span class="hb-val">{{ s.pct }}%</span></div>
+        {% empty %}<div class="small text-muted-2">No marked questions yet.</div>{% endfor %}
+      </div>
+      {% if summary.mix_total %}
+      <div class="panel panel-body">
+        <h2 class="fs-6">Question difficulty mix</h2>
+        <p class="small text-muted-2">How the {{ summary.mix_total }} question{{ summary.mix_total|pluralize }} spread across difficulty.</p>
+        <div class="stack" role="img" aria-label="{% for m in summary.mix %}{{ m.count }} {{ m.label }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+          {% for m in summary.mix %}{% if m.count %}<span class="b-{{ m.band }}" style="width:{{ m.pct }}%" title="{{ m.label }}: {{ m.count }}">{{ m.count }}</span>{% endif %}{% endfor %}
+        </div>
+        <div class="legend">{% for m in summary.mix %}<span><i class="b-{{ m.band }}"></i>{{ m.label }} ({{ m.count }})</span>{% endfor %}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- 4. Every question at a glance -->
+  <div class="panel panel-body mb-4">
+    <h2 class="fs-6">Every question at a glance</h2>
+    <p class="small text-muted-2">Share of the marks candidates earned on each question. Select a question to jump to its details.</p>
+    <div class="qlist">
+      {% for it in items %}
+      <div class="hb"><span class="hb-label"><a href="#q{{ it.n }}" title="{{ it.short }}">Q{{ it.n }} · {{ it.label }}</a></span>
+        <span class="hb-track">{% if it.score_pct != None %}<span class="hb-fill b-{{ it.band }}" style="width:{{ it.score_pct }}%"></span>{% endif %}</span>
+        <span class="hb-val">{% if it.score_pct != None %}{{ it.score_pct }}%{% else %}—{% endif %}</span></div>
+      {% endfor %}
+    </div>
+    <div class="legend"><span><i class="b-vhard"></i>Very hard (&lt;30%)</span><span><i class="b-hard"></i>Hard (30–49%)</span><span><i class="b-ok"></i>Balanced (50–84%)</span><span><i class="b-easy"></i>Easy (85%+)</span></div>
+  </div>
+
+  <!-- 5. Difficulty vs discrimination -->
+  {% with sc=summary.scatter %}{% if sc %}
+  <div class="panel panel-body mb-4">
+    <h2 class="fs-6">Which questions are working?</h2>
+    <p class="small text-muted-2">Each dot is a question. Left to right: how much of the marks candidates earned. Bottom to top: how well it separates strong candidates (top 27%) from weak ones (bottom 27%). Good questions sit in the upper middle.</p>
+    <div class="plot-wrap with-y" role="img" aria-label="Scatter chart of question difficulty against discrimination">
+      <div class="plot scatter-plot">
+        <div class="zone zone-hard" style="left:0;width:30%;top:0;bottom:0"><span>Too hard</span></div>
+        <div class="zone zone-easy" style="left:85%;right:0;top:0;bottom:0"><span>Too easy</span></div>
+        <div class="zone zone-weak" style="left:0;right:0;bottom:0;height:{{ sc.weak_h }}%"><span class="r">Weak at separating candidates</span></div>
+        {% for t in sc.yticks %}<div class="gridline" style="bottom:{{ t.bottom }}%"><span>{{ t.label }}</span></div>{% endfor %}
+        {% for p in sc.points %}<a class="dot dot-{{ p.band }}" href="#q{{ p.n }}" style="left:{{ p.left }}%;bottom:{{ p.bottom }}%" title="{{ p.title }}">{{ p.n }}</a>{% endfor %}
+      </div>
+      <div class="xaxis">{% for t in sc.xticks %}<span style="left:{{ t.left }}%">{{ t.label }}</span>{% endfor %}</div>
+      <div class="axis-title">Marks earned (% of available)</div>
+      <div class="axis-title y">Discrimination</div>
+    </div>
+  </div>
+  {% else %}{% if summary.judged %}<div class="alert alert-secondary py-2 small">The “which questions are working” chart appears once at least 10 candidates have submitted, because it needs enough candidates to compare the strongest with the weakest.</div>{% endif %}{% endif %}{% endwith %}
+
+  <!-- 6. Needs review -->
+  {% if summary.attention %}
+  <div class="panel panel-body mb-4" id="review">
+    <h2 class="fs-6">Questions to review ({{ summary.attention|length }})</h2>
+    {% for a in summary.attention %}
+    <div class="py-2 {% if not forloop.last %}border-bottom{% endif %}" style="border-color:var(--c-border)!important">
+      <a href="#q{{ a.n }}" class="fw-semibold text-decoration-none">Q{{ a.n }}</a> <span class="text-muted-2">{{ a.short }}{% if a.short|length >= 90 %}…{% endif %}</span>
+      <ul class="reasons">{% for r in a.reasons %}<li><i class="bi bi-flag"></i>{{ r }}</li>{% endfor %}</ul>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- 7. Question by question -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2 no-print">
+    <h2 class="fs-5 mb-0">Question by question</h2>
+    <div class="chips" id="qchips" role="group" aria-label="Filter questions">
+      <button type="button" class="chip-btn active" data-f="">All</button>
+      {% if summary.attention %}<button type="button" class="chip-btn" data-f="review">Needs review</button>{% endif %}
+      <button type="button" class="chip-btn" data-f="hard">Hard</button>
+      <button type="button" class="chip-btn" data-f="easy">Easy</button>
+    </div>
+  </div>
   {% for it in items %}
-  <article class="panel panel-body mb-3">
-    <div class="d-flex flex-wrap justify-content-between gap-2">
-      <span class="small text-muted-2">{{ it.n }} · {{ it.label }}{% if it.multi %} (select all){% endif %} · {{ it.max|floatformat:"-2" }} marks</span>
-      <span class="small">
-        {% if it.pct_correct != None %}<strong>{{ it.pct_correct }}%</strong> fully correct{% endif %}
-        {% if it.avg != None %}<span class="text-muted-2"> · average {{ it.avg|floatformat:"-2" }} / {{ it.max|floatformat:"-2" }}</span>{% endif %}
-        {% if it.disc != None %}<span class="text-muted-2"> · discrimination {{ it.disc }}</span>{% endif %}
-      </span>
+  <article class="panel qa mb-3" id="q{{ it.n }}" data-review="{% if it.needs_review %}1{% endif %}" data-band="{{ it.band }}">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div class="d-flex align-items-center gap-2"><span class="num">{{ it.n }}</span><span class="small text-muted-2">{{ it.label }}{% if it.multi %} (select all){% endif %} · {{ it.max|floatformat:"-2" }} mark{{ it.max|pluralize }}</span></div>
+      <span class="vpill vp-{{ it.band }}">{{ it.band_label }}</span>
     </div>
     <div class="fw-semibold my-2" style="white-space:pre-wrap;overflow-wrap:anywhere">{{ it.text|truncatechars:240 }}</div>
-    {% for kind, msg in it.flags %}<div class="small mb-1 {% if kind == 'danger' %}text-danger{% elif kind == 'warning' %}text-warning{% else %}text-muted-2{% endif %}"><i class="bi bi-flag me-1"></i>{{ msg }}</div>{% endfor %}
+    <div class="metrics">
+      <div class="metric"><div class="v">{% if it.score_pct != None %}{{ it.score_pct }}%{% else %}—{% endif %}</div><div class="l">of marks earned</div>
+        <div class="hb-track mt-1"><span class="hb-fill b-{{ it.band }}" style="width:{{ it.score_pct|default:0 }}%"></span></div></div>
+      {% if it.pct_correct != None %}<div class="metric"><div class="v">{{ it.pct_correct }}%</div><div class="l">fully correct</div></div>{% endif %}
+      {% if it.avg != None %}<div class="metric"><div class="v">{{ it.avg|floatformat:"-2" }} <span class="small text-muted-2">/ {{ it.max|floatformat:"-2" }}</span></div><div class="l">average mark</div></div>{% endif %}
+      {% if it.disc != None %}<div class="metric"><div class="v">{{ it.disc }} <span class="vpill vp-{% if it.disc_label == 'Good' %}ok{% elif it.disc_label == 'Fair' %}easy{% else %}hard{% endif %}">{{ it.disc_label }}</span></div><div class="l" title="Top 27% of candidates minus bottom 27%. Above 0.3 is good; below 0.1 means the question does not tell strong from weak.">discrimination</div></div>{% endif %}
+    </div>
+    {% if it.flags %}<ul class="reasons mb-2">{% for kind, msg in it.flags %}<li><i class="bi bi-flag"></i>{{ msg }}</li>{% endfor %}</ul>{% endif %}
 
     {% if it.section == "mcq" %}
       {% for o in it.options %}
@@ -70,7 +189,33 @@
     {% endif %}
   </article>
   {% endfor %}
+
+  <details class="panel panel-body mb-4 no-print">
+    <summary class="fw-semibold" style="cursor:pointer">How to read this page</summary>
+    <dl class="small mt-3 mb-0">
+      <dt>Marks earned</dt><dd>The share of available marks candidates earned on a question. Under 30% is very hard, 85% or more is easy.</dd>
+      <dt>Fully correct</dt><dd>The share of candidates who got every mark on the question.</dd>
+      <dt>Discrimination</dt><dd>The average score of the top 27% of candidates minus that of the bottom 27%, on this question. Above 0.3 is good. Near 0 means strong and weak candidates did equally well; below 0 means weak candidates did better, which usually points to a wrong key or a confusing question. Needs at least 10 candidates.</dd>
+      <dt>Small groups</dt><dd>With fewer than 5 submitted attempts nothing is flagged, because one or two candidates can swing every figure.</dd>
+    </dl>
+  </details>
   {% endif %}
   <div class="pb-5"></div>
 </div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  var chips = document.querySelectorAll("#qchips .chip-btn"); if (!chips.length) return;
+  var cards = document.querySelectorAll("article.qa");
+  chips.forEach(function (c) { c.addEventListener("click", function () {
+    chips.forEach(function (x) { x.classList.remove("active"); }); c.classList.add("active");
+    var f = c.dataset.f;
+    cards.forEach(function (a) {
+      var b = a.dataset.band, ok = !f || (f === "review" && a.dataset.review) || (f === "hard" && (b === "vhard" || b === "hard")) || (f === "easy" && b === "easy");
+      a.hidden = !ok;
+    });
+  }); });
+})();
+</script>
 {% endblock %}
