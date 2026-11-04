@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Results · {{ exam.title }}{% endblock %}
 {% block site_search %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/trainer.css' %}">{% endblock %}
 {% block content %}
 <div class="container-xxl">
   <div class="page-head">
@@ -10,41 +12,94 @@
       <li class="breadcrumb-item active" aria-current="page">Results</li>
     </ol></nav>
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-      <div><h1>Results</h1><p class="lead">{{ attempts|length }} candidate{{ attempts|length|pluralize }}. Marked out of {{ exam.total_marks|floatformat:"-2" }}. Final = objective + marked open questions − penalty, never below 0.</p></div>
-      <div class="d-flex gap-2"><a class="btn btn-outline-secondary" href="{% url 'assessments:exam_analysis' exam.pk %}"><i class="bi bi-bar-chart me-1"></i>Item analysis</a>
-      <a class="btn btn-outline-secondary" href="?format=csv"><i class="bi bi-download me-1"></i>Export CSV</a>
-      {% if attempts %}<a class="btn btn-outline-primary" href="{% url 'assessments:exam_evidence' exam.pk %}" title="One PDF: class register, then every submitted candidate's marks sheet on its own page"><i class="bi bi-file-earmark-pdf me-1"></i>Download evidence (PDF)</a>{% endif %}
-      {% if attempts %}<button class="btn btn-outline-warning" type="button" data-bs-toggle="modal" data-bs-target="#retakeAllModal"><i class="bi bi-arrow-repeat me-1"></i>Another chance for the whole class</button>{% endif %}
-      {% if attempts %}<a class="btn btn-outline-danger" href="{% url 'assessments:exam_clear_submissions' exam.pk %}" title="Permanently delete every candidate's submission for this assessment"><i class="bi bi-trash3 me-1"></i>Clear all submissions</a>{% endif %}</div>
+      <div><h1>Results &amp; marking</h1><p class="lead mb-0">Marked out of {{ exam.total_marks|floatformat:"-2" }}. Final = objective + marked open questions − penalty, never below 0.</p></div>
+      <div class="d-flex flex-wrap gap-2">
+        {% if next_to_mark %}<a class="btn btn-primary" href="{% url 'assessments:attempt_detail' exam.pk next_to_mark.pk %}"><i class="bi bi-pencil-square me-1"></i>Mark next ({{ next_to_mark.candidate_name }})</a>{% endif %}
+        {% if has_open and stats.submitted %}<button class="btn btn-outline-primary" type="button" id="automark" data-bs-toggle="modal" data-bs-target="#automarkModal"><i class="bi bi-magic me-1"></i>Auto-mark written answers</button>{% endif %}
+        <a class="btn btn-outline-secondary" href="?format=csv"><i class="bi bi-download me-1"></i>Export CSV</a>
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">More</button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{% url 'assessments:exam_analysis' exam.pk %}"><i class="bi bi-bar-chart me-2"></i>Item analysis</a></li>
+            {% if attempts %}<li><a class="dropdown-item" href="{% url 'assessments:exam_evidence' exam.pk %}" title="One PDF: class register, then every submitted candidate's sheet on its own page"><i class="bi bi-file-earmark-pdf me-2"></i>Download evidence (PDF)</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#retakeAllModal"><i class="bi bi-arrow-repeat me-2"></i>Another chance for the whole class</button></li>
+            <li><a class="dropdown-item text-danger" href="{% url 'assessments:exam_clear_submissions' exam.pk %}" title="Permanently delete every candidate's submission for this assessment"><i class="bi bi-trash3 me-2"></i>Clear all submissions</a></li>{% endif %}
+          </ul>
+        </div>
+      </div>
     </div>
   </div>
+
   {% if not attempts %}
   <div class="empty-state"><span class="icon-chip"><i class="bi bi-people"></i></span><h3>No one has entered yet</h3><p>Attempts appear here as soon as a candidate opens the assessment.</p></div>
   {% else %}
-  <div class="panel list-panel mb-5"><div class="table-responsive">
-    <table class="table grid-table align-middle">
-      <thead><tr><th scope="col">Candidate</th><th scope="col">Status</th><th scope="col" class="text-end">Opens</th><th scope="col" class="text-end">Violations</th><th scope="col" class="text-end">Penalty</th><th scope="col" class="text-end">Final</th><th scope="col" class="text-end">Open marking</th><th scope="col"></th></tr></thead>
-      <tbody>
-      {% for a in attempts %}
-        <tr>
-          <td><a class="title-link" href="{% url 'assessments:attempt_detail' exam.pk a.pk %}">{{ a.candidate_name }}</a><div class="small text-muted-2">{{ a.reg_no_display|default:a.reg_no }}</div></td>
-          <td>{% if a.is_submitted %}<span class="pill pill--success">Submitted</span><div class="small text-muted-2">{{ a.get_submit_reason_display }}</div>{% elif a.end_at %}<span class="pill pill--warning">In progress</span>{% else %}<span class="pill pill--muted">Not started</span>{% endif %}</td>
-          <td class="text-end">{{ a.total_opens }}</td>
-          <td class="text-end">{{ a.violation_count }}</td>
+  <div class="tstats">
+    <div class="tstat"><div class="num">{{ stats.entered }}</div><div class="label">Entered</div></div>
+    <div class="tstat"><div class="num">{{ stats.submitted }}</div><div class="label">Submitted · {{ stats.in_progress }} in progress</div></div>
+    <div class="tstat {% if stats.to_mark %}is-alert{% endif %}"><div class="num">{{ stats.to_mark }}</div><div class="label">To mark{% if stats.to_check %} · {{ stats.to_check }} to check{% endif %}</div></div>
+    <div class="tstat"><div class="num">{% if stats.average is not None %}{{ stats.average|floatformat:"-2" }}<small> / {{ stats.total|floatformat:"-2" }}</small>{% else %}—{% endif %}</div><div class="label">Average{% if stats.average_pct is not None %} · {{ stats.average_pct|floatformat:"0" }}%{% endif %}</div></div>
+    <div class="tstat"><div class="num">{% if stats.highest is not None %}{{ stats.highest|floatformat:"-2" }}{% else %}—{% endif %}</div><div class="label">Highest</div></div>
+    <div class="tstat"><div class="num">{% if stats.lowest is not None %}{{ stats.lowest|floatformat:"-2" }}{% else %}—{% endif %}</div><div class="label">Lowest</div></div>
+  </div>
+
+  <div class="panel list-panel mb-5">
+    <div class="filter-bar">
+      <input class="form-control form-control-sm" type="search" id="rq" placeholder="Search name or number" aria-label="Search candidates">
+      <div class="chips" id="rchips" role="group" aria-label="Filter by status">
+        <button type="button" class="chip-btn active" data-state="">All<span class="n">{{ attempts|length }}</span></button>
+        {% if counts.to_mark %}<button type="button" class="chip-btn" data-state="to_mark">To mark<span class="n">{{ counts.to_mark }}</span></button>{% endif %}
+        {% if counts.auto %}<button type="button" class="chip-btn" data-state="auto">Auto-marked · check<span class="n">{{ counts.auto }}</span></button>{% endif %}
+        {% if counts.done %}<button type="button" class="chip-btn" data-state="done">Marked<span class="n">{{ counts.done }}</span></button>{% endif %}
+        {% if counts.in_progress %}<button type="button" class="chip-btn" data-state="in_progress">In progress<span class="n">{{ counts.in_progress }}</span></button>{% endif %}
+        {% if counts.not_started %}<button type="button" class="chip-btn" data-state="not_started">Not started<span class="n">{{ counts.not_started }}</span></button>{% endif %}
+      </div>
+      <span class="small text-muted-2 ms-auto" id="rcount" aria-live="polite"></span>
+    </div>
+    <div class="table-responsive">
+      <table class="table grid-table align-middle mb-0" id="rtable">
+        <thead><tr>
+          <th scope="col" class="sortable" data-key="name">Candidate</th>
+          <th scope="col" class="sortable" data-key="state">Status</th>
+          <th scope="col" class="text-end sortable" data-key="obj" data-num="1">Objective</th>
+          <th scope="col" class="text-end sortable" data-key="open" data-num="1">Written</th>
+          <th scope="col" class="text-end sortable" data-key="pen" data-num="1">Penalty</th>
+          <th scope="col" class="text-end sortable" data-key="final" data-num="1">Final</th>
+          <th scope="col"><span class="visually-hidden">Actions</span></th>
+        </tr></thead>
+        <tbody>
+        {% for a in attempts %}
+        <tr data-state="{{ a.state }}" data-name="{{ a.candidate_name|lower }} {{ a.reg_no_display|default:a.reg_no|lower }}"
+            data-sort-name="{{ a.candidate_name|lower }}" data-sort-state="{{ a.state }}" data-sort-obj="{{ a.objective_score|default:0 }}"
+            data-sort-open="{{ a.open_total }}" data-sort-pen="{{ a.penalty_total }}" data-sort-final="{% if a.is_submitted %}{{ a.final_score|default:0 }}{% else %}-1{% endif %}">
+          <td><a class="title-link" href="{% url 'assessments:attempt_detail' exam.pk a.pk %}">{{ a.candidate_name }}</a><div class="small text-muted-2">{{ a.reg_no_display|default:a.reg_no }}{% if a.violation_count %} · {{ a.violation_count }} violation{{ a.violation_count|pluralize }}{% endif %}</div></td>
+          <td>
+            {% if a.state == "to_mark" %}<span class="pill pill--warning">To mark</span>
+            {% elif a.state == "auto" %}<span class="pill pill--muted">Auto-marked · check</span>
+            {% elif a.state == "done" %}<span class="pill pill--success">Marked</span>
+            {% elif a.state == "in_progress" %}<span class="pill pill--muted">In progress</span>
+            {% else %}<span class="pill pill--muted">Not started</span>{% endif %}
+            {% if a.is_submitted %}<div class="small text-muted-2">{{ a.get_submit_reason_display }}</div>{% endif %}
+          </td>
+          <td class="text-end">{% if a.is_submitted %}{{ a.objective_score|floatformat:"-2" }}{% else %}—{% endif %}</td>
+          <td class="text-end">{% if not a.is_submitted or not has_open %}—{% elif a.open_marks %}{{ a.open_total|floatformat:"-2" }}{% if a.open_by == "auto" or a.open_by == "mixed" %} <span class="src src--auto" title="{% if a.open_by == 'mixed' %}Some marks were automatic{% else %}Marked automatically{% endif %}">auto</span>{% endif %}{% else %}<span class="text-muted-2">unmarked</span>{% endif %}</td>
           <td class="text-end">{% if a.penalty_total %}−{{ a.penalty_total|floatformat:"-2" }}{% else %}0{% endif %}</td>
-          <td class="text-end">{% if a.is_submitted %}{{ a.final_score|floatformat:"-2" }}{% else %}—{% endif %}</td>
-          <td class="text-end">{% if not a.is_submitted %}—{% elif a.marking_complete %}<span class="pill pill--success">Done</span>{% else %}<span class="pill pill--warning">Pending</span>{% endif %}</td>
-          <td class="text-end text-nowrap"><a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:attempt_detail' exam.pk a.pk %}">Open</a>
+          <td class="text-end">{% if a.is_submitted %}<strong>{{ a.final_score|floatformat:"-2" }}</strong>{% if a.percent is not None %}<div class="small text-muted-2">{{ a.percent|floatformat:"0" }}%</div><div class="minibar"><i style="width: {{ a.percent|floatformat:'0' }}%"></i></div>{% endif %}{% else %}—{% endif %}</td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-{% if a.state == 'to_mark' or a.state == 'auto' %}primary{% else %}outline-secondary{% endif %} btn-sm" href="{% url 'assessments:attempt_detail' exam.pk a.pk %}">{% if a.state == "to_mark" or a.state == "auto" %}Mark{% else %}Open{% endif %}</a>
             {% if a.is_submitted %}<a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:attempt_evidence' exam.pk a.pk %}" title="Download this candidate's evidence sheet (PDF)"><i class="bi bi-file-earmark-pdf"></i><span class="visually-hidden">Evidence PDF</span></a>{% endif %}
             <form method="post" action="{% url 'assessments:attempt_retake' exam.pk a.pk %}" class="d-inline" onsubmit="return confirm('Give {{ a.candidate_name|escapejs }} another chance? Their current answers, marks and violations are cleared (a summary is kept) and they must enter again.');">{% csrf_token %}<input type="hidden" name="next" value="results"><button class="btn btn-outline-warning btn-sm" type="submit" title="Allow another attempt"><i class="bi bi-arrow-repeat"></i><span class="visually-hidden">Allow another attempt</span></button></form>
             <form method="post" action="{% url 'assessments:attempt_delete' exam.pk a.pk %}" class="d-inline" onsubmit="return confirm('Permanently delete {{ a.candidate_name|escapejs }}\'s submission? Their answers, marks and violations are removed and cannot be recovered.');">{% csrf_token %}<button class="btn btn-outline-danger btn-sm" type="submit" title="Delete this submission"><i class="bi bi-trash3"></i><span class="visually-hidden">Delete submission</span></button></form></td>
         </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div></div>
+        {% endfor %}
+        </tbody>
+      </table>
+      <div class="p-4 text-center text-muted-2 small" id="rnone" hidden>No candidates match.</div>
+    </div>
+  </div>
   {% endif %}
 </div>
+
 {% if attempts %}
 <div class="modal fade" id="retakeAllModal" tabindex="-1" aria-labelledby="retakeAllTitle" aria-hidden="true">
   <div class="modal-dialog"><form method="post" action="{% url 'assessments:exam_retake_all' exam.pk %}" class="modal-content">
@@ -58,5 +113,57 @@
     <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-warning"><i class="bi bi-arrow-repeat me-1"></i>Give another chance</button></div>
   </form></div>
 </div>
+{% if has_open and stats.submitted %}
+<div class="modal fade" id="automarkModal" tabindex="-1" aria-labelledby="automarkTitle" aria-hidden="true">
+  <div class="modal-dialog"><form method="post" action="{% url 'assessments:exam_automark' exam.pk %}" class="modal-content">
+    {% csrf_token %}
+    <div class="modal-header"><h2 class="modal-title fs-5" id="automarkTitle">Auto-mark written answers</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body">
+      <p class="small">Every submitted candidate's written answers are compared with the question's marking guide. You can check and change any mark afterwards. Questions without a marking guide are skipped.</p>
+      {% if ai_available %}
+      <div class="form-check"><input class="form-check-input" type="radio" name="method" id="m_kw" value="keywords" checked><label class="form-check-label" for="m_kw"><strong>Key points</strong>: matches the points in the guide. Works offline.</label></div>
+      <div class="form-check mb-2"><input class="form-check-input" type="radio" name="method" id="m_ai" value="ai"><label class="form-check-label" for="m_ai"><strong>AI assisted</strong>: reads the answer against the guide. Answer text (never names) is sent to the AI service, up to 20 answers at a time.</label></div>
+      {% else %}<input type="hidden" name="method" value="keywords">{% endif %}
+      <div class="form-check"><input class="form-check-input" type="checkbox" name="overwrite" id="ow" value="1"><label class="form-check-label" for="ow">Also replace marks I gave myself</label></div>
+      <p class="small text-muted-2 mt-2 mb-0">Marks already given automatically are refreshed. Your own marks are kept unless you tick the box.</p>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><i class="bi bi-magic me-1"></i>Auto-mark</button></div>
+  </form></div>
+</div>
 {% endif %}
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  var table = document.getElementById("rtable"); if (!table) return;
+  var rows = Array.prototype.slice.call(table.tBodies[0].rows), state = "", q = "";
+  var chips = document.querySelectorAll("#rchips .chip-btn"), box = document.getElementById("rq");
+  function apply() {
+    var shown = 0;
+    rows.forEach(function (r) {
+      var ok = (!state || r.dataset.state === state) && (!q || r.dataset.name.indexOf(q) !== -1);
+      r.hidden = !ok; if (ok) shown++;
+    });
+    document.getElementById("rcount").textContent = shown + " of " + rows.length + " shown";
+    document.getElementById("rnone").hidden = shown !== 0;
+  }
+  chips.forEach(function (c) { c.addEventListener("click", function () {
+    chips.forEach(function (x) { x.classList.remove("active"); }); c.classList.add("active"); state = c.dataset.state; apply(); }); });
+  box.addEventListener("input", function () { q = box.value.trim().toLowerCase(); apply(); });
+  var heads = table.querySelectorAll("th.sortable");
+  heads.forEach(function (th) { th.addEventListener("click", function () {
+    var key = th.dataset.key, num = th.dataset.num === "1", dir = th.classList.contains("asc") ? -1 : 1;
+    heads.forEach(function (h) { h.classList.remove("asc", "desc"); });
+    th.classList.add(dir === 1 ? "asc" : "desc");
+    rows.sort(function (a, b) {
+      var x = a.dataset["sort" + key.charAt(0).toUpperCase() + key.slice(1)], y = b.dataset["sort" + key.charAt(0).toUpperCase() + key.slice(1)];
+      if (num) { x = parseFloat(x); y = parseFloat(y); return (x - y) * dir; }
+      return x < y ? -dir : x > y ? dir : 0;
+    });
+    rows.forEach(function (r) { table.tBodies[0].appendChild(r); });
+  }); });
+  apply();
+})();
+</script>
 {% endblock %}

@@ -1,0 +1,62 @@
+/* Trainer workspace: assessment overview, results and marking. Uses the platform design tokens. */
+
+/* ---- numbers at a glance ---- */
+.tstats { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin-bottom: 1.25rem; }
+.tstat { padding: .85rem 1rem; border: 1px solid var(--c-border); border-radius: var(--r-md); background: var(--c-surface); }
+.tstat .num { font-size: 1.45rem; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; color: var(--c-text); font-variant-numeric: tabular-nums; }
+.tstat .num small { font-size: .8rem; font-weight: 500; color: var(--c-muted); }
+.tstat .label { color: var(--c-muted); font-size: .78rem; font-weight: 500; margin-top: .15rem; }
+.tstat.is-alert { border-color: var(--c-warning-line); background: var(--c-warning-soft); }
+.tstat.is-alert .num { color: var(--c-warning); }
+a.tstat { text-decoration: none; display: block; } a.tstat:hover { border-color: var(--c-brand-line); }
+
+/* ---- section navigation on the assessment page ---- */
+.subnav { position: sticky; top: var(--nav-h, 64px); z-index: 20; display: flex; gap: .25rem; padding: .35rem; margin-bottom: 1.25rem;
+  border: 1px solid var(--c-border); border-radius: var(--r-md); background: var(--c-bar-bg); backdrop-filter: blur(10px); overflow-x: auto; }
+.subnav a { padding: .35rem .8rem; border-radius: var(--r-sm); color: var(--c-muted); text-decoration: none; font-size: .88rem; font-weight: 600; white-space: nowrap; }
+.subnav a:hover { background: var(--c-brand-soft); color: var(--c-text); }
+.anchor { scroll-margin-top: calc(var(--nav-h, 64px) + 4rem); }
+
+/* ---- filters and sorting on results ---- */
+.filter-bar { display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: center; padding: .75rem 1rem; border-bottom: 1px solid var(--c-border); }
+.filter-bar .form-control { max-width: 16rem; }
+.chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+.chip-btn { border: 1px solid var(--c-border); background: transparent; color: var(--c-muted); border-radius: 999px; padding: .2rem .7rem; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.chip-btn:hover { color: var(--c-text); border-color: var(--c-brand-line); }
+.chip-btn.active { background: var(--c-brand-soft); color: var(--c-text); border-color: var(--c-brand-line); }
+.chip-btn .n { opacity: .7; margin-left: .25rem; font-variant-numeric: tabular-nums; }
+th.sortable { cursor: pointer; user-select: none; white-space: nowrap; } th.sortable:hover { color: var(--c-text); }
+th.sortable::after { content: " \2195"; opacity: .35; font-size: .8em; }
+th.sortable.asc::after { content: " \2191"; opacity: 1; } th.sortable.desc::after { content: " \2193"; opacity: 1; }
+.minibar { height: 4px; border-radius: 2px; background: var(--c-surface-3); margin-top: .3rem; min-width: 4.5rem; overflow: hidden; }
+.minibar i { display: block; height: 100%; background: var(--c-brand); }
+.src { display: inline-block; font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: .05rem .4rem; border-radius: 4px; vertical-align: middle; }
+.src--auto { background: var(--c-info-soft, var(--c-brand-soft)); color: var(--c-brand); border: 1px solid var(--c-brand-line); }
+.src--trainer { background: var(--c-success-soft); color: var(--c-success); border: 1px solid var(--c-success-line); }
+
+/* ---- marking screen ---- */
+.markbar { position: sticky; top: var(--nav-h, 64px); z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1.25rem;
+  padding: .6rem 1rem; margin-bottom: 1rem; border: 1px solid var(--c-border); border-radius: var(--r-md); background: var(--c-bar-bg); backdrop-filter: blur(10px); }
+.markbar .live { display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: baseline; }
+.markbar .live b { font-size: 1.25rem; font-variant-numeric: tabular-nums; color: var(--c-text); }
+.markbar .live span { font-size: .78rem; color: var(--c-muted); display: block; line-height: 1.1; }
+.markbar .acts { margin-left: auto; display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+.dirty-dot { display: none; width: .6rem; height: .6rem; border-radius: 50%; background: var(--c-warning); }
+.is-dirty .dirty-dot { display: inline-block; }
+.qcard { padding: 1rem 1.1rem; border-bottom: 1px solid var(--c-border); }
+.qcard:last-child { border-bottom: 0; }
+.qcard.is-unmarked { box-shadow: inset 3px 0 0 var(--c-warning); }
+.qcard.is-auto { box-shadow: inset 3px 0 0 var(--c-brand); }
+.qcard.is-trainer { box-shadow: inset 3px 0 0 var(--c-success); }
+.qhead { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.qtext { white-space: pre-wrap; overflow-wrap: anywhere; font-weight: 600; color: var(--c-text); }
+.markbox { text-align: right; min-width: 11rem; }
+.markbox .form-control { width: 6rem; margin-left: auto; text-align: right; font-variant-numeric: tabular-nums; }
+.quick { display: flex; gap: .25rem; justify-content: flex-end; margin-top: .35rem; }
+.quick button { border: 1px solid var(--c-border); background: transparent; color: var(--c-muted); border-radius: 6px; font-size: .75rem; padding: .05rem .45rem; cursor: pointer; }
+.quick button:hover { color: var(--c-text); border-color: var(--c-brand-line); }
+.autonote { margin-top: .5rem; padding: .45rem .7rem; border-radius: var(--r-sm); background: var(--c-brand-soft); border: 1px solid var(--c-brand-line); font-size: .85rem; color: var(--c-text-2, var(--c-text)); }
+.guide { margin-top: .5rem; font-size: .85rem; color: var(--c-muted); }
+.guide summary { cursor: pointer; font-weight: 600; }
+.pager { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.pager .pos { color: var(--c-muted); font-size: .85rem; }

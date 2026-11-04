@@ -6,6 +6,7 @@ All rules that decide who may open an exam, how time and penalties work, and
 how an attempt is submitted. Views stay thin; every rule is testable here.
 """
 
+import logging
 import secrets
 from datetime import timedelta
 from decimal import Decimal
@@ -17,6 +18,8 @@ from django.utils import timezone
 from .marking import has_open_questions, mark_objective, q2, recompute_final
 from .models import (VIOLATION_TYPES, Attempt, DeviceOpen, Exam, PasswordFailure,
                      RosterEntry, Violation, normalise_reg_no)
+
+logger = logging.getLogger(__name__)
 
 TAB_STALE_SECONDS = 30          # a tab whose heartbeat is older than this no longer holds the lock
 HEARTBEAT_GAP_SECONDS = 60      # a longer silence is logged (log-only) for the trainer
@@ -66,6 +69,12 @@ def finalize(attempt, reason):
     attempt.marking_complete = not has_open_questions(exam)
     recompute_final(attempt)
     attempt.save()
+    if exam.auto_mark_on_submit and not attempt.marking_complete:
+        try:                                    # never let a marking problem stop a submission
+            from . import automark
+            automark.automark_attempt(attempt, method="keywords")
+        except Exception:
+            logger.exception("Automatic marking failed for attempt %s", attempt.pk)
     return attempt
 
 
@@ -308,7 +317,7 @@ def grant_retake(attempt):
         attempt.access_key = secrets.token_urlsafe(24)
         attempt.violation_count, attempt.penalty_total = 0, Decimal("0")
         attempt.objective_score, attempt.section_scores, attempt.open_marks = Decimal("0"), {}, {}
-        attempt.mark_overrides, attempt.question_comments = {}, {}
+        attempt.mark_overrides, attempt.question_comments, attempt.open_marking = {}, {}, {}
         attempt.marking_complete, attempt.trainer_comment, attempt.final_score = False, "", None
         attempt.save()
     return attempt

@@ -17,7 +17,7 @@
   {% if exam.show_results %}
   <div class="result-total" aria-live="polite">
     <div class="num">{{ attempt.final_score|floatformat:"-2" }}<span> / {{ exam.total_marks|floatformat:"-2" }}</span></div>
-    <div class="small text-muted-2">{% if open_pending %}Provisional score. Open questions are still to be marked by your trainer.{% else %}Final score{% endif %}</div>
+    <div class="small text-muted-2">{% if open_pending %}Provisional score. Open questions are still to be marked by your trainer.{% elif attempt.auto_marked_count %}Score so far. Your written answers were marked automatically and your trainer may still adjust them.{% else %}Final score{% endif %}</div>
   </div>
   <table class="table grid-table align-middle mt-3">
     <tbody>

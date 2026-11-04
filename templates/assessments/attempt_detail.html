@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+{% load static l10n %}
 {% block title %}{{ attempt.candidate_name }} · {{ exam.title }}{% endblock %}
 {% block site_search %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/trainer.css' %}">{% endblock %}
 {% block content %}
 <div class="container-xxl">
   <div class="page-head">
@@ -11,55 +13,124 @@
       <li class="breadcrumb-item active" aria-current="page">{{ attempt.candidate_name }}</li>
     </ol></nav>
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
-    <h1>{{ attempt.candidate_name }} <span class="code-badge ms-2">{{ attempt.reg_no_display|default:attempt.reg_no }}</span></h1>
-    {% if attempt.is_submitted %}<a class="btn btn-outline-primary" href="{% url 'assessments:attempt_evidence' exam.pk attempt.pk %}"><i class="bi bi-file-earmark-pdf me-1"></i>Evidence sheet (PDF)</a>{% endif %}
+      <h1>{{ attempt.candidate_name }} <span class="code-badge ms-2">{{ attempt.reg_no_display|default:attempt.reg_no }}</span></h1>
+      <div class="pager">
+        {% if prev_attempt %}<a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:attempt_detail' exam.pk prev_attempt.pk %}" title="{{ prev_attempt.candidate_name }}"><i class="bi bi-chevron-left"></i> Previous</a>{% endif %}
+        {% if position %}<span class="pos">{{ position }} of {{ n_submitted }} submitted</span>{% endif %}
+        {% if next_attempt %}<a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:attempt_detail' exam.pk next_attempt.pk %}" title="{{ next_attempt.candidate_name }}">Next <i class="bi bi-chevron-right"></i></a>{% endif %}
+        {% if attempt.is_submitted %}<a class="btn btn-outline-primary btn-sm" href="{% url 'assessments:attempt_evidence' exam.pk attempt.pk %}"><i class="bi bi-file-earmark-pdf me-1"></i>Evidence sheet</a>{% endif %}
+      </div>
     </div>
-    <p class="lead">{% if attempt.is_submitted %}Submitted {{ attempt.submitted_at|date:"j M Y H:i" }} · {{ attempt.get_submit_reason_display }}{% elif attempt.end_at %}In progress, ends {{ attempt.end_at|date:"H:i" }}{% else %}Has not started the clock yet{% endif %}</p>
+    <p class="lead mb-0">
+      <span class="pill {% if state == 'done' %}pill--success{% elif state == 'to_mark' %}pill--warning{% else %}pill--muted{% endif %} me-2">{{ state_label }}</span>
+      {% if attempt.is_submitted %}Submitted {{ attempt.submitted_at|date:"j M Y H:i" }} · {{ attempt.get_submit_reason_display }}{% elif attempt.end_at %}In progress, ends {{ attempt.end_at|date:"H:i" }}{% else %}Has not started the clock yet{% endif %}
+    </p>
   </div>
 
-  <div class="stat-grid mb-4" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
-    <div class="panel stat"><div><div class="num">{% if attempt.is_submitted %}{{ attempt.final_score|floatformat:"-2" }}{% else %}—{% endif %}</div><div class="label">Final / {{ exam.total_marks|floatformat:"-2" }}</div></div></div>
-    <div class="panel stat"><div><div class="num">{{ attempt.objective_score|floatformat:"-2" }}</div><div class="label">Objective</div></div></div>
-    <div class="panel stat"><div><div class="num">{{ attempt.open_total|floatformat:"-2" }}</div><div class="label">Open (marked)</div></div></div>
-    <div class="panel stat"><div><div class="num text-danger">−{{ attempt.penalty_total|floatformat:"-2" }}</div><div class="label">{{ attempt.violation_count }} violation{{ attempt.violation_count|pluralize }}</div></div></div>
+  {% if attempt.is_submitted and has_open %}
+  <div class="panel panel-body mb-3">
+    <form method="post" action="{% url 'assessments:attempt_automark' exam.pk attempt.pk %}" class="d-flex flex-wrap align-items-center gap-3">
+      {% csrf_token %}
+      <div class="me-auto">
+        <div class="fw-semibold"><i class="bi bi-magic me-1"></i>Automatic marking</div>
+        <div class="small text-muted-2">{{ n_marked }} of {{ written|length }} written answer{{ written|length|pluralize }} marked{% if n_auto %} · {{ n_auto }} automatically{% endif %}. Compares each answer with its marking guide; you can change any mark.</div>
+      </div>
+      {% if ai_available %}
+      <select class="form-select form-select-sm w-auto" name="method" aria-label="Method"><option value="keywords">Key points (offline)</option><option value="ai">AI assisted</option></select>
+      {% else %}<input type="hidden" name="method" value="keywords">{% endif %}
+      <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="overwrite" id="ow" value="1"><label class="form-check-label small" for="ow">Also replace my marks</label></div>
+      <button class="btn btn-outline-primary btn-sm" type="submit">{% if n_marked %}Re-run auto-mark{% else %}Auto-mark{% endif %}</button>
+    </form>
   </div>
+  {% endif %}
 
-  <form method="post" action="{% url 'assessments:attempt_mark' exam.pk attempt.pk %}" class="mb-4">
+  <form method="post" action="{% url 'assessments:attempt_mark' exam.pk attempt.pk %}" class="mb-4" id="markform" data-penalty="{{ attempt.penalty_total|unlocalize }}" data-total="{{ total_marks|unlocalize }}">
     {% csrf_token %}
-    <div class="panel list-panel">
-      <div class="panel-head"><h2>Answers and marking</h2>{% if attempt.is_submitted %}<button class="btn btn-primary btn-sm ms-auto" type="submit">Save marks and comments</button>{% endif %}</div>
-      {% for r in rows %}
-      <div class="p-3 border-bottom" style="border-color:var(--c-border)!important">
-        <div class="d-flex justify-content-between gap-3 flex-wrap">
-          <div style="min-width:0;overflow-wrap:anywhere"><span class="small text-muted-2">{{ r.q.get_section_display }} · {{ r.max|floatformat:"-2" }} marks</span><div class="fw-semibold text-body-emphasis" style="white-space:pre-wrap">{{ r.n }}. {{ r.q.text }}</div></div>
-          <div class="text-end">
-            {% if r.q.section == "open" %}
-              {% if attempt.is_submitted %}<label class="small text-muted-2 d-block" for="mark_{{ r.q.id }}">Marks (0–{{ r.max|floatformat:"-2" }})</label>
-              <input class="form-control form-control-sm" style="width:6rem;margin-left:auto" type="number" step="0.01" min="0" max="{{ r.max }}" id="mark_{{ r.q.id }}" name="mark_{{ r.q.id }}" value="{{ r.given|default:'' }}">
-              {% else %}<span class="small text-muted-2">Mark after submission</span>{% endif %}
-            {% else %}
-              <span class="pill {% if r.effective == r.max %}pill--success{% elif r.effective %}pill--warning{% else %}pill--danger{% endif %}">{{ r.effective|default:"0"|floatformat:"-2" }} / {{ r.max|floatformat:"-2" }}</span>
-              {% if r.override is not None %}<div class="small text-muted-2 mt-1">Adjusted · automatic {{ r.auto|default:"0"|floatformat:"-2" }}</div>{% endif %}
-              {% if r.overridable and attempt.is_submitted %}
-              <label class="small text-muted-2 d-block mt-2" for="omark_{{ r.q.id }}">Adjust marks (0–{{ r.max|floatformat:"-2" }})</label>
-              <input class="form-control form-control-sm" style="width:6rem;margin-left:auto" type="number" step="0.01" min="0" max="{{ r.max }}" id="omark_{{ r.q.id }}" name="omark_{{ r.q.id }}" value="{{ r.override|default:'' }}" placeholder="{{ r.auto|default:'0'|floatformat:'-2' }}">
-              {% endif %}
-            {% endif %}
+    <div class="markbar">
+      <div class="live">
+        <div><b id="liveFinal">{% if attempt.is_submitted %}{{ attempt.final_score|floatformat:"-2" }}{% else %}—{% endif %}</b><span>Final / {{ exam.total_marks|floatformat:"-2" }}</span></div>
+        <div><b>{{ attempt.objective_score|floatformat:"-2" }}</b><span>Objective</span></div>
+        <div><b id="liveOpen">{{ attempt.open_total|floatformat:"-2" }}</b><span>Written</span></div>
+        <div><b{% if attempt.penalty_total %} class="text-danger"{% endif %}>{% if attempt.penalty_total %}−{{ attempt.penalty_total|floatformat:"-2" }}{% else %}0{% endif %}</b><span>{{ attempt.violation_count }} violation{{ attempt.violation_count|pluralize }}</span></div>
+      </div>
+      {% if attempt.is_submitted %}
+      <div class="acts">
+        <span class="dirty-dot" title="Unsaved changes"></span>
+        <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-check2 me-1"></i>Save</button>
+        {% if n_todo %}<button class="btn btn-outline-primary btn-sm" type="submit" name="then" value="next" title="Save, then open the next candidate who still needs marking">Save &amp; next to mark ({{ n_todo }})</button>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    {% if written %}
+    <div class="panel list-panel mb-3">
+      <div class="panel-head"><h2>Written answers</h2><span class="small text-muted-2 ms-auto">{{ n_marked }} of {{ written|length }} marked</span></div>
+      {% for r in written %}
+      <div class="qcard {% if r.given is None %}is-unmarked{% elif r.source == 'auto' %}is-auto{% else %}is-trainer{% endif %}">
+        <div class="qhead">
+          <div style="min-width:0;flex:1 1 20rem">
+            <span class="small text-muted-2">Question {{ r.n }} · {{ r.max|floatformat:"-2" }} mark{{ r.max|pluralize }}</span>
+            {% if r.source == "auto" %}<span class="src src--auto ms-1">auto{% if r.method == "ai" %} · AI{% endif %}</span>{% elif r.source == "trainer" %}<span class="src src--trainer ms-1">trainer</span>{% endif %}
+            <div class="qtext">{{ r.q.text }}</div>
+          </div>
+          <div class="markbox">
+            {% if attempt.is_submitted %}
+            <label class="small text-muted-2 d-block" for="mark_{{ r.q.id }}">Marks (0–{{ r.max|floatformat:"-2" }})</label>
+            <input class="form-control form-control-sm mk-open" type="number" step="0.01" min="0" max="{{ r.max|unlocalize }}" id="mark_{{ r.q.id }}" name="mark_{{ r.q.id }}" value="{{ r.given|default:'' }}" data-max="{{ r.max|unlocalize }}">
+            <div class="quick"><button type="button" data-set="0">0</button><button type="button" data-set="half">½</button><button type="button" data-set="full">Full</button></div>
+            {% else %}<span class="small text-muted-2">Mark after submission</span>{% endif %}
           </div>
         </div>
         <div class="answer-box mt-2{% if not r.answered %} text-muted-2{% endif %}">{% if r.answered %}{{ r.answer }}{% else %}No answer{% endif %}</div>
-        {% if r.guide %}<div class="small text-muted-2 mt-2"><strong>Marking guide:</strong> {{ r.guide }}</div>{% endif %}
+        {% if r.note %}<div class="autonote"><strong>Why this mark:</strong> {{ r.note }}</div>{% endif %}
+        {% if r.guide %}<details class="guide"><summary>Marking guide</summary><div style="white-space:pre-wrap">{{ r.guide }}</div></details>
+        {% else %}<div class="guide">No marking guide for this question, so it cannot be marked automatically.</div>{% endif %}
         {% if attempt.is_submitted %}
-        <div class="mt-2"><label class="form-label small mb-1" for="comment_{{ r.q.id }}">Comment on this question <span class="text-muted-2">(shown to the candidate on their result page, answer review and answer sheet once all open questions are marked and results are released, or as soon as you release the answers)</span></label>
+        <div class="mt-2"><label class="form-label small mb-1" for="comment_{{ r.q.id }}">Comment for the candidate <span class="text-muted-2">(shown on their result page, answer review and answer sheet once all open questions are marked and results are released, or as soon as you release the answers)</span></label>
           <textarea class="form-control form-control-sm" id="comment_{{ r.q.id }}" name="comment_{{ r.q.id }}" rows="2" maxlength="1000">{{ r.comment }}</textarea></div>
         {% endif %}
       </div>
       {% endfor %}
-      {% if attempt.is_submitted %}
-      <div class="p-3"><label class="form-label small" for="trainer_comment">Comment (kept with the attempt, not shown to the candidate)</label>
-        <textarea class="form-control" id="trainer_comment" name="trainer_comment" rows="2">{{ attempt.trainer_comment }}</textarea></div>
-      {% endif %}
     </div>
+    {% endif %}
+
+    {% if others %}
+    <details class="panel list-panel mb-3"{% if not written %} open{% endif %}>
+      <summary class="panel-head" style="cursor:pointer"><h2>Automatically marked questions ({{ others|length }})</h2><span class="small text-muted-2 ms-auto">Adjust a mark or add a comment if needed</span></summary>
+      {% for r in others %}
+      <div class="qcard obj-row" data-auto="{{ r.auto|default:0|unlocalize }}">
+        <div class="qhead">
+          <div style="min-width:0;flex:1 1 20rem"><span class="small text-muted-2">Question {{ r.n }} · {{ r.q.get_section_display }} · {{ r.max|floatformat:"-2" }} mark{{ r.max|pluralize }}</span><div class="qtext">{{ r.n }}. {{ r.q.text }}</div></div>
+          <div class="markbox">
+            <span class="pill {% if r.effective == r.max %}pill--success{% elif r.effective %}pill--warning{% else %}pill--danger{% endif %}">{{ r.effective|default:"0"|floatformat:"-2" }} / {{ r.max|floatformat:"-2" }}</span>
+            {% if r.override is not None %}<div class="small text-muted-2 mt-1">Adjusted · automatic {{ r.auto|default:"0"|floatformat:"-2" }}</div>{% endif %}
+            {% if r.overridable and attempt.is_submitted %}
+            <label class="small text-muted-2 d-block mt-2" for="omark_{{ r.q.id }}">Adjust marks (0–{{ r.max|floatformat:"-2" }})</label>
+            <input class="form-control form-control-sm mk-adjust" type="number" step="0.01" min="0" max="{{ r.max|unlocalize }}" id="omark_{{ r.q.id }}" name="omark_{{ r.q.id }}" value="{{ r.override|default:'' }}" placeholder="{{ r.auto|default:'0'|floatformat:'-2' }}">
+            {% endif %}
+          </div>
+        </div>
+        <div class="answer-box mt-2{% if not r.answered %} text-muted-2{% endif %}">{% if r.answered %}{{ r.answer }}{% else %}No answer{% endif %}</div>
+        {% if attempt.is_submitted %}
+        <div class="mt-2"><label class="form-label small mb-1" for="comment_{{ r.q.id }}">Comment for the candidate</label>
+          <textarea class="form-control form-control-sm" id="comment_{{ r.q.id }}" name="comment_{{ r.q.id }}" rows="2" maxlength="1000">{{ r.comment }}</textarea></div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </details>
+    {% endif %}
+
+    {% if attempt.is_submitted %}
+    <div class="panel panel-body">
+      {% if n_auto %}<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="reviewed_all" name="reviewed_all" value="1"><label class="form-check-label" for="reviewed_all">I have checked the automatic marks on this paper <span class="text-muted-2">(they then count as marked by a trainer)</span></label></div>{% endif %}
+      <label class="form-label small" for="trainer_comment">Comment (kept with the attempt, not shown to the candidate)</label>
+      <textarea class="form-control" id="trainer_comment" name="trainer_comment" rows="2">{{ attempt.trainer_comment }}</textarea>
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-check2 me-1"></i>Save marks and comments</button>
+        {% if n_todo %}<button class="btn btn-outline-primary" type="submit" name="then" value="next">Save &amp; next to mark ({{ n_todo }})</button>{% endif %}
+      </div>
+    </div>
+    {% endif %}
   </form>
 
   <div class="row g-4 mb-5">
@@ -109,4 +180,37 @@
     </div>
   </div>
 </div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  var form = document.getElementById("markform"); if (!form) return;
+  var penalty = parseFloat(form.dataset.penalty) || 0, total = parseFloat(form.dataset.total) || 0;
+  var objective = parseFloat("{{ attempt.objective_score|unlocalize }}") || 0;
+  function num(v) { var n = parseFloat(v); return isNaN(n) ? null : n; }
+  function recompute() {
+    var obj = 0, open = 0;
+    form.querySelectorAll(".obj-row").forEach(function (row) {
+      var adj = row.querySelector(".mk-adjust"), v = adj ? num(adj.value) : null;
+      obj += v !== null ? v : (parseFloat(row.dataset.auto) || 0);
+    });
+    form.querySelectorAll(".mk-open").forEach(function (i) { var v = num(i.value); if (v !== null) open += v; });
+    var sum = Math.max(0, Math.min(total, obj + open - penalty));
+    var f = document.getElementById("liveFinal"), o = document.getElementById("liveOpen");
+    if (f) f.textContent = (Math.round(sum * 100) / 100).toString();
+    if (o) o.textContent = (Math.round(open * 100) / 100).toString();
+  }
+  function dirty() { form.classList.add("is-dirty"); recompute(); }
+  form.addEventListener("input", dirty);
+  form.querySelectorAll(".quick button").forEach(function (b) { b.addEventListener("click", function () {
+    var input = b.closest(".markbox").querySelector(".mk-open"), max = parseFloat(input.dataset.max) || 0;
+    input.value = b.dataset.set === "0" ? "0" : b.dataset.set === "half" ? (Math.round(max / 2 * 100) / 100) : max;
+    dirty();
+  }); });
+  window.addEventListener("beforeunload", function (e) {
+    if (form.classList.contains("is-dirty") && !form.dataset.saving) { e.preventDefault(); e.returnValue = ""; }
+  });
+  form.addEventListener("submit", function () { form.dataset.saving = "1"; });
+})();
+</script>
 {% endblock %}

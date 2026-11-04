@@ -11,7 +11,7 @@ import logging
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -21,9 +21,9 @@ from django.views.decorators.http import require_POST
 
 from accounts.roles import is_admin
 
-from . import analysis, evidence, services
+from . import analysis, automark, evidence, services
 from .forms import ExamForm, QuestionForm
-from .marking import (OVERRIDABLE_SECTIONS, correct_set, is_multi, mark_objective, ordered_questions, q2,
+from .marking import (OVERRIDABLE_SECTIONS, correct_set, has_open_questions, is_multi, mark_objective, ordered_questions, q2,
                       question_max_marks, recompute_final)
 from .models import (ALL_VIOLATION_LABELS, SECTION_LABELS, SECTION_ORDER, AnswerKey, Attempt, Exam,
                      Question)
@@ -43,7 +43,11 @@ def _exam_or_deny(request, pk):
 
 @trainer_required
 def exam_list(request):
-    qs = Exam.objects.select_related("module").annotate(n_attempts=Count("attempts", distinct=True))
+    qs = Exam.objects.select_related("module").annotate(
+        n_attempts=Count("attempts", distinct=True),
+        n_submitted=Count("attempts", filter=Q(attempts__status=Attempt.SUBMITTED), distinct=True),
+        n_to_mark=Count("attempts", filter=Q(attempts__status=Attempt.SUBMITTED, attempts__marking_complete=False),
+                        distinct=True))
     if not is_admin(request.user):
         qs = qs.filter(created_by=request.user)
     return render(request, "assessments/exam_list.html", {"exams": qs, "show_owner": is_admin(request.user)})
@@ -76,6 +80,54 @@ def exam_edit(request, pk):
     return render(request, "assessments/exam_form.html", {"form": form, "exam": exam})
 
 
+
+# --- how far along each candidate is ---------------------------------------- #
+
+STATE_LABELS = {"not_started": "Not started", "in_progress": "In progress", "to_mark": "To mark",
+                "auto": "Auto-marked · check", "done": "Marked"}
+
+
+def attempt_state(a):
+    """One word for where a candidate stands: not_started, in_progress, to_mark, auto or done."""
+    if not a.is_submitted:
+        return "in_progress" if a.end_at else "not_started"
+    if not a.marking_complete:
+        return "to_mark"
+    return "auto" if a.auto_marked_count else "done"
+
+
+def _open_source(a):
+    """auto / trainer / mixed / '' for who gave this attempt's open marks."""
+    marks = a.open_marks or {}
+    if not marks:
+        return ""
+    auto = a.auto_marked_count
+    return "auto" if auto == len(marks) else "mixed" if auto else "trainer"
+
+
+def exam_stats(exam, attempts):
+    """Counts and score figures for the assessment and results pages."""
+    submitted = [a for a in attempts if a.is_submitted]
+    scores = [Decimal(a.final_score) for a in submitted if a.final_score is not None]
+    total = exam.total_marks
+    avg = (sum(scores, Decimal("0")) / len(scores)) if scores else None
+    states = [attempt_state(a) for a in attempts]
+    return {
+        "entered": len(attempts), "submitted": len(submitted),
+        "in_progress": states.count("in_progress"),
+        "to_mark": states.count("to_mark"), "to_check": states.count("auto"),
+        "average": q2(avg) if avg is not None else None,
+        "average_pct": q2(avg * 100 / total) if (avg is not None and total) else None,
+        "highest": max(scores) if scores else None, "lowest": min(scores) if scores else None,
+        "total": total,
+    }
+
+
+def _review_queue(exam):
+    """Submitted candidates who still need a trainer: unmarked written answers, or automatic marks not yet checked."""
+    return [a for a in exam.attempts.filter(status=Attempt.SUBMITTED) if attempt_state(a) in ("to_mark", "auto")]
+
+
 @trainer_required
 def exam_detail(request, pk):
     exam, denied = _exam_or_deny(request, pk)
@@ -96,6 +148,11 @@ def exam_detail(request, pk):
             warnings.append(f"{g['label']} has questions but 0 marks.")
         if not g["questions"] and g["marks"] > 0:
             warnings.append(f"{g['label']} has {g['marks']} marks but no questions.")
+    open_rows = [q for q in questions if q.section == "open"]
+    no_guide = [q for q in open_rows if not ((q.key.data or {}).get("guide") if hasattr(q, "key") else "")]
+    if no_guide and (exam.auto_mark_on_submit or exam.attempts.exists()):
+        warnings.append(f"{len(no_guide)} open question{'s have' if len(no_guide) != 1 else ' has'} no marking guide, so "
+                        "automatic marking leaves " + ("them" if len(no_guide) != 1 else "it") + " for you.")
     if exam.open_pool_overspent:
         warnings.append("Open questions with their own marks add up to more than the open section's "
                         f"{exam.marks_open:g} marks, so the open questions without their own marks get 0. "
@@ -103,7 +160,9 @@ def exam_detail(request, pk):
     return render(request, "assessments/exam_detail.html", {
         "exam": exam, "groups": groups, "warnings": warnings,
         "entry_url": request.build_absolute_uri(reverse("assessments:entry", args=[exam.public_id])),
-        "penalties": exam.penalty_table(), "n_attempts": exam.attempts.count(), "n_roster": exam.roster.count()})
+        "penalties": exam.penalty_table(), "n_attempts": exam.attempts.count(), "n_roster": exam.roster.count(),
+        "stats": exam_stats(exam, list(exam.attempts.all())), "n_questions": len(questions),
+        "n_open": len(open_rows), "n_open_no_guide": len(no_guide)})
 
 
 def _pair_index(value, size):
@@ -286,14 +345,24 @@ def exam_results(request, pk):
         response["Content-Disposition"] = f'attachment; filename="results-{exam.public_id}.csv"'
         w = csv.writer(response)
         w.writerow(["Candidate", "Candidate no.", "Status", "Submitted by", "Opens", "Violations", "Penalty",
-                    "Objective", "Open (marked)", "Final", "Out of", "Open marking"])
+                    "Objective", "Open (marked)", "Final", "Out of", "Open marking", "Open marks by"])
         for a in attempts:
             w.writerow([a.candidate_name, a.reg_no_display or a.reg_no, a.get_status_display(),
                         a.get_submit_reason_display(), a.total_opens, a.violation_count, _fmt(a.penalty_total),
                         _fmt(a.objective_score), _fmt(a.open_total), _fmt(a.final_score), _fmt(exam.total_marks),
-                        "complete" if a.marking_complete else "pending"])
+                        "complete" if a.marking_complete else "pending", _open_source(a)])
         return response
-    return render(request, "assessments/results.html", {"exam": exam, "attempts": attempts})
+    for a in attempts:
+        a.state = attempt_state(a)
+        a.state_label = STATE_LABELS[a.state]
+        a.open_by = _open_source(a)
+        a.percent = (q2(Decimal(a.final_score) * 100 / exam.total_marks)
+                     if (a.is_submitted and a.final_score is not None and exam.total_marks) else None)
+    return render(request, "assessments/results.html", {
+        "exam": exam, "attempts": attempts, "stats": exam_stats(exam, attempts),
+        "has_open": has_open_questions(exam), "ai_available": automark.ai_available(),
+        "next_to_mark": next((a for a in attempts if a.state in ("to_mark", "auto")), None),
+        "counts": {k: sum(1 for a in attempts if a.state == k) for k in STATE_LABELS}})
 
 
 def _history(attempt):
@@ -317,22 +386,41 @@ def attempt_detail(request, pk, aid):
     maxima = question_max_marks(exam, questions)
     _total, per_q, _sec = mark_objective(exam, attempt.answers)
     sheet = {r["n"]: r for r in _sheet_rows(attempt)}
+    meta = attempt.open_marking or {}
     rows = []
     for n, q in enumerate(questions, start=1):
         r = sheet[n]
         override = (attempt.mark_overrides or {}).get(str(q.id))
+        given = (attempt.open_marks or {}).get(str(q.id))
+        m = meta.get(str(q.id)) or {}
+        guide = (q.key.data.get("guide") if q.section == "open" and hasattr(q, "key") else "")
+        source = ("" if given is None else "auto" if m.get("by") == "auto" else "trainer")
         rows.append({"q": q, "n": n, "answer": r["answer"], "answered": r["answered"],
                      "max": maxima[q.id], "auto": per_q.get(q.id),
                      "override": override, "overridable": q.section in OVERRIDABLE_SECTIONS,
                      "effective": Decimal(override) if override is not None else per_q.get(q.id),
                      "comment": (attempt.question_comments or {}).get(str(q.id), ""),
-                     "given": (attempt.open_marks or {}).get(str(q.id)),
-                     "guide": (q.key.data.get("guide") if q.section == "open" and hasattr(q, "key") else "")})
+                     "given": given, "guide": guide, "source": source,
+                     "method": m.get("method", ""), "note": m.get("note", "") if source == "auto" else ""})
+    written = [r for r in rows if r["q"].section == "open"]
+    others = [r for r in rows if r["q"].section != "open"]
+    siblings = list(exam.attempts.filter(status=Attempt.SUBMITTED))
+    ids = [x.pk for x in siblings]
+    pos = ids.index(attempt.pk) if attempt.pk in ids else None
+    todo = [x for x in siblings if x.pk != attempt.pk and attempt_state(x) in ("to_mark", "auto")]
     return render(request, "assessments/attempt_detail.html", {
-        "exam": exam, "attempt": attempt, "rows": rows,
+        "exam": exam, "attempt": attempt, "rows": rows, "written": written, "others": others,
         "violations": attempt.violations.all(), "devices": attempt.devices.all(),
-        "history": _history(attempt),
-        "has_open": any(r["q"].section == "open" for r in rows)})
+        "history": _history(attempt), "has_open": bool(written),
+        "state": attempt_state(attempt), "state_label": STATE_LABELS[attempt_state(attempt)],
+        "ai_available": automark.ai_available(),
+        "n_marked": sum(1 for r in written if r["given"] is not None),
+        "n_auto": sum(1 for r in written if r["source"] == "auto"),
+        "prev_attempt": siblings[pos - 1] if pos else None,
+        "next_attempt": siblings[pos + 1] if pos is not None and pos + 1 < len(siblings) else None,
+        "position": (pos + 1) if pos is not None else None, "n_submitted": len(siblings),
+        "next_to_mark": todo[0] if todo else None, "n_todo": len(todo),
+        "total_marks": exam.total_marks})
 
 
 @require_POST
@@ -388,6 +476,14 @@ def attempt_mark(request, pk, aid):
         messages.error(request, "Some marks were not saved: each must be a number from 0 up to that question's maximum.")
         return redirect("assessments:attempt_detail", pk=exam.pk, aid=attempt.pk)
     open_ids = [str(i) for i in exam.questions.filter(section="open").values_list("id", flat=True)]
+    # An automatic mark stays "automatic" until a trainer changes it, or ticks "I have checked them".
+    checked = request.POST.get("reviewed_all") == "1"
+    old_marks, old_meta, meta = attempt.open_marks or {}, attempt.open_marking or {}, {}
+    for qid, value in marks.items():
+        m = old_meta.get(qid) or {}
+        if m.get("by") == "auto" and not checked and qid in old_marks and q2(Decimal(old_marks[qid])) == Decimal(value):
+            meta[qid] = m
+    attempt.open_marking = meta
     total, _per_q, per_section = mark_objective(exam, attempt.answers, overrides)
     attempt.mark_overrides, attempt.question_comments = overrides, comments
     attempt.objective_score = total
@@ -398,7 +494,70 @@ def attempt_mark(request, pk, aid):
     recompute_final(attempt)
     attempt.save()
     messages.success(request, "Marks saved." + ("" if attempt.marking_complete else " Some open questions are still unmarked."))
+    if request.POST.get("then") == "next":
+        todo = [x for x in _review_queue(exam) if x.pk != attempt.pk]
+        if todo:
+            return redirect("assessments:attempt_detail", pk=exam.pk, aid=todo[0].pk)
+        messages.info(request, "That was the last candidate waiting for marking.")
+        return redirect("assessments:exam_results", pk=exam.pk)
     return redirect("assessments:attempt_detail", pk=exam.pk, aid=attempt.pk)
+
+
+def _automark_message(request, res, *, scope):
+    if res["marked"]:
+        bits = [f"Auto-marked {res['marked']} written answer{'s' if res['marked'] != 1 else ''}{scope}."]
+        if res["kept"]:
+            bits.append(f"{res['kept']} marked by a trainer {'was' if res['kept'] == 1 else 'were'} left alone.")
+        messages.success(request, " ".join(bits) + " Check them, and change any mark you disagree with.")
+    elif res["kept"] and not res["no_guide"]:
+        messages.info(request, "Nothing to mark: every written answer already has a trainer's mark. "
+                               "Tick “also replace my marks” to mark them again.")
+    else:
+        messages.info(request, "No written answers were marked.")
+    if res["no_guide"]:
+        messages.warning(request, f"{res['no_guide']} answer{'s were' if res['no_guide'] != 1 else ' was'} skipped "
+                                  "because the question has no marking guide. Add guides under Marking guide.")
+    if res["ai_fallback"]:
+        messages.warning(request, f"The AI service was not available for {res['ai_fallback']} answer"
+                                  f"{'s' if res['ai_fallback'] != 1 else ''}, so key points were compared instead.")
+    if res["ai_limit"]:
+        messages.info(request, f"AI marking stops after {automark.AI_CALLS_PER_REQUEST} answers at a time. "
+                               f"{res['ai_limit']} left: run auto-mark again to continue.")
+
+
+def _method(request):
+    return automark.METHOD_AI if (request.POST.get("method") == "ai" and automark.ai_available()) else automark.METHOD_KEYWORDS
+
+
+@require_POST
+@trainer_required
+def attempt_automark(request, pk, aid):
+    """Auto-mark this candidate's written answers. A trainer's own marks are kept unless asked otherwise."""
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    attempt = get_object_or_404(Attempt.objects.select_related("exam"), pk=aid, exam=exam)
+    if not attempt.is_submitted:
+        messages.error(request, "Written answers can be marked once the candidate has submitted.")
+        return redirect("assessments:attempt_detail", pk=exam.pk, aid=attempt.pk)
+    budget = [automark.AI_CALLS_PER_REQUEST] if _method(request) == automark.METHOD_AI else None
+    res = automark.automark_attempt(attempt, method=_method(request), overwrite=request.POST.get("overwrite") == "1",
+                                    ai_budget=budget)
+    _automark_message(request, res, scope="")
+    return redirect("assessments:attempt_detail", pk=exam.pk, aid=attempt.pk)
+
+
+@require_POST
+@trainer_required
+def exam_automark(request, pk):
+    """Auto-mark the written answers of every submitted candidate."""
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    services.sweep_expired(exam)
+    res = automark.automark_exam(exam, method=_method(request), overwrite=request.POST.get("overwrite") == "1")
+    _automark_message(request, res, scope=f" for {res['attempts']} candidate{'s' if res['attempts'] != 1 else ''}")
+    return redirect("assessments:exam_results", pk=exam.pk)
 
 
 @require_POST

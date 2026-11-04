@@ -61,6 +61,10 @@
           <div class="mb-3"><label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{% for e in f.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}</div>
           {% endif %}{% endfor %}
           <div class="form-text">Each section's marks are shared between its questions by weight. For open questions you can instead give each question its own marks when you add or edit it; those are taken off the open section first, and the rest is shared by weight.</div>
+          <hr>
+          <h2 class="fs-6 mb-2">Written answers</h2>
+          <div class="form-check">{{ form.auto_mark_on_submit }}<label class="form-check-label" for="{{ form.auto_mark_on_submit.id_for_label }}">{{ form.auto_mark_on_submit.label }}</label>
+            <div class="form-text">{{ form.auto_mark_on_submit.help_text }}</div></div>
         </div>
       </div>
     </div>

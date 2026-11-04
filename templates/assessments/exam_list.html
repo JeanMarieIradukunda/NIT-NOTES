@@ -33,7 +33,7 @@
       <table class="table grid-table align-middle">
         <thead><tr>
           <th scope="col">Assessment</th><th scope="col">Module</th><th scope="col">Date</th><th scope="col">Status</th>
-          <th scope="col" class="text-end">Candidates</th><th scope="col" class="text-end">Actions</th>
+          <th scope="col" class="text-end" title="Submitted / entered">Submitted</th><th scope="col" class="text-end">To mark</th><th scope="col" class="text-end">Actions</th>
         </tr></thead>
         <tbody>
         {% for e in exams %}
@@ -43,7 +43,8 @@
             <td>{% if e.module %}<span class="code-badge">{{ e.module.code }}</span>{% else %}<span class="text-muted-2">—</span>{% endif %}</td>
             <td>{{ e.exam_date|date:"j M Y"|default:"Any day" }}</td>
             <td>{% if e.is_open %}<span class="pill pill--success">Open</span>{% else %}<span class="pill pill--muted">Closed</span>{% endif %}</td>
-            <td class="text-end">{{ e.n_attempts }}</td>
+            <td class="text-end">{{ e.n_submitted }}<span class="text-muted-2"> / {{ e.n_attempts }}</span></td>
+            <td class="text-end">{% if e.n_to_mark %}<a href="{% url 'assessments:exam_results' e.pk %}" class="pill pill--warning text-decoration-none">{{ e.n_to_mark }}</a>{% else %}<span class="text-muted-2">—</span>{% endif %}</td>
             <td class="text-end">
               <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:exam_results' e.pk %}">Results</a>
               <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:exam_detail' e.pk %}">Manage</a>

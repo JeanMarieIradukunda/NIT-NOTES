@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}{{ exam.title }}{% endblock %}
 {% block site_search %}{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/answers.css' %}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/answers.css' %}"><link rel="stylesheet" href="{% static 'css/trainer.css' %}">{% endblock %}
 {% block content %}
 <div class="container-xxl">
   <div class="page-head">
@@ -13,24 +13,32 @@
     </ol></nav>
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
       <div>
-        <h1>{{ exam.title }} {% if exam.is_open %}<span class="pill pill--success ms-2">Open</span>{% else %}<span class="pill pill--muted ms-2">Closed</span>{% endif %}</h1>
-        <p class="lead">{{ exam.duration_minutes }} minutes · {{ exam.total_marks|floatformat:"-2" }} marks · {{ exam.max_opens }} open{{ exam.max_opens|pluralize }} per device{% if exam.max_violations %} · auto-submit at {{ exam.max_violations }} violations{% endif %}</p>
+        <h1>{{ exam.title }}</h1>
+        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+          {% if exam.is_open %}<span class="pill pill--success">Open to candidates</span>{% else %}<span class="pill pill--muted">Closed</span>{% endif %}
+          {% if exam.show_answers %}<span class="pill pill--warning">Answers released</span>{% endif %}
+          {% if exam.auto_mark_on_submit %}<span class="pill pill--muted">Auto-marks written answers</span>{% endif %}
+          {% if exam.module %}<span class="code-badge">{{ exam.module.code }}</span>{% endif %}
+        </div>
+        <p class="lead mb-0">{{ exam.duration_minutes }} minutes · {{ exam.total_marks|floatformat:"-2" }} marks · {{ exam.max_opens }} open{{ exam.max_opens|pluralize }} per device{% if exam.max_violations %} · auto-submit at {{ exam.max_violations }} violations{% endif %}</p>
       </div>
-      <div class="d-flex flex-wrap gap-2">
+      <div class="d-flex flex-wrap gap-2 align-items-start">
         <form method="post" action="{% url 'assessments:exam_toggle_open' exam.pk %}">{% csrf_token %}
           <button class="btn {% if exam.is_open %}btn-outline-secondary{% else %}btn-primary{% endif %}" type="submit"><i class="bi bi-{% if exam.is_open %}lock{% else %}unlock{% endif %} me-1"></i>{% if exam.is_open %}Close{% else %}Open to candidates{% endif %}</button>
         </form>
-        <form method="post" action="{% url 'assessments:exam_toggle_answers' exam.pk %}">{% csrf_token %}
-          <button class="btn {% if exam.show_answers %}btn-warning{% else %}btn-outline-secondary{% endif %}" type="submit" title="Let candidates who have submitted review the correct answers"><i class="bi bi-{% if exam.show_answers %}eye{% else %}eye-slash{% endif %} me-1"></i>Answers: {% if exam.show_answers %}shown to candidates{% else %}hidden{% endif %}</button>
-        </form>
-        <a class="btn btn-outline-secondary" href="{% url 'assessments:roster' exam.pk %}"><i class="bi bi-people me-1"></i>Class list{% if n_roster %} ({{ n_roster }}){% endif %}</a>
-        <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_results' exam.pk %}"><i class="bi bi-table me-1"></i>Results ({{ n_attempts }})</a>
-        <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_guide' exam.pk %}"><i class="bi bi-journal-check me-1"></i>Marking guide</a>
-        <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_analysis' exam.pk %}"><i class="bi bi-bar-chart me-1"></i>Item analysis</a>
+        <a class="btn btn-outline-primary" href="{% url 'assessments:exam_results' exam.pk %}"><i class="bi bi-table me-1"></i>Results &amp; marking{% if stats.to_mark %} <span class="badge text-bg-warning ms-1">{{ stats.to_mark }}</span>{% endif %}</a>
         <a class="btn btn-outline-secondary" href="{% url 'assessments:exam_edit' exam.pk %}"><i class="bi bi-sliders me-1"></i>Settings</a>
-        <form method="post" action="{% url 'assessments:exam_duplicate' exam.pk %}" onsubmit="return confirm('Make a closed copy of this assessment, with its questions and answers?');">{% csrf_token %}
-          <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-copy me-1"></i>Copy</button>
-        </form>
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">More</button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{% url 'assessments:roster' exam.pk %}"><i class="bi bi-people me-2"></i>Class list{% if n_roster %} ({{ n_roster }}){% endif %}</a></li>
+            <li><a class="dropdown-item" href="{% url 'assessments:exam_guide' exam.pk %}"><i class="bi bi-journal-check me-2"></i>Marking guide</a></li>
+            <li><a class="dropdown-item" href="{% url 'assessments:exam_analysis' exam.pk %}"><i class="bi bi-bar-chart me-2"></i>Item analysis</a></li>
+            <li><a class="dropdown-item" href="{% url 'assessments:import_upload' exam.pk %}"><i class="bi bi-file-earmark-arrow-up me-2"></i>Import questions</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><form method="post" action="{% url 'assessments:exam_duplicate' exam.pk %}" onsubmit="return confirm('Make a closed copy of this assessment, with its questions and answers?');">{% csrf_token %}<button class="dropdown-item" type="submit"><i class="bi bi-copy me-2"></i>Make a copy</button></form></li>
+          </ul>
+        </div>
       </div>
     </div>
   </div>
@@ -38,58 +46,111 @@
   {% for w in warnings %}<div class="alert alert-warning py-2">{{ w }}</div>{% endfor %}
   {% if not exam.has_password %}<div class="alert alert-warning py-2">No exam password is set, so nobody can enter. Open Settings and set one.</div>{% endif %}
 
-  <div class="panel panel-body mb-4">
-    <h2 class="fs-6">Candidate link</h2>
-    <div class="copy-box">
-      <input class="form-control" id="entry-url" readonly value="{{ entry_url }}" aria-label="Candidate link">
-      <button class="btn btn-outline-secondary" type="button" id="copy-url">Copy</button>
+  <div class="tstats">
+    <div class="tstat"><div class="num">{{ n_questions }}</div><div class="label">Questions</div></div>
+    <div class="tstat"><div class="num">{{ exam.total_marks|floatformat:"-2" }}</div><div class="label">Total marks</div></div>
+    <a class="tstat" href="{% url 'assessments:exam_results' exam.pk %}"><div class="num">{{ stats.entered }}</div><div class="label">Candidates entered</div></a>
+    <div class="tstat"><div class="num">{{ stats.submitted }}<small> submitted</small></div><div class="label">{{ stats.in_progress }} in progress</div></div>
+    <a class="tstat {% if stats.to_mark %}is-alert{% endif %}" href="{% url 'assessments:exam_results' exam.pk %}"><div class="num">{{ stats.to_mark }}</div><div class="label">To mark{% if stats.to_check %} · {{ stats.to_check }} auto-marked to check{% endif %}</div></a>
+    <div class="tstat"><div class="num">{% if stats.average is not None %}{{ stats.average|floatformat:"-2" }}<small> / {{ stats.total|floatformat:"-2" }}</small>{% else %}—{% endif %}</div><div class="label">Average{% if stats.average_pct is not None %} · {{ stats.average_pct|floatformat:"0" }}%{% endif %}</div></div>
+  </div>
+
+  <nav class="subnav" aria-label="On this page">
+    <a href="#overview">Access and release</a><a href="#questions">Questions</a><a href="#rules">Rules and penalties</a><a href="#danger">Danger zone</a>
+  </nav>
+
+  <section id="overview" class="anchor">
+    <div class="row g-3 mb-4">
+      <div class="col-lg-7">
+        <div class="panel panel-body h-100">
+          <h2 class="fs-6">Candidate access</h2>
+          <div class="copy-box">
+            <input class="form-control" id="entry-url" readonly value="{{ entry_url }}" aria-label="Candidate link">
+            <button class="btn btn-outline-secondary" type="button" id="copy-url">Copy</button>
+          </div>
+          <p class="small text-muted-2 mt-2">Share the link and the exam password separately. The password is stored hashed and cannot be displayed; set a new one in Settings if it is lost.</p>
+          <ul class="small text-muted-2 ps-3 mb-0">
+            <li>Entry window: {% if exam.opens_at or exam.closes_at %}{% if exam.opens_at %}from {{ exam.opens_at|date:"j M Y H:i" }}{% endif %}{% if exam.closes_at %} until {{ exam.closes_at|date:"j M Y H:i" }} (late-entry cutoff){% endif %}{% else %}no time limit{% endif %}{% if exam.exam_date %} · exam date {{ exam.exam_date|date:"j M Y" }}{% endif %}</li>
+            <li>Class list: {% if n_roster %}{{ n_roster }} candidate{{ n_roster|pluralize }}, only they can enter{% else %}none, anyone with the link and password can enter{% endif %}</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="panel panel-body h-100">
+          <h2 class="fs-6">Release and marking</h2>
+          <form method="post" action="{% url 'assessments:exam_toggle_answers' exam.pk %}" class="mb-2">{% csrf_token %}
+            <button class="btn btn-sm {% if exam.show_answers %}btn-warning{% else %}btn-outline-secondary{% endif %}" type="submit" title="Let candidates who have submitted review the correct answers"><i class="bi bi-{% if exam.show_answers %}eye{% else %}eye-slash{% endif %} me-1"></i>Answers: {% if exam.show_answers %}shown to candidates{% else %}hidden{% endif %}</button>
+          </form>
+          <ul class="small text-muted-2 ps-3 mb-2">
+            <li>Scores {% if exam.show_results %}are shown{% else %}are hidden{% endif %} to candidates after they submit</li>
+            <li>Written answers: {% if n_open %}{{ n_open }} question{{ n_open|pluralize }}{% if n_open_no_guide %}, {{ n_open_no_guide }} without a marking guide{% endif %}{% else %}none{% endif %}</li>
+            <li>Automatic marking on submit: {% if exam.auto_mark_on_submit %}on{% else %}off (change in Settings){% endif %}</li>
+          </ul>
+          {% if n_open and stats.submitted %}
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'assessments:exam_results' exam.pk %}#automark"><i class="bi bi-magic me-1"></i>Auto-mark submissions…</a>
+          {% endif %}
+        </div>
+      </div>
     </div>
-    <p class="small text-muted-2 mt-2 mb-0">Share the link and the exam password separately. The password is stored hashed and cannot be displayed; set a new one in Settings if it is lost.</p>
-  </div>
+  </section>
 
-  <div class="d-flex justify-content-between align-items-center mb-2">
-    <h2 class="fs-5 mb-0">Questions</h2>
-    <div class="d-flex gap-2">
-      <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:import_upload' exam.pk %}"><i class="bi bi-file-earmark-arrow-up me-1"></i>Import from Word / HTML</a>
-      <a class="btn btn-primary btn-sm" href="{% url 'assessments:question_create' exam.pk %}"><i class="bi bi-plus-lg me-1"></i>Add question</a>
+  <section id="questions" class="anchor">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="fs-5 mb-0">Questions</h2>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:import_upload' exam.pk %}"><i class="bi bi-file-earmark-arrow-up me-1"></i>Import from Word / HTML</a>
+        <a class="btn btn-primary btn-sm" href="{% url 'assessments:question_create' exam.pk %}"><i class="bi bi-plus-lg me-1"></i>Add question</a>
+      </div>
     </div>
-  </div>
-  {% for g in groups %}
-  <div class="panel list-panel mb-3">
-    <div class="panel-head"><h2>{{ g.label }}</h2><span class="small text-muted-2 ms-auto">{{ g.questions|length }} question{{ g.questions|length|pluralize }} · {{ g.marks|floatformat:"-2" }} marks</span></div>
-    {% if g.questions %}
-    <ul class="list-group list-group-flush">
-      {% for q in g.questions %}
-      <li class="list-group-item d-flex flex-wrap gap-2 align-items-center" style="background:transparent">
-        <span class="small text-muted-2" style="min-width:2rem">{{ q.order }}.</span>
-        <span class="flex-grow-1" style="min-width:12rem;overflow-wrap:anywhere">{{ q.text|truncatechars:140 }}</span>
-        <span class="small text-muted-2">{{ q.max_marks|floatformat:"-2" }} mark{{ q.max_marks|pluralize }}{% if q.marks is not None %} <span class="pill pill--muted" title="Set on this question">custom</span>{% endif %}</span>
-        <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:question_edit' exam.pk q.pk %}">Edit</a>
-        <form method="post" action="{% url 'assessments:question_delete' exam.pk q.pk %}" onsubmit="return confirm('Delete this question?');">{% csrf_token %}<button class="btn btn-outline-danger btn-sm" type="submit">Delete</button></form>
-        <div class="w-100 mg-inline">{% include "assessments/_answer.html" with r=q.guide key=g.key %}</div>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}<div class="p-3 small text-muted-2">No questions in this section.</div>{% endif %}
-  </div>
-  {% endfor %}
+    {% for g in groups %}
+    <div class="panel list-panel mb-3">
+      <div class="panel-head"><h2>{{ g.label }}</h2><span class="small text-muted-2 ms-auto">{{ g.questions|length }} question{{ g.questions|length|pluralize }} · {{ g.marks|floatformat:"-2" }} marks</span></div>
+      {% if g.questions %}
+      <ul class="list-group list-group-flush">
+        {% for q in g.questions %}
+        <li class="list-group-item d-flex flex-wrap gap-2 align-items-center" style="background:transparent">
+          <span class="small text-muted-2" style="min-width:2rem">{{ q.order }}.</span>
+          <span class="flex-grow-1" style="min-width:12rem;overflow-wrap:anywhere">{{ q.text|truncatechars:140 }}</span>
+          <span class="small text-muted-2">{{ q.max_marks|floatformat:"-2" }} mark{{ q.max_marks|pluralize }}{% if q.marks is not None %} <span class="pill pill--muted" title="Set on this question">custom</span>{% endif %}{% if g.key == "open" and not q.guide.guide %} <span class="pill pill--warning" title="Automatic marking needs a marking guide">no guide</span>{% endif %}</span>
+          <a class="btn btn-outline-secondary btn-sm" href="{% url 'assessments:question_edit' exam.pk q.pk %}">Edit</a>
+          <form method="post" action="{% url 'assessments:question_delete' exam.pk q.pk %}" onsubmit="return confirm('Delete this question?');">{% csrf_token %}<button class="btn btn-outline-danger btn-sm" type="submit">Delete</button></form>
+          <div class="w-100 mg-inline">{% include "assessments/_answer.html" with r=q.guide key=g.key %}</div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<div class="p-3 small text-muted-2">No questions in this section.</div>{% endif %}
+    </div>
+    {% endfor %}
+  </section>
 
-  <div class="panel panel-body mb-4">
-    <h2 class="fs-6">Delivery</h2>
-    <ul class="small text-muted-2 ps-3 mb-3">
-      <li>Entry window: {% if exam.opens_at or exam.closes_at %}{% if exam.opens_at %}from {{ exam.opens_at|date:"j M Y H:i" }}{% endif %}{% if exam.closes_at %} until {{ exam.closes_at|date:"j M Y H:i" }} (late-entry cutoff){% endif %}{% else %}no time limit{% endif %}</li>
-      <li>Class list: {% if n_roster %}{{ n_roster }} candidate{{ n_roster|pluralize }}, only they can enter{% else %}none, anyone with the link and password can enter{% endif %}</li>
-      <li>Shuffling: questions {% if exam.shuffle_questions %}on{% else %}off{% endif %}, options {% if exam.shuffle_options %}on{% else %}off{% endif %}</li>
-    </ul>
-    <h2 class="fs-6">Penalties in force</h2>
-    <ul class="small text-muted-2 ps-3 mb-0">
-      {% for key, label, marks, away in penalties %}<li>{{ label }}: {% if marks %}−{{ marks|floatformat:"-2" }}{% else %}recorded only{% endif %}{% if away %} <span class="text-muted-2">(once per away episode)</span>{% endif %}</li>{% endfor %}
-    </ul>
-  </div>
+  <section id="rules" class="anchor">
+    <div class="row g-3 mb-4">
+      <div class="col-md-6"><div class="panel panel-body h-100">
+        <h2 class="fs-6">Delivery</h2>
+        <ul class="small text-muted-2 ps-3 mb-0">
+          <li>Shuffling: questions {% if exam.shuffle_questions %}on{% else %}off{% endif %}, options {% if exam.shuffle_options %}on{% else %}off{% endif %}</li>
+          <li>Select-all questions: {{ exam.get_multi_scoring_display }}</li>
+          <li>Up to {{ exam.max_opens }} open{{ exam.max_opens|pluralize }} per device, {{ exam.max_devices }} device{{ exam.max_devices|pluralize }}</li>
+        </ul>
+      </div></div>
+      <div class="col-md-6"><div class="panel panel-body h-100">
+        <h2 class="fs-6">Penalties in force</h2>
+        <ul class="small text-muted-2 ps-3 mb-0">
+          {% for key, label, marks, away in penalties %}<li>{{ label }}: {% if marks %}−{{ marks|floatformat:"-2" }}{% else %}recorded only{% endif %}{% if away %} <span class="text-muted-2">(once per away episode)</span>{% endif %}</li>{% endfor %}
+        </ul>
+      </div></div>
+    </div>
+  </section>
 
-  <form method="post" action="{% url 'assessments:exam_delete' exam.pk %}" onsubmit="return confirm('Delete this assessment and every candidate attempt? This cannot be undone.');" class="mb-5">
-    {% csrf_token %}<button class="btn btn-outline-danger btn-sm" type="submit"><i class="bi bi-trash me-1"></i>Delete assessment</button>
-  </form>
+  <section id="danger" class="anchor mb-5">
+    <details class="panel panel-body">
+      <summary class="fw-semibold">Danger zone</summary>
+      <form method="post" action="{% url 'assessments:exam_delete' exam.pk %}" onsubmit="return confirm('Delete this assessment and every candidate attempt? This cannot be undone.');" class="mt-3">
+        {% csrf_token %}<p class="small text-muted-2">Deletes the assessment, its questions and every candidate attempt. This cannot be undone.</p>
+        <button class="btn btn-outline-danger btn-sm" type="submit"><i class="bi bi-trash me-1"></i>Delete assessment</button>
+      </form>
+    </details>
+  </section>
 </div>
 {% endblock %}
 {% block extra_js %}

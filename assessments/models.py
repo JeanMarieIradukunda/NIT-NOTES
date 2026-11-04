@@ -161,6 +161,10 @@ class Exam(models.Model):
     show_answers = models.BooleanField(
         default=False, help_text="Let candidates who have submitted review the correct answer to each question. "
                                  "Switch this on once every candidate has finished.")
+    auto_mark_on_submit = models.BooleanField(
+        default=False, help_text="Mark written (open) answers automatically when a candidate submits, by comparing "
+                                 "them with each question's marking guide. You can review and re-mark any answer "
+                                 "afterwards. Questions without a marking guide are left for you.")
     show_on_dashboard = models.BooleanField(
         default=True, help_text="While the assessment is open, show it as a highlighted link on the student "
                                 "dashboard. Candidates still need the exam password to enter. Untick to share "
@@ -329,6 +333,9 @@ class Attempt(models.Model):
     # Trainer adjustments to auto-marked MCQ / fill-in questions: {question id: mark}. Only stored when
     # different from the automatic mark; clearing the box in the marking screen returns to automatic.
     mark_overrides = models.JSONField(default=dict, blank=True)
+    # Who gave each open mark: {question id: {"by": "auto" | "trainer", "method": "keywords" | "ai", "note": str}}.
+    # Marks without an entry were given by a trainer (that is how every earlier mark was made).
+    open_marking = models.JSONField(default=dict, blank=True)
     # Trainer comment per question: {question id: text}. Shown to the candidate in the answer review.
     question_comments = models.JSONField(default=dict, blank=True)
     marking_complete = models.BooleanField(default=False)
@@ -352,6 +359,13 @@ class Attempt(models.Model):
     @property
     def is_expired(self):
         return bool(self.end_at and timezone.now() >= self.end_at)
+
+    @property
+    def auto_marked_count(self):
+        """Open questions whose current mark was given automatically and not yet changed or checked by a trainer."""
+        marks = self.open_marks or {}
+        return sum(1 for qid, meta in (self.open_marking or {}).items()
+                   if qid in marks and (meta or {}).get("by") == "auto")
 
     @property
     def open_total(self):
