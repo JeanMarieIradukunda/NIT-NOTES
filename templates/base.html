@@ -15,11 +15,7 @@
     <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
     <link rel="stylesheet" href="{% static 'css/platform.css' %}"> {% block extra_css %}{% endblock %}
     <script src="{% static 'js/theme.js' %}"></script>
-    <script>
-        try {
-            if (localStorage.getItem("nit-rail") === "hidden") document.documentElement.classList.add("rail-hidden");
-        } catch (e) {}
-    </script>
+    <script>try { if (localStorage.getItem("nit-rail") === "hidden") document.documentElement.classList.add("rail-hidden"); } catch (e) {}</script>
 </head>
 
 <body class="{% block body_class %}{% endblock %}">
@@ -40,7 +36,7 @@
                 <nav class="rail-nav" aria-label="Main">
                     <div class="rail-group">
                         <p class="rail-title">Learn</p>
-                        <a class="rail-link {% if rm.url_name == 'dashboard' %}active{% endif %}" {% if rm.url_name=='dashboard' %}aria-current="page" {% endif %} href="{% url 'core:dashboard' %}"><span class="ri"><i class="bi bi-speedometer2" aria-hidden="true"></i></span>Dashboard</a>
+                        <a class="rail-link {% if rm.url_name == 'dashboard' %}active{% endif %}" {% if rm.url_name == 'dashboard' %}aria-current="page" {% endif %} href="{% url 'core:dashboard' %}"><span class="ri"><i class="bi bi-speedometer2" aria-hidden="true"></i></span>Dashboard</a>
                         <a class="rail-link {% if rm.url_name == 'browse' or rm.url_name == 'module_detail' %}active{% endif %}" href="{% url 'core:browse' %}"><span class="ri"><i class="bi bi-compass" aria-hidden="true"></i></span>Browse</a>
                     </div>
                     {% if request.is_trainer %}
@@ -64,7 +60,7 @@
                     {% if not user.is_authenticated %}
                     <a class="btn btn-primary" href="{% url 'accounts:login' %}"><i class="bi bi-box-arrow-in-right me-1"></i>Trainer sign in</a> {% endif %}
                     <div class="rail-card">
-                        <strong>Levels 3 to 5</strong>
+                        <strong>NIT · Levels 3 to 5</strong>
                         <span>{{ BRAND.department }}</span>
                     </div>
                 </div>
@@ -90,7 +86,8 @@
                     <span class="deck-date d-none d-xl-inline-flex"><i class="bi bi-calendar3" aria-hidden="true"></i>{% now "D j M" %}</span>
                     <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to light theme" title="Switch to light theme" aria-pressed="false">
                         <i class="bi bi-sun icon-to-light" aria-hidden="true"></i><i class="bi bi-moon-stars icon-to-dark" aria-hidden="true"></i>
-                    </button> {% if user.is_authenticated %}
+                    </button>
+                    {% if user.is_authenticated %}
                     <div class="dropdown">
                         <button class="user-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <span class="avatar" aria-hidden="true">{{ user.first_name|default:user.username|slice:":1"|upper }}</span>
@@ -147,7 +144,7 @@
             <footer class="site-footer py-4">
                 <div class="container-xxl d-flex flex-wrap justify-content-between gap-2">
                     <span>{{ BRAND.institution }} · {{ BRAND.department }}</span>
-                    <span>{{ BRAND.platform }} — , Levels 3 to 5</span>
+                    <span>{{ BRAND.platform }} — NIT, Levels 3 to 5</span>
                 </div>
             </footer>
         </div>
