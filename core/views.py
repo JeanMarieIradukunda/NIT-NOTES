@@ -47,20 +47,12 @@ def _library_stats():
     }
 
 
-# --------------------------------------------------------------------------- #
-# Dashboard
-# --------------------------------------------------------------------------- #
-
 def dashboard(request):
     """Landing page. The content depends on who is looking: see core/dashboard.py."""
     from .dashboard import build
     template, context = build(request)
     return render(request, template, context)
 
-
-# --------------------------------------------------------------------------- #
-# Browse
-# --------------------------------------------------------------------------- #
 
 def browse(request):
     trade_key = request.GET.get("trade", "").strip()
@@ -76,9 +68,6 @@ def browse(request):
             }, status=404)
         trades = [selected]
 
-    # Only modules with something students can open are listed, and levels with
-    # no such module are left out — so an empty library shows one clear message
-    # rather than a page of bare headings.
     sections = []
     for trade in trades:
         modules = []
@@ -94,10 +83,6 @@ def browse(request):
 
     return render(request, "core/browse.html", {"sections": sections, "selected": selected})
 
-
-# --------------------------------------------------------------------------- #
-# Module
-# --------------------------------------------------------------------------- #
 
 def module_detail(request, trade_key, module_key):
     module = Module.objects.filter(trade__key=trade_key, key=module_key) \
@@ -134,10 +119,6 @@ def module_detail(request, trade_key, module_key):
         "can_add_notes_here": can_add_notes(request.user),
     })
 
-
-# --------------------------------------------------------------------------- #
-# Lesson reader
-# --------------------------------------------------------------------------- #
 
 def lesson_detail(request, slug):
     lesson = (Lesson.objects.select_related(
@@ -193,11 +174,6 @@ def update_activity(request, slug):
         "progress_pct": activity.progress_pct,
     })
 
-
-# --------------------------------------------------------------------------- #
-# PDF export — server-side, via WeasyPrint. Real page boxes, real headers and
-# footers via CSS paged media, so the text stays selectable — no screenshot.
-# --------------------------------------------------------------------------- #
 
 def lesson_pdf(request, slug):
     lesson = get_object_or_404(
