@@ -22,6 +22,7 @@
         <div class="dropdown">
           <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">More</button>
           <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{% url 'assessments:exam_time' exam.pk %}"><i class="bi bi-clock-history me-2"></i>Time and outage recovery</a></li>
             <li><a class="dropdown-item" href="{% url 'assessments:exam_analysis' exam.pk %}"><i class="bi bi-bar-chart me-2"></i>Item analysis</a></li>
             {% if attempts %}<li><a class="dropdown-item" href="{% url 'assessments:exam_evidence' exam.pk %}" title="One PDF: class register, then every submitted candidate's sheet on its own page"><i class="bi bi-file-earmark-pdf me-2"></i>Download evidence (PDF)</a></li>
             <li><hr class="dropdown-divider"></li>

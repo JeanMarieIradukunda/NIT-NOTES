@@ -226,8 +226,9 @@ class AutoMarkFlowTests(ExamTestBase):
         automark.automark_attempt(self.fresh())
         page = self.client_a.get(reverse("assessments:result", args=[self.fresh().access_key])).content.decode()
         self.assertIn("marked automatically", page)
-        self.assertNotIn("key points", page)
         self.assertNotIn("Missing:", page)
+        self.assertNotIn("leases that expire", page)                    # the guide's own wording never reaches the candidate
+        self.assertNotIn("Runs on a DHCP server", page)
 
     def test_the_assessment_list_shows_how_many_wait_for_marking(self):
         a = self.fresh()

@@ -33,6 +33,7 @@
           <ul class="dropdown-menu dropdown-menu-end">
             <li><a class="dropdown-item" href="{% url 'assessments:roster' exam.pk %}"><i class="bi bi-people me-2"></i>Class list{% if n_roster %} ({{ n_roster }}){% endif %}</a></li>
             <li><a class="dropdown-item" href="{% url 'assessments:exam_guide' exam.pk %}"><i class="bi bi-journal-check me-2"></i>Marking guide</a></li>
+            <li><a class="dropdown-item" href="{% url 'assessments:exam_time' exam.pk %}"><i class="bi bi-clock-history me-2"></i>Time and outage recovery</a></li>
             <li><a class="dropdown-item" href="{% url 'assessments:exam_analysis' exam.pk %}"><i class="bi bi-bar-chart me-2"></i>Item analysis</a></li>
             <li><a class="dropdown-item" href="{% url 'assessments:import_upload' exam.pk %}"><i class="bi bi-file-earmark-arrow-up me-2"></i>Import questions</a></li>
             <li><hr class="dropdown-divider"></li>

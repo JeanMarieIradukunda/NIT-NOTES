@@ -173,7 +173,8 @@ def build_context(attempt, *, trainer, generated=None):
                      "question": t["question"], "answer": t["answer"], "answered": t["answered"], "max": t["max"],
                      "is_open": r.get("section") == "open", "earned": earned, "status": status,
                      "status_label": STATUS_LABELS.get(status, ""), "tone": _tone(status, earned, t["max"]),
-                     "comment": (r.get("comment") or "") if show_comments else ""})
+                     "comment": (r.get("comment") or "") if show_comments else "",
+                     "comment_auto": bool(r.get("comment")) and r.get("comment") == (attempt.open_marking or {}).get(f"fb:{r.get('qid')}")})
 
     sections = []
     for s_key in SECTION_ORDER:
@@ -205,8 +206,12 @@ def build_context(attempt, *, trainer, generated=None):
         "time_used": _duration(used),
         "opens": sum(d.opens for d in devices), "n_devices": len(devices),
         "browser": _browser(last.user_agent) if last else "", "ip": (last.ip if last else None) or "",
-        "violations": [{"time": timezone.localtime(v.occurred_at), "label": v.label, "marks": v.marks_deducted,
-                        "detail": v.detail} for v in counted],
+        "violations": [{"time": timezone.localtime(v.occurred_at), "label": v.label,
+                        "marks": 0 if v.waived else v.marks_deducted, "waived": v.waived,
+                        "detail": (v.detail + " · " if v.detail else "") + "deduction removed by trainer" if v.waived else v.detail}
+                       for v in counted],
+        "time_allowed": exam.duration_minutes + attempt.extra_minutes,
+        "recovery": bool(attempt.recovery_log),
         "uncounted": attempt.violations.filter(counted=False).count(),
         "earlier_chances": len(attempt.previous_attempts or []),
         "comment": attempt.trainer_comment if trainer else "",

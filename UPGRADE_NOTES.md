@@ -1,3 +1,24 @@
+# Upgrade notes — automatic feedback on mark sheets, extra time, removed deductions, power-outage recovery
+
+Run `python manage.py migrate` (adds `assessments.0010_recovery`: `Violation.waived`, `Attempt.extra_minutes`,
+`Attempt.recovery_log`).
+
+1. **Automatic feedback on the candidate's mark sheet.** "Why this mark" (AI reason, or a count of key points for the
+   offline method; never the guide's wording) is now also saved as the comment for that question, so it appears on the
+   result page, answer review and answer sheet (labelled "Feedback" / "Automatic feedback"). A trainer's own comment is
+   never replaced; an unedited automatic one is refreshed when answers are re-marked.
+2. **More time.** Per candidate (marking screen > Time and recovery, also before they start) and for the whole
+   assessment (Time and outage recovery page, optionally including candidates working right now). Working candidates
+   pick up the new deadline from their next 8-second check-in; no refresh needed.
+3. **Remove violation deductions** per candidate: all, or one violation; can be restored. The violation records stay on
+   the log and evidence sheet, marked "deduction removed". Counts that trigger auto-submit go down too.
+4. **Power-outage recovery.** Resume an attempt that was auto-submitted by time or violations (saved answers kept, new
+   time from now, re-entry from any computer), reset opens / devices / tab lock, give time back, remove deductions: for
+   one candidate or for everyone at once (assessment > More > Time and outage recovery, with counts and a look-back
+   window). Attempts a trainer has already marked are never resumed. A recovery history is kept per candidate.
+
+---
+
 # Fix — Vercel "Task timed out after 60 seconds" during AI marking
 
 No migration. Each AI call now has a 15 s timeout and no hidden retries (`ai_tools.services.complete(timeout=...)`),

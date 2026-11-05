@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Time and recovery · {{ exam.title }}{% endblock %}
+{% block site_search %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/trainer.css' %}">{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_list' %}">Assessments</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'assessments:exam_detail' exam.pk %}">{{ exam.title }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Time and recovery</li>
+    </ol></nav>
+    <h1>Time and recovery</h1>
+    <p class="lead mb-0">Give more time, or get everyone back on track after a power or network cut. To help just one candidate, open them from Results (“Time and recovery” box).</p>
+  </div>
+
+  <div class="tstats">
+    <div class="tstat"><div class="num">{{ exam.duration_minutes }}<small> min</small></div><div class="label">Assessment length now</div></div>
+    <div class="tstat"><div class="num">{{ running }}</div><div class="label">Working right now{% if preview.expired_running %} · {{ preview.expired_running }} past their deadline{% endif %}</div></div>
+  </div>
+
+  <div class="row g-3 mb-5">
+    <div class="col-lg-5">
+      <div class="panel panel-body h-100">
+        <h2 class="fs-5"><i class="bi bi-clock-history me-2"></i>Extend the assessment time</h2>
+        <p class="small text-muted-2">Makes the assessment longer. Candidates who have not started get the longer time, and candidates working right now get the same minutes added to their deadline. Their exam page updates on its own within a few seconds.</p>
+        <form method="post" action="{% url 'assessments:exam_extend' exam.pk %}" onsubmit="return confirm('Make this assessment ' + document.getElementById('xmin').value + ' minutes longer?');">
+          {% csrf_token %}
+          <label class="form-label small" for="xmin">Add (minutes, up to {{ max_minutes }})</label>
+          <input class="form-control mb-3" style="max-width:9rem" type="number" min="1" max="{{ max_minutes }}" value="10" id="xmin" name="minutes" required>
+          <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="include_running" id="xrun" value="1" checked><label class="form-check-label" for="xrun">Also add the time for the {{ running }} candidate{{ running|pluralize }} working right now</label></div>
+          <button class="btn btn-primary" type="submit">Extend time</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="panel panel-body h-100">
+        <h2 class="fs-5"><i class="bi bi-lightning-charge me-2"></i>Recover after a power or network cut</h2>
+        <p class="small text-muted-2">When computers lost power or the internet dropped, candidates can be locked out, have their time run out, or be auto-submitted by violations. This puts them back. Saved answers are always kept, and nothing a trainer has marked is changed.</p>
+
+        <form method="get" class="d-flex flex-wrap align-items-end gap-2 mb-3">
+          <div><label class="form-label small mb-1" for="hrs">Look back</label>
+            <select class="form-select form-select-sm" id="hrs" name="hours">{% for h in hours_options %}<option value="{{ h }}"{% if h == hours %} selected{% endif %}>{{ h }} hour{{ h|pluralize }}</option>{% endfor %}</select></div>
+          <button class="btn btn-outline-secondary btn-sm" type="submit">Update the counts</button>
+        </form>
+
+        <form method="post" action="{% url 'assessments:exam_recover' exam.pk %}" onsubmit="return confirm('Run recovery now? This changes time, access and submitted attempts for the candidates listed.');">
+          {% csrf_token %}<input type="hidden" name="hours" value="{{ hours }}">
+          <label class="form-label small" for="rmin">Minutes to give back (up to {{ max_minutes }})</label>
+          <input class="form-control mb-3" style="max-width:9rem" type="number" min="1" max="{{ max_minutes }}" value="15" id="rmin" name="minutes" required>
+
+          <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="reset_running" id="rreset" value="1" checked>
+            <label class="form-check-label" for="rreset"><strong>Let them back in:</strong> reset opens, devices and the tab lock for the {{ preview.running }} candidate{{ preview.running|pluralize }} working right now</label></div>
+          <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="extend_running" id="rext" value="1" checked>
+            <label class="form-check-label" for="rext"><strong>Give the time back:</strong> add the minutes to those {{ preview.running }} candidate{{ preview.running|pluralize }}{% if preview.expired_running %} (including {{ preview.expired_running }} past their deadline who have not been submitted yet){% endif %}</label></div>
+          <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="resume" id="rres" value="1"{% if preview.resumable %} checked{% endif %}>
+            <label class="form-check-label" for="rres"><strong>Resume auto-submitted attempts:</strong> {{ preview.resumable|length }} candidate{{ preview.resumable|pluralize }} whose time ran out or hit the violation limit in the last {{ hours }} hour{{ hours|pluralize }}; they get the minutes from now</label></div>
+          {% if preview.resumable %}<div class="small text-muted-2 ms-4 mb-2">{% for a in preview.resumable|slice:":12" %}{{ a.candidate_name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if preview.resumable|length > 12 %} and {{ preview.resumable|length|add:"-12" }} more{% endif %}</div>{% endif %}
+          {% if preview.blocked %}<div class="small text-muted-2 ms-4 mb-2">Cannot be resumed (a trainer already marked them): {% for a in preview.blocked|slice:":8" %}{{ a.candidate_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+          <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="waive" id="rwaive" value="1">
+            <label class="form-check-label" for="rwaive"><strong>Remove violation deductions</strong> for the candidates above (the violations stay in the log)</label></div>
+          <button class="btn btn-warning" type="submit"><i class="bi bi-lightning-charge me-1"></i>Run recovery</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

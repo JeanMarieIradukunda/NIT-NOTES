@@ -18,7 +18,7 @@
         <tr><td class="k">Status</td><td class="v">Submitted · {{ attempt.get_submit_reason_display }}</td></tr>
         <tr><td class="k">Started</td><td class="v">{{ attempt.started_at|date:"j M Y, H:i:s"|default:"—" }}</td></tr>
         <tr><td class="k">Submitted</td><td class="v">{{ attempt.submitted_at|date:"j M Y, H:i:s"|default:"—" }}</td></tr>
-        <tr><td class="k">Time used</td><td class="v">{{ ev.time_used|default:"—" }} of {{ exam.duration_minutes }} min</td></tr>
+        <tr><td class="k">Time used</td><td class="v">{{ ev.time_used|default:"—" }} of {{ ev.time_allowed }} min</td></tr>
       </table>
     </td>
     {% if ev.show_score %}
@@ -59,7 +59,7 @@
         </div>
         <div class="qt">{{ r.question }}</div>
         <div class="at{% if not r.answered %} na{% endif %}"><span class="lbl">Answer</span>{% if r.answered %}{{ r.answer }}{% else %}No answer{% endif %}</div>
-        {% if r.comment %}<div class="cm"><span class="lbl">Trainer feedback</span>{{ r.comment }}</div>{% endif %}
+        {% if r.comment %}<div class="cm"><span class="lbl">{% if r.comment_auto %}Feedback{% else %}Trainer feedback{% endif %}</span>{{ r.comment }}</div>{% endif %}
       </div>
       {% endfor %}
     </td>
@@ -70,7 +70,7 @@
   <div class="conduct">
     {% if ev.violations %}
     <ul class="viol">
-      {% for v in ev.violations_shown %}<li>{{ v.time|date:"H:i:s" }} · {{ v.label }} · −{{ v.marks|floatformat:"-2" }}{% if v.detail %} <span class="muted">({{ v.detail }})</span>{% endif %}</li>{% endfor %}
+      {% for v in ev.violations_shown %}<li>{{ v.time|date:"H:i:s" }} · {{ v.label }} · {% if v.waived %}deduction removed{% else %}−{{ v.marks|floatformat:"-2" }}{% endif %}{% if v.detail %} <span class="muted">({{ v.detail }})</span>{% endif %}</li>{% endfor %}
       {% if ev.violations_more %}<li class="muted">…and {{ ev.violations_more }} more counted violation{{ ev.violations_more|pluralize }}.</li>{% endif %}
     </ul>
     {% else %}<div class="good">No violations were counted during this assessment.</div>{% endif %}

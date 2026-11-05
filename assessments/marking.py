@@ -328,7 +328,8 @@ def candidate_feedback(exam, attempt):
     for n, q in enumerate(ordered_questions(exam, attempt), start=1):
         text = (comments.get(str(q.id)) or "").strip()
         if text:
-            out.append({"n": n, "label": SECTION_LABELS[q.section], "text": q.text, "comment": text})
+            out.append({"n": n, "label": SECTION_LABELS[q.section], "text": q.text, "comment": text,
+                        "auto": text == (attempt.open_marking or {}).get(f"fb:{q.id}")})
     return out
 
 
@@ -347,7 +348,7 @@ def review_questions(exam, attempt, comments=None):
     for n, q in enumerate(qs, start=1):
         key = q.key.data if hasattr(q, "key") else {}
         ans = clean_answer(q, (attempt.answers or {}).get(str(q.id)))
-        row = {"n": n, "section": q.section, "label": SECTION_LABELS[q.section], "text": q.text,
+        row = {"n": n, "qid": q.id, "section": q.section, "label": SECTION_LABELS[q.section], "text": q.text,
                "max": maxima[q.id], "answered": ans is not None, "earned": None, "status": "blank",
                "comment": (attempt.question_comments or {}).get(str(q.id), "") if show_comments else "",
                "adjusted": False}

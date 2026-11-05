@@ -203,7 +203,7 @@ def start_clock(attempt):
     if attempt.end_at is None:
         now = timezone.now()
         attempt.started_at = now
-        attempt.end_at = now + timedelta(minutes=attempt.exam.duration_minutes)
+        attempt.end_at = now + timedelta(minutes=attempt.exam.duration_minutes + attempt.extra_minutes)
         attempt.save(update_fields=["started_at", "end_at", "updated_at"])
     return attempt
 
@@ -339,3 +339,187 @@ def grant_class_retake(exam, only_submitted=True):
         count += 1
     return count
 
+
+
+# --------------------------------------------------------------------------- #
+# Recovery: more time, removed deductions, resuming after a power or network cut
+# --------------------------------------------------------------------------- #
+
+MAX_EXTENSION_MINUTES = 240
+RECOVERY_LOG_KEEP = 30
+AUTO_SUBMIT_REASONS = ("time", "violations")
+
+
+def _log(attempt, action, detail="", by=""):
+    log = list(attempt.recovery_log or [])[-(RECOVERY_LOG_KEEP - 1):]
+    log.append({"at": timezone.now().isoformat(), "action": action, "detail": detail, "by": by})
+    attempt.recovery_log = log
+
+
+def recompute_penalty(attempt):
+    """Violation count, deductions and score from the violations that still count (waived ones do not)."""
+    rows = list(attempt.violations.filter(counted=True, waived=False))
+    attempt.violation_count = len(rows)
+    attempt.penalty_total = q2(sum((v.marks_deducted for v in rows), Decimal("0")))
+    recompute_final(attempt)
+    return attempt
+
+
+def waive_violations(attempt, *, vids=None, waive=True, by=""):
+    """
+    Remove (waive=True) or bring back (waive=False) the marks deducted for violations. ``vids`` limits it to
+    certain violations. The violation records are kept. Returns how many changed.
+    """
+    with transaction.atomic():
+        attempt = Attempt.objects.select_for_update().select_related("exam").get(pk=attempt.pk)
+        rows = attempt.violations.filter(counted=True, marks_deducted__gt=0, waived=not waive)
+        if vids is not None:
+            rows = rows.filter(pk__in=list(vids))
+        changed = rows.update(waived=waive)
+        if changed:
+            recompute_penalty(attempt)
+            _log(attempt, "deductions removed" if waive else "deductions restored",
+                 f"{changed} violation{'s' if changed != 1 else ''}", by)
+            attempt.save()
+    return changed
+
+
+def _add_time(attempt, minutes):
+    """Move the deadline on by ``minutes``. A deadline that has already passed starts from now, so the candidate gets the full amount."""
+    if attempt.end_at is None:
+        return
+    attempt.end_at = max(attempt.end_at, timezone.now()) + timedelta(minutes=minutes)
+
+
+def extend_attempt(attempt, minutes, by=""):
+    """Give one candidate more time. Works before they start too (the time is added when the clock starts)."""
+    minutes = int(minutes)
+    if not 1 <= minutes <= MAX_EXTENSION_MINUTES:
+        raise ValueError(f"Add between 1 and {MAX_EXTENSION_MINUTES} minutes.")
+    with transaction.atomic():
+        attempt = Attempt.objects.select_for_update().select_related("exam").get(pk=attempt.pk)
+        if attempt.is_submitted:
+            raise ValueError("This attempt is already submitted. Resume it instead to give the candidate more time.")
+        _add_time(attempt, minutes)
+        attempt.extra_minutes += minutes
+        _log(attempt, "time added", f"+{minutes} min", by)
+        attempt.save()
+    return attempt
+
+
+def extend_exam(exam, minutes, *, include_running=True, by=""):
+    """
+    Make the assessment longer. Candidates who have not started get the longer time, and (unless switched off)
+    candidates who are working right now get the same minutes added to their deadline. Their exam page picks up
+    the new deadline on its next check-in, a few seconds later. Returns the number of running candidates extended.
+    """
+    minutes = int(minutes)
+    if not 1 <= minutes <= MAX_EXTENSION_MINUTES:
+        raise ValueError(f"Add between 1 and {MAX_EXTENSION_MINUTES} minutes.")
+    exam.duration_minutes = min(exam.duration_minutes + minutes, 720)
+    exam.save(update_fields=["duration_minutes"])
+    count = 0
+    if include_running:
+        for a in exam.attempts.filter(status=Attempt.IN_PROGRESS, end_at__isnull=False):
+            with transaction.atomic():
+                a = Attempt.objects.select_for_update().select_related("exam").get(pk=a.pk)
+                if a.is_submitted or a.end_at is None:
+                    continue
+                _add_time(a, minutes)
+                _log(a, "assessment extended", f"+{minutes} min", by)
+                a.save()
+                count += 1
+    return count
+
+
+def resumable_problem(attempt):
+    """Why an attempt cannot be resumed ('' when it can)."""
+    if not attempt.is_submitted:
+        return "It is not submitted."
+    if attempt.submit_reason not in AUTO_SUBMIT_REASONS:
+        return "Only attempts that were submitted automatically (time ran out or violation limit) can be resumed."
+    meta = attempt.open_marking or {}
+    if any(qid not in meta or (meta.get(qid) or {}).get("by") != "auto" for qid in (attempt.open_marks or {})) \
+            or attempt.mark_overrides:
+        return "A trainer has already marked or adjusted this attempt."
+    return ""
+
+
+def resume_attempt(attempt, minutes, *, waive=False, by=""):
+    """
+    Reopen an attempt that was submitted automatically (for example while the power was out). Saved answers and
+    violation records are kept, the candidate gets ``minutes`` from now, and they can enter again from any
+    computer. Automatic marks are discarded and made again when they submit.
+    """
+    minutes = int(minutes)
+    if not 1 <= minutes <= MAX_EXTENSION_MINUTES:
+        raise ValueError(f"Add between 1 and {MAX_EXTENSION_MINUTES} minutes.")
+    with transaction.atomic():
+        attempt = Attempt.objects.select_for_update().select_related("exam").get(pk=attempt.pk)
+        problem = resumable_problem(attempt)
+        if problem:
+            raise ValueError(problem)
+        attempt.devices.all().delete()
+        attempt.status = Attempt.IN_PROGRESS
+        attempt.submit_reason = ""
+        attempt.submitted_at = None
+        attempt.end_at = timezone.now() + timedelta(minutes=minutes)
+        attempt.extra_minutes += minutes
+        attempt.active_tab_token, attempt.last_heartbeat = "", None
+        attempt.reset_epoch += 1
+        attempt.objective_score, attempt.section_scores = Decimal("0"), {}
+        attempt.open_marks, attempt.open_marking, attempt.question_comments = {}, {}, {}
+        attempt.marking_complete, attempt.final_score = False, None
+        _log(attempt, "attempt resumed", f"{minutes} min from now", by)
+        attempt.save()
+        if waive:
+            attempt.violations.filter(counted=True, marks_deducted__gt=0, waived=False).update(waived=True)
+        recompute_penalty(attempt)
+        attempt.final_score = None                      # no score until they submit again
+        if waive:
+            _log(attempt, "deductions removed", "when resumed", by)
+        attempt.save()
+    return attempt
+
+
+def recovery_preview(exam, hours=3):
+    """What the outage recovery would touch: {'running', 'expired_running', 'resumable', 'blocked'}."""
+    now = timezone.now()
+    running = list(exam.attempts.filter(status=Attempt.IN_PROGRESS, end_at__isnull=False))
+    since = now - timedelta(hours=hours)
+    auto = list(exam.attempts.filter(status=Attempt.SUBMITTED, submit_reason__in=AUTO_SUBMIT_REASONS, submitted_at__gte=since))
+    return {"running": len(running), "expired_running": sum(1 for a in running if a.end_at <= now),
+            "resumable": [a for a in auto if not resumable_problem(a)],
+            "blocked": [a for a in auto if resumable_problem(a)]}
+
+
+def recover_exam(exam, *, minutes, extend_running=True, reset_running=True, resume_hours=0, waive=False, by=""):
+    """
+    One action after a power or network cut:
+    * candidates still working: access reset (so they can get back in), ``minutes`` added, deductions removed if asked;
+    * candidates auto-submitted in the last ``resume_hours`` hours: resumed with ``minutes`` from now.
+    Returns counts and the names that could not be resumed.
+    """
+    out = {"extended": 0, "reset": 0, "waived": 0, "resumed": 0, "skipped": []}
+    for a in exam.attempts.filter(status=Attempt.IN_PROGRESS, end_at__isnull=False):
+        if reset_running:
+            reset_opens(a)
+            out["reset"] += 1
+        if extend_running and minutes:
+            try:
+                extend_attempt(a, minutes, by)
+                out["extended"] += 1
+            except ValueError:
+                pass
+        if waive and waive_violations(a, by=by):
+            out["waived"] += 1
+    if resume_hours:
+        for a in recovery_preview(exam, resume_hours)["resumable"]:
+            had_deductions = a.violations.filter(counted=True, marks_deducted__gt=0, waived=False).exists()
+            try:
+                resume_attempt(a, minutes or 15, waive=waive, by=by)
+                out["resumed"] += 1
+                out["waived"] += 1 if (waive and had_deductions) else 0
+            except ValueError:
+                out["skipped"].append(a.candidate_name)
+    return out

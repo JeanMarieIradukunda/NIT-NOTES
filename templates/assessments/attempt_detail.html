@@ -86,6 +86,7 @@
         {% else %}<div class="guide">No marking guide for this question, so it cannot be marked automatically.</div>{% endif %}
         {% if attempt.is_submitted %}
         <div class="mt-2"><label class="form-label small mb-1" for="comment_{{ r.q.id }}">Comment for the candidate <span class="text-muted-2">(shown on their result page, answer review and answer sheet once all open questions are marked and results are released, or as soon as you release the answers)</span></label>
+          {% if r.comment_auto %}<div class="small text-muted-2 mt-1"><i class="bi bi-magic me-1"></i>Written automatically from “Why this mark”. Edit it to make it your own, or clear it to show nothing.</div>{% endif %}
           <textarea class="form-control form-control-sm" id="comment_{{ r.q.id }}" name="comment_{{ r.q.id }}" rows="2" maxlength="1000">{{ r.comment }}</textarea></div>
         {% endif %}
       </div>
@@ -135,16 +136,41 @@
   <div class="row g-4 mb-5">
     <div class="col-lg-7">
       <div class="panel list-panel">
-        <div class="panel-head"><h2>Violation log</h2></div>
+        <div class="panel-head"><h2>Violation log</h2>
+          <div class="ms-auto d-flex gap-2">
+            {% if waivable %}<form method="post" action="{% url 'assessments:attempt_waive' exam.pk attempt.pk %}" onsubmit="return confirm('Remove every deduction for this candidate? The violations stay in the log and the score is updated.');">{% csrf_token %}<input type="hidden" name="action" value="waive"><button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-shield-check me-1"></i>Remove all deductions</button></form>{% endif %}
+            {% if restorable %}<form method="post" action="{% url 'assessments:attempt_waive' exam.pk attempt.pk %}">{% csrf_token %}<input type="hidden" name="action" value="restore"><button class="btn btn-outline-secondary btn-sm" type="submit">Restore deductions</button></form>{% endif %}
+          </div></div>
         {% if violations %}
         <div class="table-responsive"><table class="table grid-table align-middle">
-          <thead><tr><th>Time</th><th>Event</th><th class="text-end">Marks</th><th>Note</th></tr></thead>
-          <tbody>{% for v in violations %}<tr class="{% if not v.counted %}text-muted-2{% endif %}"><td class="mono">{{ v.occurred_at|date:"H:i:s" }}</td><td>{{ v.label }}{% if not v.counted %} <span class="small">(not counted)</span>{% endif %}</td><td class="text-end">{% if v.marks_deducted %}−{{ v.marks_deducted|floatformat:"-2" }}{% else %}0{% endif %}</td><td class="small">{{ v.detail }}</td></tr>{% endfor %}</tbody>
+          <thead><tr><th>Time</th><th>Event</th><th class="text-end">Marks</th><th>Note</th><th><span class="visually-hidden">Action</span></th></tr></thead>
+          <tbody>{% for v in violations %}<tr class="{% if not v.counted or v.waived %}text-muted-2{% endif %}"><td class="mono">{{ v.occurred_at|date:"H:i:s" }}</td><td>{{ v.label }}{% if not v.counted %} <span class="small">(not counted)</span>{% endif %}{% if v.waived %} <span class="pill pill--success">deduction removed</span>{% endif %}</td><td class="text-end">{% if v.marks_deducted %}{% if v.waived %}<s>−{{ v.marks_deducted|floatformat:"-2" }}</s>{% else %}−{{ v.marks_deducted|floatformat:"-2" }}{% endif %}{% else %}0{% endif %}</td><td class="small">{{ v.detail }}</td>
+            <td class="text-end">{% if v.counted and v.marks_deducted %}<form method="post" action="{% url 'assessments:attempt_waive' exam.pk attempt.pk %}" class="d-inline">{% csrf_token %}<input type="hidden" name="violation" value="{{ v.pk }}"><input type="hidden" name="action" value="{% if v.waived %}restore{% else %}waive{% endif %}"><button class="btn btn-outline-secondary btn-sm" type="submit">{% if v.waived %}Restore{% else %}Remove{% endif %}</button></form>{% endif %}</td></tr>{% endfor %}</tbody>
         </table></div>
         {% else %}<div class="p-3 small text-muted-2">No violations recorded.</div>{% endif %}
       </div>
     </div>
     <div class="col-lg-5">
+      <div class="panel panel-body mb-3" id="time">
+        <h2 class="fs-6">Time and recovery</h2>
+        <p class="small text-muted-2 mb-2">Time allowed: <strong>{{ time_allowed }} min</strong>{% if attempt.extra_minutes %} (includes {{ attempt.extra_minutes }} added for this candidate){% endif %}{% if attempt.end_at and not attempt.is_submitted %} · ends {{ attempt.end_at|date:"H:i:s" }}{% endif %}</p>
+        {% if not attempt.is_submitted %}
+        <form method="post" action="{% url 'assessments:attempt_extend' exam.pk attempt.pk %}" class="d-flex gap-2 align-items-end mb-2">{% csrf_token %}
+          <div><label class="form-label small mb-1" for="ext_min">Add time (minutes)</label><input class="form-control form-control-sm" style="width:6rem" type="number" min="1" max="240" value="10" id="ext_min" name="minutes"></div>
+          <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-clock-history me-1"></i>Add time</button>
+        </form>
+        <p class="small text-muted-2 mb-0">A candidate who is working now sees the new time within a few seconds.</p>
+        {% elif not resume_problem %}
+        <p class="small mb-2">This attempt was submitted automatically ({{ attempt.get_submit_reason_display|lower }}). If a power or network cut caused it, you can reopen it. Saved answers are kept and the candidate can enter again from any computer.</p>
+        <form method="post" action="{% url 'assessments:attempt_resume' exam.pk attempt.pk %}" onsubmit="return confirm('Reopen this attempt? Automatic marks are cleared and made again when the candidate submits.');">{% csrf_token %}
+          <div class="d-flex gap-2 align-items-end mb-2"><div><label class="form-label small mb-1" for="res_min">Minutes from now</label><input class="form-control form-control-sm" style="width:6rem" type="number" min="1" max="240" value="15" id="res_min" name="minutes"></div></div>
+          {% if waivable %}<div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="waive" id="res_waive" value="1" checked><label class="form-check-label small" for="res_waive">Also remove the violation deductions</label></div>{% endif %}
+          <button class="btn btn-warning btn-sm" type="submit"><i class="bi bi-play-circle me-1"></i>Resume attempt</button>
+        </form>
+        {% else %}<p class="small text-muted-2 mb-0">{{ resume_problem }}</p>{% endif %}
+        {% if recovery_log %}<hr><h3 class="fs-6">Recovery history</h3>
+        <ul class="small list-unstyled mb-0">{% for l in recovery_log %}<li class="mb-1">{{ l.at|slice:":16"|cut:"T" }} · {{ l.action }}{% if l.detail %} ({{ l.detail }}){% endif %}{% if l.by %} · {{ l.by }}{% endif %}</li>{% endfor %}</ul>{% endif %}
+      </div>
       <div class="panel panel-body mb-3">
         <h2 class="fs-6">Access and devices</h2>
         {% for d in devices %}<div class="small mb-2"><strong>{{ d.opens }} of {{ exam.max_opens }}</strong> opens · last {{ d.last_opened_at|date:"j M H:i" }}<div class="text-muted-2 text-truncate" title="{{ d.user_agent }}">{{ d.user_agent|default:"Unknown browser" }}</div></div>

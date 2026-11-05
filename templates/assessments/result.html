@@ -43,7 +43,7 @@
     <div class="feedback-item">
       <div class="small text-muted-2 mb-1">Question {{ f.n }} · {{ f.label }}</div>
       <div class="feedback-q">{{ f.text|truncatechars:160 }}</div>
-      <div class="feedback-c">{{ f.comment }}</div>
+      <div class="feedback-c">{{ f.comment }}</div>{% if f.auto %}<div class="small text-muted-2 mt-1">Automatic feedback</div>{% endif %}
     </div>
     {% endfor %}
   </div>

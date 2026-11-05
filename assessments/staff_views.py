@@ -394,6 +394,7 @@ def attempt_detail(request, pk, aid):
     for n, q in enumerate(questions, start=1):
         r = sheet[n]
         override = (attempt.mark_overrides or {}).get(str(q.id))
+        comments_text = (attempt.question_comments or {}).get(str(q.id), "")
         given = (attempt.open_marks or {}).get(str(q.id))
         m = meta.get(str(q.id)) or {}
         guide = (q.key.data.get("guide") if q.section == "open" and hasattr(q, "key") else "")
@@ -402,7 +403,8 @@ def attempt_detail(request, pk, aid):
                      "max": maxima[q.id], "auto": per_q.get(q.id),
                      "override": override, "overridable": q.section in OVERRIDABLE_SECTIONS,
                      "effective": Decimal(override) if override is not None else per_q.get(q.id),
-                     "comment": (attempt.question_comments or {}).get(str(q.id), ""),
+                     "comment": comments_text,
+                     "comment_auto": bool(comments_text) and comments_text == (meta.get(f"fb:{q.id}") or ""),
                      "given": given, "guide": guide, "source": source,
                      "method": m.get("method", ""), "note": m.get("note", "") if source == "auto" else ""})
     written = [r for r in rows if r["q"].section == "open"]
@@ -423,7 +425,12 @@ def attempt_detail(request, pk, aid):
         "next_attempt": siblings[pos + 1] if pos is not None and pos + 1 < len(siblings) else None,
         "position": (pos + 1) if pos is not None else None, "n_submitted": len(siblings),
         "next_to_mark": todo[0] if todo else None, "n_todo": len(todo),
-        "total_marks": exam.total_marks})
+        "total_marks": exam.total_marks,
+        "time_allowed": exam.duration_minutes + attempt.extra_minutes,
+        "resume_problem": services.resumable_problem(attempt) if attempt.is_submitted else "not submitted",
+        "waivable": attempt.violations.filter(counted=True, marks_deducted__gt=0, waived=False).exists(),
+        "restorable": attempt.violations.filter(waived=True).exists(),
+        "recovery_log": list(reversed(attempt.recovery_log or []))[:8]})
 
 
 @require_POST
@@ -486,6 +493,7 @@ def attempt_mark(request, pk, aid):
         m = old_meta.get(qid) or {}
         if m.get("by") == "auto" and not checked and qid in old_marks and q2(Decimal(old_marks[qid])) == Decimal(value):
             meta[qid] = m
+    meta.update({k: v for k, v in old_meta.items() if k.startswith("fb:")})     # which comments were written automatically
     attempt.open_marking = meta
     total, _per_q, per_section = mark_objective(exam, attempt.answers, overrides)
     attempt.mark_overrides, attempt.question_comments = overrides, comments
@@ -733,3 +741,144 @@ def exam_evidence(request, pk):
     response = HttpResponse(pdf, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="evidence-{exam.public_id}-all-candidates.pdf"'
     return response
+
+
+# --------------------------------------------------------------------------- #
+# Time, deductions and recovery after a power or network cut
+# --------------------------------------------------------------------------- #
+
+def _minutes(request, default=0):
+    try:
+        return int(request.POST.get("minutes") or default)
+    except ValueError:
+        return -1
+
+
+def _who(request):
+    return request.user.get_username()
+
+
+@require_POST
+@trainer_required
+def attempt_extend(request, pk, aid):
+    """Give one candidate more time (before or during the assessment)."""
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    attempt = get_object_or_404(Attempt, pk=aid, exam=exam)
+    try:
+        services.extend_attempt(attempt, _minutes(request), by=_who(request))
+        messages.success(request, f"Added {_minutes(request)} minutes for {attempt.candidate_name}. "
+                                  "If they are working now, their clock updates within a few seconds.")
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    return redirect("assessments:attempt_detail", pk=exam.pk, aid=attempt.pk)
+
+
+@require_POST
+@trainer_required
+def attempt_resume(request, pk, aid):
+    """Reopen an attempt that was submitted automatically, for example during a power cut."""
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    attempt = get_object_or_404(Attempt, pk=aid, exam=exam)
+    try:
+        services.resume_attempt(attempt, _minutes(request, 15), waive=request.POST.get("waive") == "1", by=_who(request))
+        messages.success(request, f"{attempt.candidate_name} can enter again with {_minutes(request, 15)} minutes. "
+                                  "Their saved answers are kept.")
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    return redirect("assessments:attempt_detail", pk=exam.pk, aid=attempt.pk)
+
+
+@require_POST
+@trainer_required
+def attempt_waive(request, pk, aid):
+    """Remove or restore the marks deducted for violations: all of them, or one."""
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    attempt = get_object_or_404(Attempt, pk=aid, exam=exam)
+    restore = request.POST.get("action") == "restore"
+    vid = request.POST.get("violation")
+    vids = [int(vid)] if (vid or "").isdigit() else None
+    changed = services.waive_violations(attempt, vids=vids, waive=not restore, by=_who(request))
+    if changed:
+        messages.success(request, ("Deductions restored" if restore else "Deductions removed") +
+                                  f" for {changed} violation{'s' if changed != 1 else ''}. The score has been updated.")
+    else:
+        messages.info(request, "Nothing to change.")
+    return redirect("assessments:attempt_detail", pk=exam.pk, aid=attempt.pk)
+
+
+@trainer_required
+def exam_time(request, pk):
+    """One page for time and outage recovery: extend the assessment, or recover after a power or network cut."""
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    try:
+        hours = min(max(int(request.GET.get("hours") or 3), 1), 48)
+    except ValueError:
+        hours = 3
+    preview = services.recovery_preview(exam, hours)
+    return render(request, "assessments/exam_time.html", {
+        "exam": exam, "hours": hours, "preview": preview, "hours_options": (1, 3, 6, 12, 24, 48),
+        "max_minutes": services.MAX_EXTENSION_MINUTES,
+        "running": exam.attempts.filter(status=Attempt.IN_PROGRESS, end_at__isnull=False).count()})
+
+
+@require_POST
+@trainer_required
+def exam_extend(request, pk):
+    """Make the assessment longer for everyone, including candidates working right now."""
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    try:
+        running = services.extend_exam(exam, _minutes(request), include_running=request.POST.get("include_running") == "1",
+                                       by=_who(request))
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect("assessments:exam_time", pk=exam.pk)
+    msg = f"The assessment is now {exam.duration_minutes} minutes long."
+    if request.POST.get("include_running") == "1":
+        msg += f" {running} candidate{'s' if running != 1 else ''} working now got the extra time automatically."
+    messages.success(request, msg)
+    return redirect("assessments:exam_time", pk=exam.pk)
+
+
+@require_POST
+@trainer_required
+def exam_recover(request, pk):
+    """After a power or network cut: get candidates back in, give time back, resume auto-submitted attempts."""
+    exam, denied = _exam_or_deny(request, pk)
+    if denied:
+        return denied
+    minutes = _minutes(request, 15)
+    if not 1 <= minutes <= services.MAX_EXTENSION_MINUTES:
+        messages.error(request, f"Add between 1 and {services.MAX_EXTENSION_MINUTES} minutes.")
+        return redirect("assessments:exam_time", pk=exam.pk)
+    try:
+        hours = min(max(int(request.POST.get("hours") or 0), 0), 48)
+    except ValueError:
+        hours = 0
+    res = services.recover_exam(
+        exam, minutes=minutes, extend_running=request.POST.get("extend_running") == "1",
+        reset_running=request.POST.get("reset_running") == "1",
+        resume_hours=hours if request.POST.get("resume") == "1" else 0,
+        waive=request.POST.get("waive") == "1", by=_who(request))
+    bits = []
+    if res["reset"]:
+        bits.append(f"access reset for {res['reset']}")
+    if res["extended"]:
+        bits.append(f"{minutes} minutes added for {res['extended']}")
+    if res["resumed"]:
+        bits.append(f"{res['resumed']} attempt{'s' if res['resumed'] != 1 else ''} resumed")
+    if res["waived"]:
+        bits.append(f"deductions removed for {res['waived']}")
+    messages.success(request, "Recovery done: " + (", ".join(bits) if bits else "nothing needed changing") + ".")
+    if res["skipped"]:
+        messages.warning(request, "Not resumed (already marked by a trainer): " + ", ".join(res["skipped"][:8]))
+    return redirect("assessments:exam_time", pk=exam.pk)

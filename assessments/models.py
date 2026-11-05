@@ -324,6 +324,11 @@ class Attempt(models.Model):
     # Per-candidate question/option order, fixed at first open so later edits can't reshuffle a paper.
     layout = models.JSONField(default=dict, blank=True)
 
+    # Minutes a trainer added to this candidate only (the assessment's own time is exam.duration_minutes).
+    extra_minutes = models.PositiveSmallIntegerField(default=0)
+    # What a trainer did to help this candidate recover (time added, deductions removed, attempt resumed).
+    recovery_log = models.JSONField(default=list, blank=True)
+
     violation_count = models.PositiveIntegerField(default=0)
     penalty_total = models.DecimalField(max_digits=7, decimal_places=2, default=Decimal("0"))
 
@@ -394,6 +399,8 @@ class Violation(models.Model):
     episode = models.CharField(max_length=40, blank=True, default="")   # "<page-load id>-<n>"
     counted = models.BooleanField(default=True)
     marks_deducted = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal("0"))
+    # A trainer removed this deduction (for example after a power cut). The record stays for the evidence sheet.
+    waived = models.BooleanField(default=False)
     detail = models.CharField(max_length=200, blank=True)
 
     class Meta:
