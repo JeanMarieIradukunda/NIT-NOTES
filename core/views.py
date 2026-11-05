@@ -218,7 +218,7 @@ def lesson_pdf(request, slug):
         "lesson": lesson,
         "brand": {
             "institution": "Padri Vjeko Centre TSS",
-            "platform": "NIT Learning Resources",
+            "platform": "PVC Learning Resources",
             "department": "Department of Information Technology",
         },
         "generated": timezone.now(),

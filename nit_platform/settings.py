@@ -1,5 +1,5 @@
 """
-Django settings for the NIT Learning Resources platform.
+Django settings for the PVC Learning Resources platform.
 
 Everything environment-specific (secret key, debug, database, AI provider key)
 is read from the environment so the same codebase runs in development and in

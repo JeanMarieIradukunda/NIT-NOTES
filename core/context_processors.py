@@ -3,7 +3,7 @@ def brand(request):
     return {
         "BRAND": {
             "institution": "Padri Vjeko Centre TSS",
-            "platform": "NIT Learning Resources",
+            "platform": "PVC Learning Resources",
             "department": "Department of Information Technology",
         }
     }

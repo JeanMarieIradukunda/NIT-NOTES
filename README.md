@@ -1,4 +1,4 @@
-# NIT Learning Resources — Django edition
+# PVC Learning Resources — Django edition
 
 Module notes, lessons and past papers for National IT levels 3 to 5 at Padri
 Vjeko Centre TSS: a Django application with real accounts and roles, a

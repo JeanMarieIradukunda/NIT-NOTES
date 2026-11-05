@@ -136,6 +136,6 @@ class ModuleNoteAdmin(admin.ModelAdmin):
 
 
 # Admin branding (the look itself lives in templates/admin/ and static/css/admin-theme.css)
-admin.site.site_header = "NIT Learning Resources"
-admin.site.site_title = "NIT Admin"
+admin.site.site_header = "PVC Learning Resources"
+admin.site.site_title = "Admin"
 admin.site.index_title = "Administration"
