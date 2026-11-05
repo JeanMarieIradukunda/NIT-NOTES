@@ -358,3 +358,70 @@ class AiRemarkTests(ExamTestBase):
         with mock.patch.object(automark, "ai_available", return_value=True), self.ai("4"):
             self.staff.post(url, {"method": "ai", "overwrite": "1"})
         self.assertEqual(Decimal(self.attempts()[0].open_marks[str(self.open1.id)]), Decimal("1"))
+
+
+class AiTimeLimitTests(ExamTestBase):
+    """A request must finish inside the host's 60 seconds: short AI timeouts, a time budget and a batch cap."""
+
+    def setUp(self):
+        super().setUp()
+        self.open1 = self.qs[("open", 1)]
+        self.open1.key.data = {"guide": GUIDE}
+        self.open1.key.save()
+        for i in range(4):
+            c = Client()
+            _, cfg = self.open_page(c, reg_no=f"T{i}", name=f"Cand {i}")
+            self.call(c, cfg, "start")
+            self.call(c, cfg, "submit", answers={str(self.open1.id): GOOD})
+
+    def test_the_ai_call_gets_a_short_timeout_and_no_hidden_retries(self):
+        fake = mock.MagicMock()
+        fake.return_value.chat.completions.create.return_value.choices = [
+            mock.MagicMock(message=mock.MagicMock(content='{"marks": 2, "reason": "You covered it."}'))]
+        with mock.patch("ai_tools.services.is_configured", return_value=True), \
+             mock.patch("groq.Groq", fake), self.settings(GROQ_API_KEY="k"):
+            automark.ai_mark("Q", GUIDE, GOOD, Decimal("4"))
+        _, kwargs = fake.call_args
+        self.assertEqual((kwargs["timeout"], kwargs["max_retries"]), (automark.AI_CALL_TIMEOUT, 0))
+
+    def test_other_ai_features_keep_the_library_defaults(self):
+        fake = mock.MagicMock()
+        fake.return_value.chat.completions.create.return_value.choices = [mock.MagicMock(message=mock.MagicMock(content="ok"))]
+        with mock.patch("groq.Groq", fake), self.settings(GROQ_API_KEY="k"):
+            from ai_tools import services
+            services.complete("s", "u")
+        self.assertNotIn("timeout", fake.call_args.kwargs)
+
+    def test_the_default_batch_is_small_enough_for_a_slow_service(self):
+        self.assertLessEqual(automark.AI_CALLS_PER_REQUEST, 10)
+        self.assertLess(automark.AI_TIME_BUDGET + automark.AI_CALL_TIMEOUT, 60)
+
+    def test_no_new_ai_call_starts_after_the_time_budget_is_used(self):
+        times = iter([0, 0, 0, 100, 100, 100, 100, 100, 100, 100])       # the clock jumps past the budget after one call
+        with mock.patch.object(automark.time, "monotonic", side_effect=lambda: next(times)), \
+             mock.patch.object(automark, "ai_mark", return_value=(Decimal("3"), "AI: ok")) as m:
+            res = automark.remark_with_ai(self.exam)
+        self.assertEqual(m.call_count, 1)
+        self.assertEqual(res["marked"], 1)
+        self.assertEqual(res["remaining"], 3)                            # the rest wait for the next batch
+
+    def test_a_batch_stops_at_its_call_cap_and_the_rest_follow_in_the_next(self):
+        with mock.patch.object(automark, "ai_mark", return_value=(Decimal("3"), "AI: ok")) as m:
+            first = automark.remark_with_ai(self.exam, limit=3)
+            second = automark.remark_with_ai(self.exam, since=first["since"], limit=3)
+        self.assertEqual((first["marked"], first["remaining"]), (3, 1))
+        self.assertEqual((second["marked"], second["remaining"]), (1, 0))
+        self.assertEqual(m.call_count, 4)
+
+    def test_attempts_with_nothing_to_re_mark_are_not_even_loaded(self):
+        with mock.patch.object(automark, "ai_mark", return_value=(Decimal("3"), "AI: ok")):
+            automark.remark_with_ai(self.exam)                           # everything is AI-marked now
+        with mock.patch.object(automark, "automark_attempt") as per_attempt:
+            res = automark.remark_with_ai(self.exam)
+        self.assertFalse(per_attempt.called)
+        self.assertEqual((res["marked"], res["remaining"]), (0, 0))
+
+    def test_a_timed_out_call_falls_back_and_stops_the_run(self):
+        with mock.patch.object(automark, "ai_mark", side_effect=TimeoutError("slow")):
+            res = automark.remark_with_ai(self.exam)
+        self.assertEqual((res["ai_fallback"], res["marked"]), (1, 1))     # first answer by key points, then it stops

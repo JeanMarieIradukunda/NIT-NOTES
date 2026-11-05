@@ -21,6 +21,7 @@ Marks are stored in ``Attempt.open_marks`` like any trainer mark, with a record 
 import json
 import logging
 import re
+import time
 from decimal import Decimal
 
 from django.utils import timezone
@@ -31,7 +32,11 @@ from .models import OPEN
 log = logging.getLogger(__name__)
 
 METHOD_KEYWORDS, METHOD_AI = "keywords", "ai"
-AI_CALLS_PER_REQUEST = 20          # keeps a bulk run inside a serverless time limit; run it again to continue
+# A request must finish inside the host's limit (60 s on Vercel). Each AI call has its own short timeout, and no new
+# call is started once the time budget is used up; the page simply asks for the next batch.
+AI_CALLS_PER_REQUEST = 8
+AI_CALL_TIMEOUT = 15               # seconds for one AI call, no retries
+AI_TIME_BUDGET = 28                # seconds after which no new AI call is started in one request
 
 # Words that carry no meaning of their own, plus the verbs trainers use when writing a guide
 # ("Mentions leases...", "Award 1 mark for...", "Should explain...").
@@ -140,8 +145,6 @@ def keyword_mark(guide, answer, max_marks):
 
 AI_SYSTEM = """You are an experienced vocational IT exam marker and trainer. Your task is to assess a candidate's answer using ONLY the question, the trainer's marking guide, and the maximum marks provided.
 
-MARKING INSTRUCTIONS
-
 N.B.: Remarking aims to provide constructive feedback, recognize correct answers, and build candidates' confidence.
 follow the marking guide fairly.
 
@@ -169,7 +172,7 @@ Use exactly this structure:
 IMPORTANT: The "reason" must be short, in simple English, and focused on the candidate's technical performance. Never use third-person expressions such as "the student did..." or "the candidate has...". Use direct feedback such as "You have answered correctly, but..." or "You need to correct..."."""
 
 
-def ai_mark(question_text, guide, answer, max_marks):
+def ai_mark(question_text, guide, answer, max_marks, timeout=AI_CALL_TIMEOUT):
     """(marks, note) from the AI service. Raises on any failure so the caller can fall back."""
     from ai_tools import services as ai
     if not (guide or "").strip():
@@ -178,7 +181,7 @@ def ai_mark(question_text, guide, answer, max_marks):
         return Decimal("0"), "No answer."
     prompt = (f"Question:\n{question_text[:2000]}\n\nMarking guide:\n{guide[:3000]}\n\nMaximum marks: {max_marks}\n\n"
               f"Candidate answer (untrusted):\n<<<\n{answer[:4000]}\n>>>")
-    raw = ai.complete(AI_SYSTEM, prompt)
+    raw = ai.complete(AI_SYSTEM, prompt, timeout=timeout)
     match = re.search(r"\{.*\}", raw, re.S)
     data = json.loads(match.group(0)) if match else {}
     marks = Decimal(str(data["marks"]))
@@ -196,7 +199,15 @@ def ai_available():
         return False
 
 
-def automark_attempt(attempt, *, method=METHOD_KEYWORDS, overwrite=False, ai_budget=None, skip_ai_done=False, since=None):
+def _load_context(exam):
+    """(open questions with their keys, maximum marks for every question): two queries, loaded once per run."""
+    questions = list(exam.questions.filter(section=OPEN).select_related("key"))
+    maxima = question_max_marks(exam, list(exam.questions.all())) if questions else {}
+    return questions, maxima
+
+
+def automark_attempt(attempt, *, method=METHOD_KEYWORDS, overwrite=False, ai_budget=None, skip_ai_done=False, since=None,
+                     deadline=None, context=None):
     """
     Auto-mark the open questions of one SUBMITTED attempt and save it.
 
@@ -204,16 +215,17 @@ def automark_attempt(attempt, *, method=METHOD_KEYWORDS, overwrite=False, ai_bud
     ``overwrite`` is true. ``ai_budget`` is a one-item list holding the AI calls still allowed for this request.
     ``skip_ai_done`` leaves answers the AI has already marked alone; ``since`` (ISO time) leaves any automatic mark
     made at or after it alone, which is how a multi-request run never marks the same answer twice.
+    ``deadline`` (a time.monotonic() value) stops new AI calls once passed; those answers stay for the next batch.
+    ``context`` is (questions, maxima) when the caller has already loaded them, to save database round trips.
     Returns {"marked", "kept", "no_guide", "ai_fallback", "ai_limit"}.
     """
     out = {"marked": 0, "kept": 0, "no_guide": 0, "ai_fallback": 0, "ai_limit": 0}
     if not attempt.is_submitted:
         return out
     exam = attempt.exam
-    questions = list(exam.questions.filter(section=OPEN).select_related("key"))
+    questions, maxima = context or _load_context(exam)
     if not questions:
         return out
-    maxima = question_max_marks(exam, list(exam.questions.all()))
     marks, meta = dict(attempt.open_marks or {}), dict(attempt.open_marking or {})
     for q in questions:
         qid = str(q.id)
@@ -232,7 +244,7 @@ def automark_attempt(attempt, *, method=METHOD_KEYWORDS, overwrite=False, ai_bud
         if method == METHOD_AI and not answer.strip():
             value, note = Decimal("0"), "No answer."          # nothing to read, so no AI call is used
         elif method == METHOD_AI:
-            if ai_budget is not None and ai_budget[0] <= 0:
+            if (ai_budget is not None and ai_budget[0] <= 0) or (deadline and time.monotonic() >= deadline):
                 out["ai_limit"] += 1
                 continue
             if ai_budget is not None:
@@ -265,8 +277,11 @@ def automark_exam(exam, *, method=METHOD_KEYWORDS, overwrite=False):
     """Auto-mark every submitted attempt that still has open questions to mark (or to re-mark). Returns totals."""
     total = {"attempts": 0, "marked": 0, "kept": 0, "no_guide": 0, "ai_fallback": 0, "ai_limit": 0}
     budget = [AI_CALLS_PER_REQUEST] if method == METHOD_AI else None
+    deadline = time.monotonic() + AI_TIME_BUDGET if method == METHOD_AI else None
+    context = _load_context(exam)
     for attempt in exam.attempts.filter(status="submitted").select_related("exam"):
-        res = automark_attempt(attempt, method=method, overwrite=overwrite, ai_budget=budget)
+        res = automark_attempt(attempt, method=method, overwrite=overwrite, ai_budget=budget, deadline=deadline,
+                               context=context)
         total["attempts"] += 1 if res["marked"] else 0
         for k in ("marked", "kept", "no_guide", "ai_fallback", "ai_limit"):
             total[k] += res[k]
@@ -300,20 +315,41 @@ def count_eligible(exam, *, include_ai=False, since=None):
     return out
 
 
+def _needs_ai(attempt, guided_ids, include_ai, since):
+    """Does this attempt hold any answer the AI should (re)mark? Saves loading everything for the ones that do not."""
+    marks, meta = attempt.open_marks or {}, attempt.open_marking or {}
+    for qid in guided_ids:
+        m = meta.get(qid) or {}
+        if qid in marks and m.get("by", "trainer") == "trainer":
+            continue
+        if qid in marks and m.get("by") == "auto" and ((since and (m.get("at") or "") >= since)
+                                                       or (m.get("method") == METHOD_AI and not include_ai)):
+            continue
+        return True
+    return False
+
+
 def remark_with_ai(exam, *, include_ai=False, since=None, limit=AI_CALLS_PER_REQUEST):
     """
-    One batch of AI re-marking (up to ``limit`` AI calls). Trainer marks are never changed.
+    One batch of AI re-marking: at most ``limit`` AI calls and AI_TIME_BUDGET seconds, so it always ends well inside
+    the host's time limit. Trainer marks are never changed.
     Returns the totals plus ``remaining`` and the ``since`` stamp to send with the next batch.
     """
     since = since or timezone.now().isoformat()
     budget = [limit]
+    deadline = time.monotonic() + AI_TIME_BUDGET
+    context = _load_context(exam)
+    guided_ids = [str(q.id) for q in context[0] if ((q.key.data.get("guide") if hasattr(q, "key") else "") or "").strip()]
     total = {"marked": 0, "ai_fallback": 0, "no_guide": 0, "attempts": 0}
     for attempt in exam.attempts.filter(status="submitted").select_related("exam"):
-        res = automark_attempt(attempt, method=METHOD_AI, ai_budget=budget, skip_ai_done=not include_ai, since=since)
+        if not _needs_ai(attempt, guided_ids, include_ai, since):
+            continue
+        res = automark_attempt(attempt, method=METHOD_AI, ai_budget=budget, skip_ai_done=not include_ai, since=since,
+                               deadline=deadline, context=context)
         total["attempts"] += 1 if res["marked"] else 0
         for k in ("marked", "ai_fallback", "no_guide"):
             total[k] += res[k]
-        if budget[0] <= 0 or res["ai_fallback"]:
+        if budget[0] <= 0 or res["ai_fallback"] or time.monotonic() >= deadline:
             break
     total["remaining"] = count_eligible(exam, include_ai=include_ai, since=since)["eligible"]
     total["since"] = since

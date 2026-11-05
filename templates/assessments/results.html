@@ -143,7 +143,7 @@
         {% if ai_counts.no_guide %}<li>{{ ai_counts.no_guide }} question{{ ai_counts.no_guide|pluralize }} without a marking guide: skipped</li>{% endif %}
       </ul>
       {% if ai_counts.ai_done %}<div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="aiInclude"><label class="form-check-label small" for="aiInclude">Also re-mark the {{ ai_counts.ai_done }} answer{{ ai_counts.ai_done|pluralize }} the AI has already marked</label></div>{% endif %}
-      <p class="small text-muted-2 mb-2">Answer text (never names) is sent to the AI service, {{ 20 }} answers at a time. Keep this window open until it finishes.</p>
+      <p class="small text-muted-2 mb-2">Answer text (never names) is sent to the AI service, a few answers at a time so each step stays quick. Keep this window open until it finishes.</p>
       <div class="progress mb-2" role="progressbar" aria-label="AI re-marking progress" hidden id="aiProgress"><div class="progress-bar" id="aiBar" style="width:0%"></div></div>
       <div class="small" id="aiStatus" aria-live="polite"></div>
     </div>

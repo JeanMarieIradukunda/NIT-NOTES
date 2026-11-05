@@ -29,7 +29,7 @@ def is_configured() -> bool:
     return bool(settings.GROQ_API_KEY)
 
 
-def _complete_groq(system: str, user: str) -> str:
+def _complete_groq(system: str, user: str, timeout: float | None = None) -> str:
     try:
         from groq import Groq
     except ImportError as exc:
@@ -37,7 +37,10 @@ def _complete_groq(system: str, user: str) -> str:
             "The 'groq' package is not installed. Run "
             "`pip install groq` to enable AI features.") from exc
 
-    client = Groq(api_key=settings.GROQ_API_KEY)
+    # With a timeout (used where a request must finish inside a serverless limit) there are no hidden retries,
+    # so one slow reply can never run past it. Without one, the library defaults apply, as before.
+    options = {"timeout": timeout, "max_retries": 0} if timeout else {}
+    client = Groq(api_key=settings.GROQ_API_KEY, **options)
     try:
         response = client.chat.completions.create(
             model=settings.GROQ_MODEL,
@@ -54,13 +57,13 @@ def _complete_groq(system: str, user: str) -> str:
     return (choice or "").strip()
 
 
-def complete(system: str, user: str) -> str:
+def complete(system: str, user: str, *, timeout: float | None = None) -> str:
     if not is_configured():
         raise AIError(
             "AI features are turned off because no API key is configured. "
             "Set GROQ_API_KEY in the server's environment to enable them — "
             "see the README.")
-    return _complete_groq(system, user)
+    return _complete_groq(system, user, timeout)
 
 
 # --------------------------------------------------------------------------- #

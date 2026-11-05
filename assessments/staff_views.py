@@ -8,6 +8,7 @@ results, mark open questions, reset a candidate's opens after a crash.
 
 import csv
 import logging
+import time
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
@@ -546,7 +547,8 @@ def attempt_automark(request, pk, aid):
     budget = [automark.AI_CALLS_PER_REQUEST] if method == automark.METHOD_AI else None
     # AI re-marking never replaces a trainer's own marks, whatever the box says.
     overwrite = request.POST.get("overwrite") == "1" and method != automark.METHOD_AI
-    res = automark.automark_attempt(attempt, method=method, overwrite=overwrite, ai_budget=budget)
+    deadline = time.monotonic() + automark.AI_TIME_BUDGET if method == automark.METHOD_AI else None
+    res = automark.automark_attempt(attempt, method=method, overwrite=overwrite, ai_budget=budget, deadline=deadline)
     _automark_message(request, res, scope="")
     return redirect("assessments:attempt_detail", pk=exam.pk, aid=attempt.pk)
 

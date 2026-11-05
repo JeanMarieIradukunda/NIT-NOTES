@@ -1,3 +1,12 @@
+# Fix — Vercel "Task timed out after 60 seconds" during AI marking
+
+No migration. Each AI call now has a 15 s timeout and no hidden retries (`ai_tools.services.complete(timeout=...)`),
+a request starts no new AI call after 28 s, batches are 8 answers (the page repeats them automatically), questions and
+maximum marks are loaded once per run, and candidates with nothing to re-mark are skipped without being loaded.
+Other AI features are unchanged.
+
+---
+
 # Upgrade notes — Re-mark with AI (only answers no trainer has marked)
 
 No migration. Results page: "Re-mark with AI" opens a window that shows how many answers will be re-marked, how many
