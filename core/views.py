@@ -219,7 +219,7 @@ def lesson_pdf(request, slug):
         "brand": {
             "institution": "Padri Vjeko Centre TSS",
             "platform": "PVC Learning Resources",
-            "department": "Department of Information Technology",
+            "department": "ALL DEPARTMENTS",
         },
         "generated": timezone.now(),
     })

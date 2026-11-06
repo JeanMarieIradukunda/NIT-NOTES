@@ -35,7 +35,7 @@ from .models import SECTION_LABELS
 
 SECTION_CODES = {"mcq": "MCQ", "fill": "Fill", "match": "Match", "open": "Open"}
 
-BRAND = {"institution": "Padri Vjeko Centre TSS", "department": "Department of Information Technology"}
+BRAND = {"institution": "Padri Vjeko Centre TSS", "department": "ALL DEPARTMENTS"}
 
 # Tighter and tighter layouts. The first level that fits on one page wins.
 # q / a / o / c = characters kept of the question, the answer, an open answer and the trainer's comment.
