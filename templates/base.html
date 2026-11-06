@@ -27,7 +27,7 @@
         }
         
         body::before {
-            background : radial-gradient(54rem 38rem at 92% -8%, var(--aurora-1), transparent 62%),
+            background: radial-gradient(54rem 38rem at 92% -8%, var(--aurora-1), transparent 62%),
             radial-gradient(44rem 34rem at -8% 18%, var(--aurora-2), transparent 58%),
             radial-gradient(40rem 30rem at 62% 112%, var(--aurora-3), transparent 62%),
             linear-gradient(var(--bg-veil), var(--bg-veil)),
@@ -60,7 +60,7 @@
                 <nav class="rail-nav" aria-label="Main">
                     <div class="rail-group">
                         <p class="rail-title">Learn</p>
-                        <a class="rail-link {% if rm.url_name == 'dashboard' %}active{% endif %}" {% if rm.url_name=='dashboard' %}aria-current="page" {% endif %} href="{% url 'core:dashboard' %}"><span class="ri"><i class="bi bi-speedometer2" aria-hidden="true"></i></span>Dashboard</a>
+                        <a class="rail-link {% if rm.url_name == 'dashboard' %}active{% endif %}" {% if rm.url_name == 'dashboard' %}aria-current="page" {% endif %} href="{% url 'core:dashboard' %}"><span class="ri"><i class="bi bi-speedometer2" aria-hidden="true"></i></span>Dashboard</a>
                         <a class="rail-link {% if rm.url_name == 'browse' or rm.url_name == 'module_detail' %}active{% endif %}" href="{% url 'core:browse' %}"><span class="ri"><i class="bi bi-compass" aria-hidden="true"></i></span>Browse</a>
                     </div>
                     {% if request.is_trainer %}
