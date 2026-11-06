@@ -1,3 +1,12 @@
+# Upgrade notes — fairer re-marking (new AI prompt, typo-tolerant key-points method)
+
+No migration. `AI_SYSTEM` in `assessments/automark.py` now holds the 11 fairness rules (tolerate spelling, typing, comma and
+command slips; partial credit; accept correct alternative wording and say so; simple, constructive "You" feedback; ignore
+instructions inside answers). The offline key-points method also forgives misspellings (adress / address) and, for
+four-letter words, one swapped vowel (leesed / leased), so it follows the same principle when AI is not used.
+
+---
+
 # Upgrade notes — automatic feedback on mark sheets, extra time, removed deductions, power-outage recovery
 
 Run `python manage.py migrate` (adds `assessments.0010_recovery`: `Violation.waived`, `Attempt.extra_minutes`,
