@@ -1,13 +1,47 @@
-{% extends "base.html" %} {% load static %} {% block title %}Sign in{% endblock %} {% block site_search %}{% endblock %} {% block content %}
+{% extends "base.html" %} {% load static %} {% block title %}Sign in{% endblock %} {% block site_search %}{% endblock %} {% block extra_css %}
+<style>
+    /* Image panel: keeps the card's existing size (the section's grid/flex sizing from platform.css is untouched). */
+    
+    .login-art.login-art--image {
+        position: relative;
+        padding: 0;
+        background: #1b1650;
+    }
+    /* hide the template's decorative rings/glow; the photo replaces them */
+    
+    .login-art.login-art--image::before {
+        display: none;
+    }
+    
+    .login-art-img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+        display: block;
+        z-index: -1;
+    }
+    /* replaces the gold glow with a soft bottom shade; z-index 0 sits above the photo */
+    
+    .login-art.login-art--image::after {
+        inset: 0;
+        left: 0;
+        top: 0;
+        width: auto;
+        height: auto;
+        border-radius: 0;
+        filter: none;
+        z-index: 0;
+        background: linear-gradient(180deg, rgba(11, 13, 31, 0) 55%, rgba(11, 13, 31, .35) 100%);
+        pointer-events: none;
+    }
+</style>
+{% endblock %} {% block content %}
 <div class="login-stage">
-    <section class="login-art" aria-hidden="true">
-        <span class="login-eyebrow">{{ BRAND.platform }}</span>
-        <p class="login-statement">Notes, practice and assessments, <em>all in one place</em>.</p>
-        <ul class="login-points">
-            <li><i class="bi bi-journal-richtext"></i>Publish notes and activities for every module</li>
-            <li><i class="bi bi-shield-check"></i>Set timed assessments with their own exam password</li>
-            <li><i class="bi bi-patch-check"></i>Mark written answers and keep an evidence pack</li>
-        </ul>
+    <section class="login-art login-art--image" aria-hidden="true">
+        <img class="login-art-img" src="{% static 'img/login-art.jpg' %}" alt="" loading="eager" decoding="async">
     </section>
 
     <section class="login-card">
