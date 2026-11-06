@@ -13,8 +13,7 @@
     <link rel="preload" href="{% static 'vendor/fraunces/fraunces-latin-opsz-normal.woff2' %}" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
     <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
-    <link rel="stylesheet" href="{% static 'css/platform.css' %}">
-    {% block extra_css %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'css/platform.css' %}"> {% block extra_css %}{% endblock %}
     <script src="{% static 'js/theme.js' %}"></script>
     <script>
         try {
@@ -24,8 +23,7 @@
 </head>
 
 <body class="{% block body_class %}{% endblock %}">
-    <a class="skip-link" href="#main">Skip to content</a>
-    {% with rm=request.resolver_match %}
+    <a class="skip-link" href="#main">Skip to content</a> {% with rm=request.resolver_match %}
     <div class="shell">
 
         {# ---- the rail: navigation. A slide-in drawer on phones, a fixed column from 992px. ---- #}
@@ -52,8 +50,7 @@
                         <a class="rail-link {% if rm.url_name == 'activities_manage' or rm.url_name == 'activity_create' or rm.url_name == 'activity_edit' or rm.url_name == 'activity_delete' %}active{% endif %}" href="{% url 'core:activities_manage' %}"><span class="ri"><i class="bi bi-clipboard2-check" aria-hidden="true"></i></span>{% if request.is_admin_role %}All activities{% else %}My activities{% endif %}</a>
                         <a class="rail-link {% if rm.app_name == 'assessments' %}active{% endif %}" href="{% url 'assessments:exam_list' %}"><span class="ri"><i class="bi bi-shield-check" aria-hidden="true"></i></span>{% if request.is_admin_role %}All assessments{% else %}My assessments{% endif %}</a>
                     </div>
-                    {% endif %}
-                    {% if request.is_admin_role %}
+                    {% endif %} {% if request.is_admin_role %}
                     <div class="rail-group">
                         <p class="rail-title">Manage</p>
                         <a class="rail-link {% if rm.url_name == 'curriculum' or rm.url_name == 'trade_create' or rm.url_name == 'trade_edit' or rm.url_name == 'trade_delete' or rm.url_name == 'module_create' or rm.url_name == 'module_edit' or rm.url_name == 'module_delete' %}active{% endif %}"
@@ -65,8 +62,7 @@
 
                 <div class="rail-foot">
                     {% if not user.is_authenticated %}
-                    <a class="btn btn-primary" href="{% url 'accounts:login' %}"><i class="bi bi-box-arrow-in-right me-1"></i>Trainer sign in</a>
-                    {% endif %}
+                    <a class="btn btn-primary" href="{% url 'accounts:login' %}"><i class="bi bi-box-arrow-in-right me-1"></i>Trainer sign in</a> {% endif %}
                     <div class="rail-card">
                         <strong>PVC - Levels 3 to 5</strong>
                         <span>{{ BRAND.department }}</span>
@@ -106,8 +102,7 @@
                                 <div class="fw-semibold text-body-emphasis">{{ user.get_full_name|default:user.username }}</div>
                                 <div class="d-flex align-items-center gap-2 mt-1">
                                     {% if request.is_trainer %}
-                                    <span class="role-badge">{% if request.is_admin_role %}Administrator{% else %}Trainer{% endif %}</span>
-                                    {% endif %}
+                                    <span class="role-badge">{% if request.is_admin_role %}Administrator{% else %}Trainer{% endif %}</span> {% endif %}
                                     <span class="small text-muted-2">@{{ user.username }}</span>
                                 </div>
                             </li>
@@ -131,12 +126,10 @@
                         </ul>
                     </div>
                     {% else %}
-                    <a class="btn btn-primary btn-sm d-lg-none" href="{% url 'accounts:login' %}">Sign in</a>
-                    {% endif %}
+                    <a class="btn btn-primary btn-sm d-lg-none" href="{% url 'accounts:login' %}">Sign in</a> {% endif %}
                 </div>
             </header>
-            {% endwith %}
-            {% if messages %}
+            {% endwith %} {% if messages %}
             <div class="container-xxl pt-3" aria-live="polite">
                 {% for message in messages %}
                 <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show mb-2" role="alert">
