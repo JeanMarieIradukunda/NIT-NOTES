@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "accounts.apps.AccountsConfig",
     "ai_tools.apps.AiToolsConfig",
     "assessments.apps.AssessmentsConfig",
+    "challenge.apps.ChallengeConfig",
 ]
 
 MIDDLEWARE = [

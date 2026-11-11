@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}IT Knowledge Challenge{% endblock %}
+{% block description %}Illustrated IT memes that each teach one idea. {{ TAGLINE }}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/challenge.css' %}">{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <header class="kc-hero">
+    <div>
+      <span class="kc-eyebrow"><i class="bi bi-lightning-charge-fill" aria-hidden="true"></i> {{ cards|length }} card{{ cards|length|pluralize }}</span>
+      <h1>{{ NAME }}</h1>
+      <p class="kc-tagline">{{ TAGLINE }}</p>
+      <p class="kc-lead">One funny picture, one idea. Read the question, think, then check the answer on the card.</p>
+    </div>
+    {% if can_add %}<div class="kc-hero-actions"><a class="btn btn-primary" href="{% url 'challenge:card_create' %}"><i class="bi bi-plus-lg me-1"></i>Add a card</a> <a class="btn btn-outline-secondary" href="{% url 'challenge:card_bulk' %}"><i class="bi bi-images me-1"></i>Upload many</a> <a class="btn btn-outline-secondary" href="{% url 'challenge:manage' %}">Manage cards</a></div>{% endif %}
+  </header>
+
+  {% if cards %}
+  <nav class="kc-chips" id="kcChips" aria-label="Filter by topic">
+    <a class="kc-chip{% if not active %} active{% endif %}" href="{% url 'challenge:gallery' %}" data-topic="">All<span class="n">{{ cards|length }}</span></a>
+    {% for m, n in topics %}<a class="kc-chip{% if active == m.pk %} active{% endif %}" href="{% url 'challenge:gallery' %}?topic={{ m.pk }}" data-topic="{{ m.pk }}" title="{{ m.code }} · {{ m.name }}">{{ m.code }}<span class="name"> · {{ m.name|truncatechars:26 }}</span><span class="n">{{ n }}</span></a>{% endfor %}
+  </nav>
+
+  <p class="kc-count" id="kcShown" aria-live="polite"></p>
+
+  <ul class="kc-grid" id="kcGrid">
+    {% for c in cards %}
+    <li class="kc-item"{% if active and active != c.module_id %} hidden{% endif %} data-topic="{{ c.module_id }}">
+      <a class="kc-tile" href="{{ c.get_absolute_url }}" id="card-{{ c.pk }}" data-id="{{ c.pk }}" data-title="{{ c.title }}" data-module="{{ c.module.code }}" data-svg="{{ c.svg_url }}" data-page="{{ c.get_absolute_url }}" data-download="{{ c.svg_url }}&amp;download=1" data-alt="{{ c.alt_text }}">
+        <img src="{{ c.svg_url }}" alt="{{ c.alt_text }}" width="540" height="540" loading="{% if forloop.counter0 < 6 %}eager{% else %}lazy{% endif %}" decoding="async">
+        <span class="kc-cap"><b>{{ c.title }}</b><small>{{ c.module.code }}</small></span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="empty-state"><span class="icon-chip"><i class="bi bi-lightning-charge"></i></span><h3>No cards yet</h3><p>The first cards will appear here soon.{% if can_add %} You can add one now.{% endif %}</p>{% if can_add %}<a class="btn btn-primary" href="{% url 'challenge:card_create' %}">Add a card</a>{% endif %}</div>
+  {% endif %}
+</div>
+
+<div class="kc-viewer" id="kcViewer" role="dialog" aria-modal="true" aria-label="Card viewer" hidden>
+  <div class="kc-viewer-top">
+    <span class="kc-viewer-count" id="kcCount"></span>
+    <div class="kc-viewer-actions">
+      <a class="kc-vbtn" id="kcOpen" href="#">Open page</a>
+      <a class="kc-vbtn" id="kcDownload" href="#">Download</a>
+      <button class="kc-vbtn kc-close" id="kcClose" type="button" aria-label="Close viewer"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </div>
+  </div>
+  <div class="kc-stage">
+    <button class="kc-nav kc-prev" id="kcPrev" type="button"><i class="bi bi-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
+    <figure class="kc-fig"><img id="kcImg" alt="" width="1080" height="1080"><figcaption id="kcCap"></figcaption></figure>
+    <button class="kc-nav kc-next" id="kcNext" type="button"><span>Next</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+  </div>
+  <div class="visually-hidden" id="kcLive" aria-live="polite"></div>
+</div>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'js/challenge.js' %}" defer></script>{% endblock %}

@@ -1,3 +1,54 @@
+# Upgrade notes — IT KNOWLEDGE CHALLENGE ("Learn IT. Laugh IT. Master IT!")
+
+Needs a migration: `python manage.py migrate` (adds `challenge.0001_initial` and `challenge.0002_picture_cards`).
+
+New app `challenge/` (+ `templates/challenge/`, `static/css/challenge.css`, `static/js/challenge*.js`). Three small edits to existing files:
+1. `nit_platform/settings.py`: add `"challenge.apps.ChallengeConfig",` to INSTALLED_APPS.
+2. `nit_platform/urls.py`: add `path("challenge/", include("challenge.urls")),`.
+3. `templates/base.html`: sidebar links "Challenge" (Learn group, public) and "My challenge cards" (Teach group, trainers).
+
+What it does: a public gallery at `/challenge/` (anyone, no sign-in) with topic chips (one per module that has cards), a card grid and a tap-to-enlarge
+viewer with Previous / Next (also arrow keys), working on phones and in light or dark mode. Trainers sign in and add cards only under the modules
+assigned to them (administrators: any module). A card is either generated from text (character, mood, speech bubble, question, answer, why) or
+the trainer's own finished meme: a PNG, JPG or WebP picture (kept in the same file store as module notes: Vercel Blob when deployed) or an SVG
+(cleaned of scripts). Draft/publish, edit, delete. "Upload many" sends a set of pictures one file at a time (Vercel refuses a request over ~4.5 MB;
+each picture must be under 3.5 MB). Starter cards: `python manage.py seed_knowledge_cards --module CODE --user USERNAME [--draft]`.
+
+---
+
+# Upgrade notes — IT Knowledge Challenge (new section)
+
+Run `python manage.py migrate` (adds `challenge.0001_initial`).
+
+1. Add the app: in `nit_platform/settings.py` INSTALLED_APPS add `"challenge.apps.ChallengeConfig",`; in `nit_platform/urls.py`
+   add `path("challenge/", include("challenge.urls")),` (before the `assessments.urls` line). Use the delivered `base.html`
+   for the menu link.
+2. Public gallery `/challenge/`: topic chips (the modules that have cards), card grid, tap-to-enlarge viewer with Previous / Next
+   (buttons, arrow keys, swipe, Esc), card page with a text version, SVG download. Works on phones, light and dark mode.
+3. Trainers add cards under their own modules (administrators any module) at `/challenge/manage/`: title, character, mood,
+   speech bubble, question, answer, explanation, with a live preview. The 1080 x 1080 SVG card is generated, or a trainer can
+   upload a finished SVG, which is cleaned of scripts, event handlers and external links before it is stored.
+4. Starter content: `python manage.py seed_knowledge_cards --module CODE [--user NAME] [--draft]` (9 general IT cards).
+
+---
+
+# Upgrade notes — AI error handling, sign-in picture and page background
+
+No migration.
+
+1. **AI marking errors.** Failures are now explained (rate limit, daily limit, bad key, wrong model, too slow, unreadable
+   reply) instead of "service not available", and an AI failure never replaces an answer's mark with a key-points mark: the
+   answer is left as it was. A busy service (rate limit) is waited for: the progress window counts down the wait the service
+   asks for and continues by itself. Slow or garbled replies get one retry. The marking call asks for a short reply
+   (`max_tokens=250`) so less counts against per-minute limits.
+2. **Sign-in picture and page background (optional artwork).** Put `student_exam.png` and `background.png` in `static/img/`.
+   The sign-in page shows the student picture (with a caption); every page that uses `base.html`, and the candidate entry /
+   result pages, show the background behind a readable tint. The exam itself and printed pages stay plain. If a file is
+   missing nothing changes (`core/templatetags/brand_assets.py` checks first). Tint strength: `--backdrop-scrim` in
+   `static/css/backdrop.css`. `templates/base.html` needs two small edits (see the delivered base.html).
+
+---
+
 # Upgrade notes — fairer re-marking (new AI prompt, typo-tolerant key-points method)
 
 No migration. `AI_SYSTEM` in `assessments/automark.py` now holds the 11 fairness rules (tolerate spelling, typing, comma and

@@ -1,0 +1,76 @@
+/* IT Knowledge Challenge: gallery, viewer and card pages. Follows the platform's light and dark theme. */
+.kc-hero { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem 2rem; align-items: flex-end; padding: 1.5rem 0 1rem; }
+.kc-eyebrow { display: inline-flex; gap: .4rem; align-items: center; font-size: .75rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--c-brand); }
+.kc-hero h1 { font-size: clamp(1.7rem, 1.1rem + 2.6vw, 2.8rem); letter-spacing: -.02em; margin: .25rem 0 0; }
+.kc-tagline { font-family: var(--font-serif, inherit); font-style: italic; font-size: 1.15rem; color: var(--c-text); margin: .15rem 0 .35rem; }
+.kc-lead { color: var(--c-muted); margin: 0; max-width: 40rem; }
+
+.kc-chips { display: flex; gap: .5rem; overflow-x: auto; padding: .25rem .1rem .9rem; margin-bottom: .25rem; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+.kc-chip { flex: none; display: inline-flex; align-items: center; gap: .1rem; padding: .4rem .85rem; border-radius: 999px; border: 1px solid var(--c-border); background: var(--c-surface); color: var(--c-muted); font-size: .88rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.kc-chip:hover { color: var(--c-text); border-color: var(--c-brand-line); }
+.kc-chip.active { background: var(--c-brand-solid, var(--c-brand)); border-color: transparent; color: #fff; }
+.kc-chip .name { font-weight: 500; opacity: .85; } .kc-chip .n { margin-left: .5rem; padding: 0 .45rem; border-radius: 999px; background: rgba(127, 127, 160, .2); font-size: .75rem; font-variant-numeric: tabular-nums; }
+.kc-chip.active .n { background: rgba(255, 255, 255, .25); }
+@media (max-width: 575px) { .kc-chip .name { display: none; } }
+.kc-count { color: var(--c-muted); font-size: .85rem; margin: 0 0 .75rem; min-height: 1.2em; }
+
+.kc-grid { list-style: none; margin: 0 0 3rem; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+.kc-item[hidden] { display: none; }
+.kc-tile { display: block; position: relative; border-radius: var(--r-md, 14px); overflow: hidden; border: 1px solid var(--c-border); background: var(--c-surface); text-decoration: none; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.kc-tile:hover, .kc-tile:focus-visible { transform: translateY(-3px); border-color: var(--c-brand-line); box-shadow: 0 14px 30px -14px rgba(10, 12, 40, .5); }
+.kc-tile img { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: contain; background: #12163a; }
+.kc-cap { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; padding: .6rem .8rem; }
+.kc-cap b { color: var(--c-text); font-size: .92rem; line-height: 1.25; } .kc-cap small { color: var(--c-muted); font-weight: 700; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .kc-tile { transition: none; } .kc-tile:hover { transform: none; } }
+
+/* ---- viewer: always dark, whatever the site theme ---- */
+.kc-viewer { position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; background: rgba(6, 8, 22, .985); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); color: #fff; }
+.kc-viewer[hidden] { display: none; }
+.kc-viewer-top { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: .7rem 1rem; padding-top: max(.7rem, env(safe-area-inset-top)); }
+.kc-viewer-count { font-weight: 700; font-variant-numeric: tabular-nums; }
+.kc-viewer-actions { display: flex; gap: .5rem; align-items: center; }
+.kc-vbtn { display: inline-flex; align-items: center; justify-content: center; min-height: 2.4rem; padding: 0 .9rem; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .08); color: #fff; text-decoration: none; font-size: .9rem; font-weight: 600; cursor: pointer; }
+.kc-vbtn:hover { background: rgba(255, 255, 255, .18); color: #fff; }
+.kc-close { width: 2.4rem; padding: 0; }
+.kc-stage { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .75rem; padding: 0 1rem 1rem; padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+.kc-fig { margin: 0; min-width: 0; min-height: 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .6rem; }
+.kc-fig img { display: block; width: auto; height: auto; max-width: 100%; max-height: calc(100vh - 11rem); aspect-ratio: auto 1 / 1; object-fit: contain; border-radius: 16px; box-shadow: 0 30px 80px -20px #000; background: #12163a; touch-action: pan-y; user-select: none; }
+.kc-fig figcaption { color: rgba(255, 255, 255, .75); font-size: .9rem; text-align: center; }
+.kc-nav { display: inline-flex; align-items: center; gap: .35rem; min-height: 3rem; padding: 0 1.1rem; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .3); background: rgba(255, 255, 255, .1); color: #fff; font-weight: 700; cursor: pointer; }
+.kc-nav:hover { background: rgba(255, 255, 255, .22); }
+.kc-vbtn:focus-visible, .kc-nav:focus-visible { outline: 3px solid #ffd24a; outline-offset: 2px; }
+@media (max-width: 767px) {
+  .kc-stage { grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr) auto; gap: .6rem; }
+  .kc-fig { grid-column: 1 / -1; grid-row: 1; }
+  .kc-prev { grid-column: 1; grid-row: 2; justify-content: center; } .kc-next { grid-column: 2; grid-row: 2; justify-content: center; }
+  .kc-fig img { max-height: calc(100vh - 13rem); }
+  .kc-vbtn#kcOpen { display: none; }
+}
+body.kc-lock { overflow: hidden; }
+
+/* ---- card page ---- */
+.kc-detail { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 1fr); margin-bottom: 3rem; }
+@media (min-width: 992px) { .kc-detail { grid-template-columns: minmax(0, 640px) minmax(0, 1fr); align-items: start; } }
+.kc-detail-fig { margin: 0; }
+.kc-detail-fig img { display: block; width: 100%; height: auto; aspect-ratio: auto 1 / 1; object-fit: contain; border-radius: var(--r-lg, 18px); border: 1px solid var(--c-border); background: #12163a; }
+.kc-detail-nav { display: flex; justify-content: space-between; gap: .5rem; margin-bottom: 1rem; }
+
+/* ---- trainer pages ---- */
+.kc-thumb { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; background: #12163a; border: 1px solid var(--c-border); }
+.kc-preview { position: sticky; top: calc(var(--nav-h, 64px) + 1rem); }
+.kc-preview img { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; border-radius: var(--r-lg, 18px); border: 1px solid var(--c-border); background: #12163a; }
+.kc-label { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; }
+.kc-counter { margin-left: auto; font-size: .75rem; color: var(--c-muted); font-variant-numeric: tabular-nums; }
+
+/* ---- upload many ---- */
+.kc-drop { display: block; padding: 2rem 1rem; text-align: center; border: 2px dashed var(--c-border-2, var(--c-border)); border-radius: var(--r-md, 14px); background: var(--c-surface-2, transparent); cursor: pointer; color: var(--c-muted); }
+.kc-drop:hover, .kc-drop.is-over { border-color: var(--c-brand-line, var(--c-brand)); color: var(--c-text); background: var(--c-brand-soft, transparent); }
+.kc-drop i { display: block; font-size: 2rem; margin-bottom: .25rem; }
+.kc-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.kc-files { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: .5rem; }
+.kc-files li { display: grid; grid-template-columns: 44px 1fr auto; gap: .75rem; align-items: center; padding: .5rem .75rem; border: 1px solid var(--c-border); border-radius: var(--r-sm, 10px); background: var(--c-surface); }
+.kc-files img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; background: var(--c-surface-3, #12163a); }
+.kc-files .nm { overflow-wrap: anywhere; font-weight: 600; }
+.kc-files .msg { font-size: .8rem; color: var(--c-muted); }
+.kc-files .st { font-size: .8rem; font-weight: 700; white-space: nowrap; }
+.kc-files li.ok .st { color: var(--c-success); } .kc-files li.bad .st { color: var(--c-danger); } .kc-files li.run .st { color: var(--c-brand); }

@@ -1,0 +1,27 @@
+/* Artwork: the page background (static/img/background.png) and the sign-in picture (static/img/student_exam.png).
+   Both are optional. When a file is missing the page keeps its normal look. */
+
+/* ---- background behind every page ---- */
+:root { --backdrop-scrim: rgba(11, 13, 31, .80); }                      /* how much of the picture shows: lower = clearer picture */
+html[data-bs-theme="light"] { --backdrop-scrim: rgba(250, 246, 238, .88); }
+.app-backdrop {
+  position: fixed; inset: 0; z-index: -2; pointer-events: none;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+}
+.app-backdrop::after { content: ""; position: absolute; inset: 0; background: var(--backdrop-scrim); }
+@media print { .app-backdrop { display: none !important; } }
+
+/* ---- sign-in picture ---- */
+.login-art .login-caption { display: none; }
+.login-art.has-photo {
+  background: #0b0d1f var(--login-photo) center 30% / cover no-repeat;
+  justify-content: flex-end; padding: 0; min-height: 520px;
+}
+.login-art.has-photo::before, .login-art.has-photo::after { display: none; }
+.login-art.has-photo .login-art-text { display: none; }
+.login-art.has-photo .login-caption {
+  display: block; padding: 4.5rem 2rem 1.75rem;
+  background: linear-gradient(to top, rgba(8, 10, 28, .88), rgba(8, 10, 28, 0));
+}
+.login-caption strong { display: block; margin-top: .25rem; color: #fff; font-family: var(--font-serif); font-weight: 600; font-size: clamp(1.4rem, 1rem + 1.2vw, 2rem); letter-spacing: -.02em; line-height: 1.15; }
+.login-caption span { color: #ffd98a; font-size: .75rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }

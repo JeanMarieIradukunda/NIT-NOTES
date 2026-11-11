@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Delete card{% endblock %}
+{% block site_search %}{% endblock %}
+{% block content %}
+<div class="container-xxl" style="max-width:640px">
+  <div class="page-head"><h1>Delete this card?</h1></div>
+  <div class="panel panel-body">
+    <p><strong>{{ card.title }}</strong> ({{ card.module.code }}) will be removed from the gallery for everyone. This cannot be undone.</p>
+    <form method="post">{% csrf_token %}<button class="btn btn-danger" type="submit">Delete card</button> <a class="btn btn-outline-secondary" href="{% url 'challenge:manage' %}">Keep it</a></form>
+  </div>
+</div>
+{% endblock %}

@@ -13,6 +13,7 @@ urlpatterns = [
     path("ai/", include("ai_tools.urls")),
     path("", include("assessments.urls")),
     path("", include("core.urls")),
+    path("challenge/", include("challenge.urls")),
 ]
 
 if settings.DEBUG:

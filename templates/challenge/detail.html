@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ card.title }} · IT Knowledge Challenge{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/challenge.css' %}">{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'challenge:gallery' %}">{{ NAME|title }}</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'challenge:gallery' %}?topic={{ card.module_id }}">{{ card.module.code }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ card.title }}</li>
+    </ol></nav>
+    <h1>{{ card.title }}</h1>
+    <p class="lead mb-0">{{ card.module.code }} · {{ card.module.name }}{% if not card.is_published %} <span class="pill pill--warning ms-2">Hidden from the gallery</span>{% endif %}</p>
+  </div>
+
+  <div class="kc-detail">
+    <figure class="kc-detail-fig"><img src="{{ card.svg_url }}" alt="{{ card.alt_text }}" width="1080" height="1080"></figure>
+    <aside class="kc-detail-side">
+      <div class="kc-detail-nav">
+        {% if prev_card %}<a class="btn btn-outline-secondary" href="{{ prev_card.get_absolute_url }}"><i class="bi bi-chevron-left me-1"></i>Previous</a>{% else %}<span></span>{% endif %}
+        {% if next_card %}<a class="btn btn-outline-secondary" href="{{ next_card.get_absolute_url }}">Next<i class="bi bi-chevron-right ms-1"></i></a>{% endif %}
+      </div>
+      {% if card.question or card.answer or card.explanation %}<div class="panel panel-body">
+        <h2 class="fs-6">Read it as text</h2>
+        {% if card.question %}<p class="mb-2"><strong>Question.</strong> {{ card.question }}</p>{% endif %}
+        {% if card.answer %}<p class="mb-2"><strong>Answer.</strong> {{ card.answer }}</p>{% endif %}
+        {% if card.explanation %}<p class="mb-0"><strong>Why?</strong> {{ card.explanation }}</p>{% endif %}
+      </div>{% endif %}
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <a class="btn btn-primary" href="{{ card.svg_url }}&amp;download=1"><i class="bi bi-download me-1"></i>Download card ({{ card.picture_label }})</a>
+        <a class="btn btn-outline-secondary" href="{% url 'challenge:gallery' %}?topic={{ card.module_id }}">More from {{ card.module.code }}</a>
+        {% if can_manage %}<a class="btn btn-outline-secondary" href="{% url 'challenge:card_edit' card.pk %}">Edit</a>{% endif %}
+      </div>
+    </aside>
+  </div>
+</div>
+{% endblock %}

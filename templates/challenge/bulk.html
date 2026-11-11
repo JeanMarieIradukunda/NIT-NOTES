@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Upload many pictures · {{ NAME|title }}{% endblock %}
+{% block site_search %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/challenge.css' %}">{% endblock %}
+{% block content %}
+<div class="container-xxl">
+  <div class="page-head">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'challenge:gallery' %}">{{ NAME|title }}</a></li><li class="breadcrumb-item"><a href="{% url 'challenge:manage' %}">Manage cards</a></li><li class="breadcrumb-item active" aria-current="page">Upload many</li></ol></nav>
+    <h1>Upload many pictures</h1>
+    <p class="lead">Add a whole set of finished memes in one go. Each picture becomes one card under the module you choose. You can add the title, question and answer later, if you want them.</p>
+  </div>
+
+  {% if not modules %}
+  <div class="empty-state"><span class="icon-chip"><i class="bi bi-journal"></i></span><h3>You have no modules yet</h3><p>Cards belong to a module. Ask an administrator to assign your modules first.</p></div>
+  {% else %}
+  <div class="panel panel-body mb-5" id="kcBulk" data-url="{% url 'challenge:card_upload' %}" data-max="3500000" data-max-text="{{ max_mb }}">
+    {% csrf_token %}
+    <div class="row g-3 mb-3">
+      <div class="col-md-8"><label class="form-label" for="kcModule">Module</label>
+        <select class="form-select" id="kcModule">{% for m in modules %}<option value="{{ m.pk }}">{{ m.code }} · {{ m.name }}</option>{% endfor %}</select></div>
+      <div class="col-md-4 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="kcPublish" checked><label class="form-check-label" for="kcPublish">Show in the gallery straight away</label></div></div>
+    </div>
+
+    <label class="kc-drop" id="kcDrop" for="kcFiles"><i class="bi bi-cloud-arrow-up" aria-hidden="true"></i><strong>Choose pictures</strong> or drop them here
+      <span class="d-block small mt-1">PNG, JPG, WebP or SVG · up to {{ max_mb }} each</span>
+      <input type="file" id="kcFiles" multiple accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml"></label>
+
+    <ul class="kc-files" id="kcList" aria-live="polite"></ul>
+
+    <div class="d-flex flex-wrap gap-2 align-items-center mt-3">
+      <button class="btn btn-primary" type="button" id="kcStart" disabled><i class="bi bi-upload me-1"></i>Upload</button>
+      <a class="btn btn-outline-secondary" href="{% url 'challenge:manage' %}">Manage cards</a>
+      <span class="small text-muted-2" id="kcSummary" aria-live="polite"></span>
+    </div>
+    <p class="small text-muted-2 mt-3 mb-0">Files go up one at a time, so a long list is fine. Keep this page open until it says it is done. Pictures that are too large are skipped and listed so you can shrink them (tinypng.com is free) and add them again.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'js/challenge-bulk.js' %}" defer></script>{% endblock %}
